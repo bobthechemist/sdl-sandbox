@@ -37,3 +37,9 @@ class SerialHandler:
 
 
 * I think serial communcation from subsystem to host needs to be initialized early. Each subsystem would have its own instance on the host. This might allow for the port to remain open and avoid some of the problems I am having with timeouts and capturing all of the information.
+
+## Notes and such
+
+* Pylance can be told to [ignore a particular line/file](https://www.reddit.com/r/VisualStudioCode/comments/i3mpct/comment/g5bkx9u/) 
+    * add `type: ignore` as a comment either at the end of the line or the top of the file.
+    * useful for when a script calls microcontroller imports that aren't part of the dev system.

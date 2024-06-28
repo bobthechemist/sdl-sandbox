@@ -1,8 +1,9 @@
 import json
+import asyncio
 from .utility import check_if_microcontroller
 
 if check_if_microcontroller():
-    import usb_cdc
+    import usb_cdc # type: ignore
 else:
     import serial
 
@@ -12,22 +13,27 @@ class sdlCommunicator:
     
     Attributes:
         subsystem_name (str): The name of the subsystem or none for HOST
+        port (str): The name of the serial port (e.g. COM5)
     """
 
     valid_comm_types = [
         "NOTIFY", "RESPONSE", "ALERT", "REQUEST", "LOG", "SYNC"
     ]
 
-    def __init__(self,subsystem_name = None):
+    def __init__(self,subsystem_name = None, port = None):
         self.is_microcontroller = check_if_microcontroller()
         self.subsystem_name = subsystem_name
         self.timeout = 1.5
         self.baudrate = 115200
+        self.writebuffer = bytearray()
+        self.readbuffer = "" # Right now this is decoded in read_serial_data
+        if not self.is_microcontroller:
+            self.serial = serial.Serial(port,baudrate = self.baudrate, timeout = self.timeout)
 
-    def test(self, portname):
-        p = serial.Serial(portname,timeout = self.timeout, baudrate=self.baudrate)
-        print(p.readlines())
-        return True
+    async def test(self, interval):
+        while True:
+            self.writebuffer = self.create_json_message("LOG", "ok", "working").encode()
+            await asyncio.sleep(interval)
     
     # TODO: Consider adding success flag in addition to status
     def create_json_message(self, comm_type, status, response):
@@ -64,7 +70,7 @@ class sdlCommunicator:
         
         return json_message
     
-    def read_serial_data(self, port = None):
+    async def read_serial_data(self):
         """
         Reads data from the serial line, checks if it is valid JSON, and stores it.
 
@@ -74,33 +80,56 @@ class sdlCommunicator:
         Returns:
             bool: True if a valid JSON message was read and stored, False otherwise.
         """
-        line = ""
-        if self.is_microcontroller and usb_cdc.data.connected and usb_cdc.data.in_waiting > 0:
-            line = usb_cdc.data.readline()
-            
-        else:
-            with serial.Serial(port) as p:
-                print(p.readlines())
-                return True
+        while True:
+            rawdata = bytearray()
+            if self.is_microcontroller:
+                if usb_cdc.data.connected and usb_cdc.data.in_waiting > 0:
+                    rawdata = usb_cdc.data.readline()
+            else:
+                rawdata = self.serial.readline()
+                    
 
-        if line:
-            try:
-                # Decode and load the JSON data
-                message = json.loads(line.decode('utf-8'))
-                self.data_in = message
-                return True
-            except (json.JSONDecodeError,UnicodeDecodeError):
-                # Store the raw message
-                self.data_in = {"raw":line.decode()}
-                return True
+            if rawdata != bytearray():
+                try:
+                    # Decode and load the JSON data
+                    message = json.loads(rawdata.decode('utf-8'))
+                    self.readbuffer = message
+                    
+                except:
+                    # Store the raw message
+                    self.readbuffer = {"raw":rawdata.decode()}
+                    
             
-        return False
+            if self.readbuffer != "":
+                print(self.readbuffer)
+                self.readbuffer = ""
+                
+            await asyncio.sleep(0.1)
     
-    def clear_data_in(self):
-        self.data_in = None
+    def clearbuffers(self):
+        self.readbuffer = bytearray()
+        self.writebuffer = bytearray()
     
-    def write_serial_data(self, data_out, port = None):
-        if self.is_microcontroller:
-            usb_cdc.data.write(data_out.encode() + b"\r\n")
-        else:
-            port.write(data_out.encode() + b"\r\n")
+    async def write_serial_data(self):
+        while True:
+            if self.writebuffer != bytearray():
+                if self.is_microcontroller:
+                    usb_cdc.data.write(self.writebuffer + b"\r\n")
+                else:
+                    self.serial.write(self.writebuffer + b"\r\n")
+                self.writebuffer = bytearray()
+            await asyncio.sleep(0.1)
+
+    async def subsystem_main(self):
+        task1 = asyncio.create_task(self.test(10))
+        task2 = asyncio.create_task(self.write_serial_data())
+        task3 = asyncio.create_task(self.read_serial_data())
+        await asyncio.gather(task1,task2)
+
+    async def host_main(self):
+        task1 = asyncio.create_task(self.read_serial_data())
+        task2 = asyncio.create_task(self.test(7))
+        task3 = asyncio.create_task(self.write_serial_data())
+        await asyncio.gather(task1,task2,task3)
+    
+

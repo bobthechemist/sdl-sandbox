@@ -1,3 +1,4 @@
+# type: ignore **siliences pylance errors in development system**
 import board
 import digitalio
 import json
@@ -36,19 +37,19 @@ usb_cdc.data.timeout = 0.1
 #
 # Create a random message
 #
-def random_message():
+def random_message(i):
 
-    return {"success":True,"response":1}
+    return {"success":True,"response":i}
 
 
 ################################################################
 # loop-y-loop
 ################################################################
-
+i = 0
 while True:
     # add to that dictionary to send the data at the end of the loop
     data_out = {}
-    data_out = random_message()
+    data_out = random_message(i)
 
     # read the data serial line by line when there's data
     if usb_cdc.data.in_waiting > 0:
@@ -81,9 +82,8 @@ while True:
 
 
     # send the data out once everything to be sent is gathered
-    if data_out:
+    if data_out and i < 5:
         print(json.dumps(data_out))
         usb_cdc.data.write(json.dumps(data_out).encode() + b"\r\n")
-
+    i = (i + 1)%4
     time.sleep(1)
-
