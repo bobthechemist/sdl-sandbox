@@ -2,6 +2,11 @@
 
 ## where we stand
 
+- serial_com is deprecated and is around for one or two more pushes just in case there is something useful in that folder
+- mse1 has a successful implementation of async serial communication with the subsystem and host sending/receiving messages
+- It should be possible to group tasks from multiple subsystems. This needs to be done on the host side and might be facilitated by overriding a basic task function in mse1.
+ 
+
 - MicrocontrollerCommunicator is a class that provides basic comminication tools.
     - creates JSON message with required/recommended keys
     - Checks data line for content
@@ -38,7 +43,9 @@ class SerialHandler:
 
 * I think serial communcation from subsystem to host needs to be initialized early. Each subsystem would have its own instance on the host. This might allow for the port to remain open and avoid some of the problems I am having with timeouts and capturing all of the information.
 
-## Notes and such
+
+
+## Tips and Tricks
 
 * Pylance can be told to [ignore a particular line/file](https://www.reddit.com/r/VisualStudioCode/comments/i3mpct/comment/g5bkx9u/) 
     * add `type: ignore` as a comment either at the end of the line or the top of the file.
