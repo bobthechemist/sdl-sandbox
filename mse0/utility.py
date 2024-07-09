@@ -10,3 +10,8 @@ def check_if_microcontroller():
     except Exception as e:
         print(f"An error occurred: {e}")
     return False
+
+def check_key_and_type(my_dict, my_key, my_type):
+    if my_key in my_dict:
+        return isinstance(my_dict[my_key],my_type)
+    return False

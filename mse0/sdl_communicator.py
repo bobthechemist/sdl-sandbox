@@ -49,4 +49,6 @@ class sdlCommunicator:
     def prep_message_for_write(self, message):
         message = message + '\r\n'
         return message.encode('utf-8')
+    
+
 

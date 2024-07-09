@@ -5,7 +5,7 @@ A `message` is defined as an object in dict or JSON format that contains four pi
 - the source of the message
 - the type of message
 - a result
-- a context-specific response, which may be text or json-formatted data
+- a context-specific payload, which may be text or json-formatted data
 """
 import json
 import sys
@@ -19,7 +19,7 @@ valid_status = [
     "SUCCESS", "FAILED", "UNKNOWN", "NA"
 ]
 
-def make_message(subsystem_name: str, comm_type: str, status: str, response: str, jsonq = True):
+def make_message(subsystem_name: str, comm_type: str, status: str, payload: str, jsonq = True):
     """
     Creates a message with the given information in either json or dict format.
 
@@ -27,7 +27,7 @@ def make_message(subsystem_name: str, comm_type: str, status: str, response: str
         subsystem_name (str): Name of subsystem sending message
         comm_type (str): Type of message.
         status (str): Status of message.
-        response (str): Response data, str or JSON?
+        payload (str): message content, str or JSON
         jsonq (boolean): Whether to return json (default) or dict.
 
     Returns:
@@ -49,7 +49,7 @@ def make_message(subsystem_name: str, comm_type: str, status: str, response: str
         "subsystem_name": subsystem_name,
         "comm_type": comm_type,
         "status": status,
-        "response": response
+        "payload": payload
     }
     
     # Return the desired format
@@ -58,6 +58,44 @@ def make_message(subsystem_name: str, comm_type: str, status: str, response: str
         return json.dumps(message)
     else:
         return message 
+
+def parse_payload(payload):
+    """
+    Processes payload. 
+    - A string is split by spaces, first word is assumed to be function and the remaining
+        terms are arguments.
+    - Checks if arguments are in keyword format and processes them as such.
+    - Checks if content is JSON and returns a function call and argument dict
+    """
+    return_val = []
+    # check to make sure payload is a string
+    if isinstance(payload, str):
+        # next see if we have json and process as such
+        try:
+            return_dict=json.loads(payload)
+            print("DEBUG: json found")
+        # otherwise, process as a regular string
+        except ValueError:
+            print("DEBUG: Treating as a string")
+            split_payload = payload.split()
+            # Converting list into dict
+            return_dict = {'func':split_payload[0]}
+            # Determine format of arguments, pull key names if present, generate if not
+            if len(split_payload) > 1:
+                args = split_payload[1::]
+                arg_num = 1
+                for arg in args:
+                    if "=" in arg:
+                        k, v = arg.split("=")
+                        return_dict[k]=v
+                    else:
+                        return_dict[f'arg{arg_num}']=arg
+                        arg_num = arg_num + 1
+    else:
+        raise TypeError(f"Trying to interpret a payload that is not a string. It is {type(payload)}")
+    
+    return return_dict
+
 
 class MessageBuffer():
     """
