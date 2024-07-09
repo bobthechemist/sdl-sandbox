@@ -1,6 +1,6 @@
 # type: ignore
 from .utility import check_if_microcontroller
-from .messages import MessageBuffer
+from .messages import MessageBuffer, make_message
 
 # Import appropriate modules based on the environment
 if check_if_microcontroller():
@@ -39,11 +39,14 @@ class sdlCommunicator:
     
     def write_serial_data(self):
         if not self.writebuffer.is_empty():
-            message_dict = self.writebuffer.get_oldest_message() # this is a dict, which must be converted to JSON
-            message_json = self.writebuffer.dict_to_json(message_dict)
-
+            message_json = self.writebuffer.get_oldest_message(jsonq=True) 
+            
             if self.is_microcontroller:
                 usb_cdc.data.write(message_json)
             else:
-                self.serial.write(message_json)
+                self.serial.write(self.prep_message_for_write(message_json))
+    
+    def prep_message_for_write(self, message):
+        message = message + '\r\n'
+        return message.encode('utf-8')
 

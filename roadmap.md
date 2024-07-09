@@ -1,5 +1,10 @@
 # Notes and such
 
+## 240705
+
+- codename *blueprint* representing the core ideas and concepts
+- (mse1 codename is tshirt, representing simplicity and functional)
+
 ## 240702 goals
 
 - mse0 container class that incorporates a subsystem with the communicator. 

@@ -1,8 +1,63 @@
 """
 message validation and encoding/decoding functions
+
+A `message` is defined as an object in dict or JSON format that contains four pieces of information
+- the source of the message
+- the type of message
+- a result
+- a context-specific response, which may be text or json-formatted data
 """
 import json
 import sys
+
+
+valid_comm_types = [
+    "NOTIFY", "RESPONSE", "ALERT", "REQUEST", "LOG", "SYNC"
+]
+
+valid_status = [
+    "SUCCESS", "FAILED", "UNKNOWN", "NA"
+]
+
+def make_message(subsystem_name: str, comm_type: str, status: str, response: str, jsonq = True):
+    """
+    Creates a message with the given information in either json or dict format.
+
+    Args:
+        subsystem_name (str): Name of subsystem sending message
+        comm_type (str): Type of message.
+        status (str): Status of message.
+        response (str): Response data, str or JSON?
+        jsonq (boolean): Whether to return json (default) or dict.
+
+    Returns:
+        str: JSON formatted string or dict with the provided data.
+
+    Raises:
+        ValueError: If comm_type is not a valid communcation type.
+        ValueError: If status is not a valid status type
+    """
+    # Errors stop things - perhaps forcing the generated message to have this info is preferred
+    if comm_type not in valid_comm_types:
+        raise ValueError(f"Invalid communication type: {comm_type}")
+    
+    if status not in valid_status:
+        raise ValueError(f"Invalid status: {status}")
+    
+    # Create the dictionary with the provided information
+    message = {
+        "subsystem_name": subsystem_name,
+        "comm_type": comm_type,
+        "status": status,
+        "response": response
+    }
+    
+    # Return the desired format
+    if jsonq:
+        
+        return json.dumps(message)
+    else:
+        return message 
 
 class MessageBuffer():
     """
@@ -10,9 +65,6 @@ class MessageBuffer():
     """
     def __init__(self):
         self.messages = []
-        self.valid_comm_types = [
-           "NOTIFY", "RESPONSE", "ALERT", "REQUEST", "LOG", "SYNC"
-        ]
     
     def is_empty(self):
         if len(self.messages) == 0:
@@ -29,43 +81,20 @@ class MessageBuffer():
         else:
             raise ValueError(f"Content should be a dict but appears to be {type(content)}")
 
-    def get_oldest_message(self):
+    def get_oldest_message(self, jsonq = True):
+        '''
+        Returns the last message in the buffer. Buffer contains dict, but json is returned by default to be consistent with make_message
+        '''
         try:
-            return self.messages.pop(0)
+            message = self.messages.pop(0)
         except IndexError:
-            print('Trying to read from an empty buffer') # TODO: handle error properly
-            return -1
+            message = make_message("unknown", "ALERT", "FAILED", "Trying to read an empty buffer",jsonq=False)
+        
+        if jsonq:
+            return json.dumps(message)
+        else:
+            return message
     
-    def create_json_message(self, subsystem_name: str, comm_type: str, status: str, response: str):
-        """
-        Creates a JSON formatted message with the given information.
-
-        Args:
-            comm_type (str): Type of the communication.
-            status (str): Status of the communication.
-            response (dict): Response data, which itself is a JSON formatted dictionary.
-
-        Returns:
-            str: JSON formatted string with the provided data.
-
-        Raises:
-            ValueError: If comm_type is not a valid communcation type.
-        """
-        if comm_type not in self.valid_comm_types:
-            raise ValueError(f"Invalid communication type: {comm_type}")
-            
-        # Create the dictionary with the provided information
-        message = {
-            "subsystem_name": subsystem_name,
-            "comm_type": comm_type,
-            "status": status,
-            "response": response
-        }
-        
-        # Convert the dictionary to a JSON formatted string
-        json_message = json.dumps(message)
-        
-        return json_message 
     
     def json_to_dict(self, message_json):
         try:
