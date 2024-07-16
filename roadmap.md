@@ -1,5 +1,11 @@
 # Notes and such
 
+## 240716
+
+- Proof of concept complete - microcontroller can receive commands and execute them, returning a response
+- microcontroller can send periodic notifications (although linefeed needs to be addressed in reading data)
+- Jupyter notebook can connect to subsystem and send/receive information.
+
 ## 240705
 
 - codename *blueprint* representing the core ideas and concepts
