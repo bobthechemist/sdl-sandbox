@@ -1,6 +1,28 @@
 # Notes and such
 
+## 240716
+
+- Proof of concept complete - microcontroller can receive commands and execute them, returning a response
+- microcontroller can send periodic notifications (although linefeed needs to be addressed in reading data)
+- Jupyter notebook can connect to subsystem and send/receive information.
+
+## 240705
+
+- codename *blueprint* representing the core ideas and concepts
+- (mse1 codename is tshirt, representing simplicity and functional)
+
+## 240702 goals
+
+- mse0 container class that incorporates a subsystem with the communicator. 
+    Not sure this is the right approach. Might need generic ways for subsystem and communicator to interact.
+    
+- host and test subsystems
+
 ## where we stand
+
+- MessageBuffer needs some rethinking. Commands related to ensure the buffer contains appropriately formatted data are there; however they are used also in cases where the buffer is not needed, so it seems a bit redundant to keep making MessageBuffer classes just for using the create_json_message routine. Alternatively, a subsystem might benefit from having its own buffer instead of hiding it in the sdlCommunicator.
+
+- Current thinking is that a subsystem is imported from `mseX.subsystems` and then an instance (e.g. `subsystem = pumps.sdlPumps()`) is created. All instances have the basic structure of defining a dictionary of commands (might be beneficial to have a registration class, but that may be a bit much) and functions that the subsystem performs. Those functions must (1) do something and (2) say something in the form of a JSON formatted response. This latter part is debatable and might want to have this level of detail controlled by the communicator. Each subsystem has a `.run()` function that describes what the microcontroller is doing.
 
 - serial_com is deprecated and is around for one or two more pushes just in case there is something useful in that folder
 - mse1 has a successful implementation of async serial communication with the subsystem and host sending/receiving messages
