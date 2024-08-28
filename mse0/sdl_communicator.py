@@ -40,11 +40,11 @@ class sdlCommunicator:
     def write_serial_data(self):
         if not self.writebuffer.is_empty():
             message_json = self.writebuffer.get_oldest_message(jsonq=True) 
-            
+            message_json_cr = self.prep_message_for_write(message_json) # Adds linefeed to message
             if self.is_microcontroller:
-                usb_cdc.data.write(message_json)
+                usb_cdc.data.write(message_json_cr)
             else:
-                self.serial.write(self.prep_message_for_write(message_json))
+                self.serial.write(message_json_cr)
     
     def prep_message_for_write(self, message):
         message = message + '\r\n'
