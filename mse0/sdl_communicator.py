@@ -50,5 +50,12 @@ class sdlCommunicator:
         message = message + '\r\n'
         return message.encode('utf-8')
     
+    def close(self):
+        if self.is_microcontroller:
+            # Not sure if this can be closed, skipping
+            pass
+        else:
+            self.serial.close()
+    
 
 
