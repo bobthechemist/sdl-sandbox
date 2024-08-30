@@ -29,10 +29,13 @@ class Initialize(State):
         # Establish a serial connection and read/write buffers for each subsystem found
         #   Also, identify each one using the PID and product directory
         else:
-            machine.properties['subsystems'] =  [sdlCommunicator(port= p['port']) for p in machine.properties['ports']]
-            for i in range(len(machine.properties['subsystems'])):
-                machine.properties['subsystems'][i].subsystem_name = pid[machine.properties['ports'][i]['PID']]
+            machine.properties['subsystems'] =  [sdlCommunicator(port= p['port'], subsystem_name=pid[p['PID']]) for p in machine.properties['ports']]
+            #for i in range(len(machine.properties['subsystems'])):
+            #    machine.properties['subsystems'][i].subsystem_name = pid[machine.properties['ports'][i]['PID']]
             self.properties['setup_finished'] = True
+        
+        # Testing loops
+        machine.properties['alreadysent'] = False
 
     def update(self, machine):
         if self.properties['setup_finished']:
@@ -68,11 +71,19 @@ class Listening(State):
     
     def update(self, machine):
         # Is there information in the buffers?
-        # Is there information from the user?
-        if monotonic() - self.entered_at > 5:
-            machine.go_to_state('Sending')
+        for s in machine.properties['subsystems']:
+            if s.serial.in_waiting > 0:
+                s.read_serial_data()
+            if not s.readbuffer.is_empty():
+                print(s.readbuffer.get_oldest_message(jsonq = False))
 
-        pass
+        # Is there information from the user?
+        if not machine.properties['alreadysent'] and monotonic() - self.entered_at > 5:
+            machine.go_to_state('Sending')
+        if monotonic() - self.entered_at > 10:
+            print("I'm bored, shutting down")
+            machine.go_to_state('Shutdown')
+        
     
 
 
@@ -87,10 +98,14 @@ class Sending(State):
     
     def enter(self, machine):
         self.entered_at = monotonic()
-        msg = make_message("HOST", "REQUEST", "NA", "blink num=10 delay=.1", jsonq=False)
+        msg = make_message("HOST", "REQUEST", "NA", "blink num=3 delay=1", jsonq=False)
         machine.properties['subsystems'][0].writebuffer.store_message(msg)
         machine.properties['subsystems'][0].write_serial_data()
-        machine.go_to_state('Shutdown')
+        msg = make_message("HOST", "REQUEST", "NA", "blink num=10 delay=0.1", jsonq=False)
+        machine.properties['subsystems'][1].writebuffer.store_message(msg)
+        machine.properties['subsystems'][1].write_serial_data()
+        machine.properties['alreadysent'] = True
+        machine.go_to_state('Listening')
 
 
     def update(self, machine):

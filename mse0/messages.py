@@ -152,3 +152,9 @@ class MessageBuffer():
         content = self.json_to_dict(json_message)
         self.store_message(content)
 
+    def flush(self):
+        '''
+        Empty the buffer
+        '''
+        self.messages = []
+

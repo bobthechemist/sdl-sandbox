@@ -10,7 +10,7 @@ class StateMachine:
         self.counter = 0
         self.running = False
         self.properties = {}
-        self.messages = MessageBuffer()
+        self.messages = MessageBuffer() # Not needed yet - might be work using this instead of in sdl_communicator
         self.is_microcontroller = check_if_microcontroller()
         self.init_state = init_state
         self.final_state = final_state

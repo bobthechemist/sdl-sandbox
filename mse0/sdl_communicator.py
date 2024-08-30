@@ -56,6 +56,9 @@ class sdlCommunicator:
             pass
         else:
             self.serial.close()
+        # clear out buffers
+        self.writebuffer.flush()
+        self.readbuffer.flush()
     
 
 
