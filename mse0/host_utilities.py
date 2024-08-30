@@ -15,6 +15,6 @@ def find_data_comports():
     ports = adafruit_board_toolkit.circuitpython_serial.data_comports()
     data = []
     for p in ports:
-        print(f"Found a device on {p.device}. (VID:{p.vid}, PID:{p.pid})")
+        #print(f"Found a device on {p.device}. (VID:{p.vid}, PID:{p.pid})")
         data.append({'port':p.device, 'VID':p.vid, 'PID':p.pid})
     return data
