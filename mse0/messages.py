@@ -19,7 +19,7 @@ valid_status = [
     "SUCCESS", "FAILED", "UNKNOWN", "NA"
 ]
 
-def make_message(subsystem_name: str, comm_type: str, status: str, payload: str, jsonq = True):
+def make_message(subsystem_name: str, comm_type: str, status: str, payload: str, jsonq: bool = True):
     """
     Creates a message with the given information in either json or dict format.
 
@@ -151,4 +151,10 @@ class MessageBuffer():
     def store_json(self, json_message):
         content = self.json_to_dict(json_message)
         self.store_message(content)
+
+    def flush(self):
+        '''
+        Empty the buffer
+        '''
+        self.messages = []
 
