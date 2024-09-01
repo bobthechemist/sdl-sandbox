@@ -101,9 +101,6 @@ class Sending(State):
         msg = make_message("HOST", "REQUEST", "NA", "blink num=3 delay=1", jsonq=False)
         machine.properties['subsystems'][0].writebuffer.store_message(msg)
         machine.properties['subsystems'][0].write_serial_data()
-        msg = make_message("HOST", "REQUEST", "NA", "blink num=10 delay=0.1", jsonq=False)
-        machine.properties['subsystems'][1].writebuffer.store_message(msg)
-        machine.properties['subsystems'][1].write_serial_data()
         machine.properties['alreadysent'] = True
         machine.go_to_state('Listening')
 

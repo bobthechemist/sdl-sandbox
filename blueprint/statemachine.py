@@ -26,21 +26,24 @@ class StateMachine:
         self.state = self.states[state_name]
         print(f'Entering {self.state.name}.')
         self.state.enter(self)
-    
+
     def update(self):
         if not self.running:
             raise Exception('State machine must be running to do this.')
         if self.state:
             #print(f'Updating {self.state.name}')
             self.state.update(self)
-    
-    def run(self, state_name):
+
+    def run(self, state_name = None):
         self.running = True
-        self.go_to_state(state_name)
-    
+        if state_name is None:
+            self.go_to_state(self.init_state)
+        else:
+            self.go_to_state(state_name)
+
     def stop(self):
         self.running = False
-    
+
 
 class State:
     def __init__(self):
@@ -51,7 +54,7 @@ class State:
     @property
     def name(self):
         return ''
-    
+
     def enter(self, machine):
         pass
 

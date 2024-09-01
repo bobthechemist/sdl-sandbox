@@ -65,7 +65,7 @@ class SerialHandler:
 
 * I think serial communcation from subsystem to host needs to be initialized early. Each subsystem would have its own instance on the host. This might allow for the port to remain open and avoid some of the problems I am having with timeouts and capturing all of the information.
 
-
+* Things are getting pretty clunky - the read/write buffers may be problematic and I don't have a clear idea of what goes on in each state. I need to trace a command from the host to the uc. The command is received by the listening state, processed in the listening state, and then the operation(abstract) state knows it is supposed to do something but doesn't know what.
 
 ## Tips and Tricks
 
