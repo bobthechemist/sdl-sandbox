@@ -1,4 +1,3 @@
-from time import monotonic
 from .utility import check_if_microcontroller
 from .messages import MessageBuffer
 
@@ -25,7 +24,7 @@ class StateMachine:
             print(f'Exiting {self.state.name}.')
             self.state.exit(self)
         self.state = self.states[state_name]
-        print(f'Entering {self.state.name}')
+        print(f'Entering {self.state.name}.')
         self.state.enter(self)
     
     def update(self):

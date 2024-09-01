@@ -1,4 +1,4 @@
-from mse0.subsystems import test
+from blueprint.subsystems import test
 
 sub = test.sdlTest()
 sub.run()

@@ -1,8 +1,8 @@
 # type: ignore
 import time
 #from adafruit_motorkit import Motorkit
-from mse0.sdl_communicator import sdlCommunicator
-import mse0.messages as messages
+from blueprint.sdl_communicator import sdlCommunicator
+import blueprint.messages as messages
 
 class sdlPumps:
     

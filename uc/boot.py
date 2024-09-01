@@ -1,3 +1,4 @@
+# type: ignore
 import usb_cdc
 import supervisor
 

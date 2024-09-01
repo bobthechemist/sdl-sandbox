@@ -1,9 +1,9 @@
 # type: ignore
-from mse0.statemachine import State, StateMachine
-from mse0.messages import make_message, parse_payload
-from mse0.host_utilities import find_data_comports
-from mse0 import sdlCommunicator
-from mse0.subsystems.directory import pid
+from blueprint.statemachine import State, StateMachine
+from blueprint.messages import make_message, parse_payload
+from blueprint.host_utilities import find_data_comports
+from blueprint import sdlCommunicator
+from blueprint.subsystems.directory import pid
 from time import monotonic
 
 #States
