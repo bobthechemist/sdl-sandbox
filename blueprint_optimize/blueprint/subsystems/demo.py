@@ -1,16 +1,16 @@
 # type: ignore
+"""
+Demonstration of a finite state machine. Runs on a microcontroller and accepts commands to blink the builtin LED and change the color of a neopixel.
+
+Author(s): BoB LeSuer
+"""
 from blueprint.statemachine import State, StateMachine
-from blueprint.sdl_communicator import sdlCommunicator
+from blueprint.communicator import Communicator
 from blueprint.messages import make_message, parse_payload
-from blueprint.utility import check_key_and_type
-from time import sleep, monotonic
 import neopixel
 import board
 import digitalio
-import random
 
-
-### FSM approach
 class Initialize(State):
     def __init__(self):
         super().__init__()
@@ -31,7 +31,7 @@ class Initialize(State):
         machine.blinking = False
         machine.neopixel = neopixel.NeoPixel(board.NEOPIXEL, 1, brightness = 0.01)
         machine.neopixel[:] = (0,0,0)
-        machine.serial = sdlCommunicator(subsystem_name='DEMO')
+        machine.serial = Communicator(subsystem_name='DEMO')
         print('Initialization completed.')
         machine.go_to_state('Communicating')
 
@@ -89,6 +89,7 @@ machine = StateMachine()
 machine.add_state(Initialize())
 machine.add_state(Communicating())
 machine.add_state(Blinking())
+machine.add_flag('blink', False)
 
 
 
