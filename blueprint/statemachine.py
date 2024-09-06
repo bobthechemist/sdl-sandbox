@@ -69,6 +69,7 @@ class StateMachine:
         """
         self.states[state.name] = state
 
+    # Would eventually want the ability to add flags during state instantiation 
     def add_flag(self, flag, init_value):
         """
         Adds a flag to the state machine.

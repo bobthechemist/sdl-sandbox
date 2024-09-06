@@ -1,5 +1,12 @@
 # Notes and such
 
+## 240904
+
+- Created state machine code
+- Demonstration of microcontroller as finite state machine. 
+- Basic documentation available for all methods.
+
+
 ## 240716
 
 - Proof of concept complete - microcontroller can receive commands and execute them, returning a response
