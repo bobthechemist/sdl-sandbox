@@ -10,5 +10,4 @@ vid = {
 pid = {
     808 : "Pumps(TEST)",
     809 : "Sample(TEST)",
-    810 : "Stirplate",
 }
