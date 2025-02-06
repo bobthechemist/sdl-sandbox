@@ -1,6 +1,6 @@
 # type: ignore
 from blueprint.statemachine import State, StateMachine
-from blueprint.sdl_communicator import sdlCommunicator
+from blueprint.communicator import Communicator
 from blueprint.messages import make_message, parse_payload
 from blueprint.utility import check_key_and_type
 from time import sleep, monotonic
@@ -9,6 +9,7 @@ import digitalio
 
 # import pwmio # Won't use due to minimum frequency
 # import pulseio # Not implemented yet
+
 
 class Initialize(State):
     def __init__(self):
@@ -26,12 +27,10 @@ class Initialize(State):
         machine.tachometer_pin = board.A0
         machine.pwm = digitalio.DigitalInOut(board.D10)
         machine.pwm.direction = digitalio.Direction.OUTPUT
-        
-        machine.LOWEST = 10000 # Lowest value to PWM the fan/stirplate
-        machine.HIGHEST = 15000 # Highest practical value to PWM the fan/stirplate
-
-        # Set machine properties, in this case the red LED and neopixel
-        machine.serial = sdlCommunicator(subsystem_name='STIRPLATE')
+        machine.duty_cycle = 0 # Initial duty cycle
+        machine.period = 1 # Initialize the period
+        machine.start = True # Start the stirring (even if it is set to duty_cycle 0)
+        machine.serial = Communicator(subsystem_name='STIRPLATE')
         print('Initialization completed.')
         machine.go_to_state('Listening')
 
@@ -71,8 +70,6 @@ class Listening(State):
 
     def enter(self, machine):
         self.entered_at = monotonic()
-
-    def update(self, machine):
         # Check for messages
         machine.serial.read_serial_data()
         if not machine.serial.readbuffer.is_empty():
@@ -86,9 +83,20 @@ class Listening(State):
                 cmd = parse_payload(msg['payload'])
                 # Store the command for other states
                 machine.active_command = cmd
-                if cmd['func'] is 'stir':
-                    print('will set stirring')
-                    machine.go_to_state('Stirring')
+                print(cmd)
+                if cmd['func'] is 'low':
+                    machine.duty_cycle = 0.5
+                    machine.period = 1
+                elif cmd['func'] is 'high':
+                    machine.duty_cycle = 1
+                    machine.period = 1
+                elif cmd['func'] is 'off':
+                    machine.duty_cycle = 0
+                    machine.period = 1
+
+
+    def update(self, machine):
+        machine.go_to_state('Stirring')
 
     def exit(self, machine):
         pass
@@ -100,20 +108,29 @@ class Stirring(State):
     @property
     def name(self):
         return 'Stirring'
-    
+
     def enter(self, machine):
         self.entered_at = monotonic()
-        print(machine.active_command)
-    
-    def update(self, machine):
-        if machine.active_command['arg1'] == 'high':
-            machine.pwm_pin.duty_cycle = machine.HIGHEST
-        elif machine.active_command['arg1'] == 'low':
-            machine.pwm_pin.duty_cycle = machine.LOWEST
-        elif machine.active_command['arg1'] == 'off':
-            machine.pwm_pin.duty_cycle = 0
+        #print(machine.active_command)
+        if machine.start:
+            machine.pwm.value = True
+            machine.start = False
+            machine.current_time = monotonic()
+            machine.target_time = machine.duty_cycle * machine.period
         else:
-            print("did not understand command")
+            if machine.pwm.value: # The stirplate cycle is high
+                if monotonic() - machine.current_time > machine.target_time:
+                    machine.current_time = monotonic()
+                    machine.target_time = (1-machine.duty_cycle)*machine.period
+                    machine.pwm.value = False
+            else: # The stirplate cycle is low
+                if monotonic() - machine.current_time > machine.target_time:
+                    machine.current_time = monotonic()
+                    machine.target_time = machine.duty_cycle * machine.period
+                    machine.pwm.value = True
+
+
+    def update(self, machine):
         machine.go_to_state("Listening")
 
 # Create the state machine. `machine` should be the name of the subsystem

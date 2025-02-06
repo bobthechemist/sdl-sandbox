@@ -93,7 +93,7 @@ class Blinking(State):
         current_state = machine.led.value
         if current_state and (monotonic() - self.last_blinked_at) > self.blink_duty_cycle * self.blink_duration: # led is on and ready to transition
             machine.led.value = False
-        if not current_state and (monotonic() - self.last_blinked_at) self.blink_duration: # should be done with blink cycle
+        if not current_state and (monotonic() - self.last_blinked_at) * self.blink_duration: # should be done with blink cycle
             machine.led.value = True
             self.blink_counter = self.blink_counter + 1
         if self.blink_counter >= self.number_of_blinks: # blinking should be done now
