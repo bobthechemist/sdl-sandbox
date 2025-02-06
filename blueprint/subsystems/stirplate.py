@@ -5,8 +5,10 @@ from blueprint.messages import make_message, parse_payload
 from blueprint.utility import check_key_and_type
 from time import sleep, monotonic
 import board
-import pwmio
-import pulseio # Not implemented yet
+import digitalio
+
+# import pwmio # Won't use due to minimum frequency
+# import pulseio # Not implemented yet
 
 class Initialize(State):
     def __init__(self):
@@ -22,7 +24,9 @@ class Initialize(State):
             machine.properties['error_message'] = "This subsystem must be run on a microcontroller"
             machine.go_to_state('Error')
         machine.tachometer_pin = board.A0
-        machine.pwm_pin = pwmio.PWMOut(board.D12, frequency = 2)
+        machine.pwm = digitalio.DigitalInOut(board.D10)
+        machine.pwm.direction = digitalio.Direction.OUTPUT
+        
         machine.LOWEST = 10000 # Lowest value to PWM the fan/stirplate
         machine.HIGHEST = 15000 # Highest practical value to PWM the fan/stirplate
 
