@@ -42,7 +42,7 @@ class StateMachine:
         Stops the state machine.
     """
 
-    def __init__(self, init_state='Initialize'):
+    def __init__(self, init_state='Initialize', name=None):
         """
         Constructs all the necessary attributes for the state machine object.
 
@@ -57,6 +57,7 @@ class StateMachine:
         self.running = False
         self.is_microcontroller = check_if_microcontroller()
         self.init_state = init_state
+        self.name = name
         
     def add_state(self, state):
         """
@@ -192,14 +193,14 @@ class State:
 
     def exit(self, machine):
         """
-        Actions to perform when exiting the state.
+        Actions to perform when exiting the state. Override default behavior with custom exit function
 
         Parameters:
         -----------
         machine : StateMachine
             The state machine instance.
         """
-        pass
+        print(f'{machine.name} left {self.name} after {round(monotonic()-self.entered_at,3)} seconds.')
 
     def update(self, machine):
         """
