@@ -53,7 +53,7 @@ class StateMachine:
         """
         self.state = None
         self.states = {}
-        self.flags = {}
+        self.flags = {} # Includes parameters. May want to separate in the future
         self.running = False
         self.is_microcontroller = check_if_microcontroller()
         self.init_state = init_state

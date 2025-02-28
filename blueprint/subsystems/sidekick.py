@@ -1,110 +1,79 @@
-# type: ignore
-from blueprint.statemachine import State, StateMachine
-from blueprint.communicator import Communicator
-from blueprint.messages import make_message, parse_payload
-from blueprint.utility import check_key_and_type
-from time import sleep, monotonic
-import board
-import digitalio
+from blueprint.statemachine import StateMachine
+import blueprint.subsystems.pumpdemo as ps
 
-class Initialize(State):
-    def __init__(self):
-        super().__init__()
+# Think of Sidekick as a container of state machines. After we learn what we want a container to do, it should be possible to create a container class.
 
-    @property
-    def name(self):
-        return 'Initialize'
+class Sidekick:
+    def __init__(self, num_pumps=1, a_times=None, d_times=None):
+        self.default_a_time = 0.1
+        self.default_d_time = 0.2
+        if a_times is None:
+            a_times = [self.default_a_time] * num_pumps
+        if d_times is None:
+            d_times = [self.default_d_time] * num_pumps
+
+        if len(a_times) != num_pumps or len(d_times) != num_pumps:
+            raise ValueError("Length of a_times and d_times must match num_pumps")
+
+        self.pumps = [
+            self.create_pump(name=f'pump{i}', a_time=a_times[i], d_time=d_times[i])
+            for i in range(num_pumps)
+        ]
+
+    def create_pump(self, name="pump", a_time=None, d_time=None):
+        if a_time is None:
+            a_time = self.default_a_time
+        if d_time is None:
+            d_time = self.default_d_time
+
+        pump = StateMachine(init_state='Idle', name=name)
+        pump.add_flag('start', False)
+        pump.aspirate_time = a_time
+        pump.dispense_time = d_time if d_time > a_time else a_time
+        pump.num_cycles = 0
+        pump.add_state(ps.Idle())
+        pump.add_state(ps.Aspirate())
+        pump.add_state(ps.Dispense())
+
+        return pump
     
-    def enter(self, machine):
-        self.entered_at = monotonic()
-        if not machine.is_microcontroller:
-            machine.properties['error_message'] = "This subsystem must be run on a microcontroller"
-            machine.go_to_state('Error')
-        machine.pump_pin = digitalio.DigitalInOut(board.GP27)
-        machine.pump_pin.direction = digitalio.Direction.OUTPUT
-        machine.pump_pin.value = False # Make sure pump is in dispense mode
-        machine.aspriate_time = 0.1 # May be different for different model pumps
-        machine.volume = 10 # volume of pump in microliters
-        machine.serial = Communicator(subsystem_name='SIDEKICK')
-        print('Initialization completed')
-        machine.go_to_state('Listening')
+    def start_pump(self, pump_numbers):
+        self._set_pump_flags([pump_numbers] if isinstance(pump_numbers,int) else pump_numbers,
+            'start', True)
+
+    def stop_pump(self, pump_numbers):
+        self._set_pump_flags([pump_numbers] if isinstance(pump_numbers,int) else pump_numbers,
+            'start', False)
+
+    def _set_pump_flags(self, pump_numbers, flag_name, flag_value):
+        if not isinstance(pump_numbers, list):
+            raise ValueError("Pump numbers must be provided as a list")
+
+        for pump_num in pump_numbers:
+            if not isinstance(pump_num, int):
+                raise ValueError("Invalid pump number")
+            if pump_num < 0 or pump_num >= len(self.pumps):
+                raise ValueError(f"Invalid pump number: {pump_num}")
+
+            self.pumps[pump_num].add_flag(flag_name, flag_value)
+
+    def set_num_cycles(self, pump_num, num_cycles):
+        if not isinstance(pump_num, int) or not isinstance(num_cycles, int):
+            raise ValueError("Pump number and num_cycles must be integers")
+        if pump_num < 0 or pump_num >= len(self.pumps):
+            raise ValueError(f"Invalid pump number: {pump_num}")
+
+        self.pumps[pump_num].num_cycles = num_cycles
+
+    # Container functions loop the statemachine function across all state machines in the container    
+    def run(self):
+        for p in self.pumps:
+            p.run()
     
-    def update(self, machine):
-        pass
-
-    def exit(self, machine):
-        pass
-
-class Error(State):
-    def __init__(self):
-        super().__init__()
-
-    @property
-    def name(self):
-        return 'Error'
-
-    def enter(self, machine):
-        self.entered_at = monotonic()
-        print(f'ERROR MESSAGE: {machine.properties["error_message"]}')
-        machine.go_to_state(machine.final_state)
-
-    def update(self, machine):
-        pass
-
-    def exit(self, machine):
-        pass
-
-class Listening(State):
-    def __init__(self):
-        super().__init__()
-
-    @property
-    def name(self):
-        return 'Listening'
+    def stop(self):
+        for p in self.pumps:
+            p.stop()
     
-    def enter(self, machine):
-        self.entered_at = monotonic()
-        print("Pump in listening state")
-
-    def enter(self, machine):
-        # Check for messages
-        machine.serial.read_serial_data()
-        if not machine.serial.readbuffer.is_empty():
-            msg = machine.serial.readbuffer.get_oldest_message(jsonq=False)
-            print(msg)
-
-            # process the message if it is a REQUEST
-            if msg['comm_type'] is 'REQUEST':
-                print("Performing operation")
-                # May have a request processing state that looks at function and decides what to do.
-                cmd = parse_payload(msg['payload'])
-                # Store the command for other states
-                machine.active_command = cmd
-                print(cmd)
-                if cmd['func'] is 'dispense':
-                    # Argument is the volume in microliters
-                    machine.target_volume = cmd['arg1'] # Better argument handling will be needed 
-                    machine.num_cycles = int(machine.target_volume / machine.volume) # always rounds down
-                    machine.go_to_state("Aspirate")
-
-
-    def exit(self, machine):
-        pass
-
-class Aspirate(State):
-    def __init__(self):
-        super().__init__()
-    
-    @property
-    def name(self):
-        return 'Aspirate'
-    
-    def enter(self, machine):
-        self.entered_at = monotonic()
-        print("Starting Aspirate")
-        machine.pump_pin.value = True # Sets the pump pin high
-    
-    def update(self, machine):
-        elapsed_time = monotonic() - self.entered_at
-        if elapsed_time >= machine.aspirate_time:
-            machine.go_to_state('Dispense')
+    def update(self):
+        for p in self.pumps:
+            p.update()
