@@ -1,8 +1,20 @@
 from blueprint.statemachine import StateMachine
+from blueprint.communicator import Communicator
+from blueprint.messages import parse_payload
 import blueprint.subsystems.pumpdemo as ps
+from time import sleep, monotonic
+
+
+
 
 # Think of Sidekick as a container of state machines. After we learn what we want a container to do, it should be possible to create a container class.
 
+'''
+Does the container need to be a state machine?
+
+It needs to listen for available instructions and update the state machines it contains
+Sounds to me like this is a microcontroller setup/loop style 
+'''
 class Sidekick:
     def __init__(self, num_pumps=1, a_times=None, d_times=None):
         self.default_a_time = 0.1
@@ -11,14 +23,13 @@ class Sidekick:
             a_times = [self.default_a_time] * num_pumps
         if d_times is None:
             d_times = [self.default_d_time] * num_pumps
-
         if len(a_times) != num_pumps or len(d_times) != num_pumps:
             raise ValueError("Length of a_times and d_times must match num_pumps")
-
         self.pumps = [
             self.create_pump(name=f'pump{i}', a_time=a_times[i], d_time=d_times[i])
             for i in range(num_pumps)
         ]
+        self.serial = Communicator(subsystem_name='SIDEKICK')
 
     def create_pump(self, name="pump", a_time=None, d_time=None):
         if a_time is None:
@@ -77,3 +88,26 @@ class Sidekick:
     def update(self):
         for p in self.pumps:
             p.update()
+
+    # Communication tools
+    ''' 
+    dispense <pump number> <volume in microliters>
+    '''
+    def loop(self):
+        self.update()
+        self.serial.read_serial_data()
+        if not self.serial.readbuffer.is_empty():
+            msg = self.serial.readbuffer.get_oldest_message(jsonq=False)
+            print(msg)
+
+            # Process the message if it is a REQUEST
+            if msg['comm_type'] is 'REQUEST':
+                print('Performing operation')
+                cmd = parse_payload(msg['payload'])
+                if cmd['func'] is 'dispense':
+                    # assuming proper formatting
+                    p = int(cmd['arg1'])
+                    v = int(float(cmd['arg2'])/10.)
+                    self.set_num_cycles(p,v)
+        sleep(0.001)
+
