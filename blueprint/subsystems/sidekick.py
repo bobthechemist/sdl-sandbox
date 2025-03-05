@@ -14,6 +14,21 @@ Does the container need to be a state machine?
 
 It needs to listen for available instructions and update the state machines it contains
 Sounds to me like this is a microcontroller setup/loop style 
+
+Example uC code:
+
+from blueprint.subsystems.sidekick import Sidekick
+from time import monotonic, sleep
+
+
+machine = Sidekick(num_pumps=2,a_times=[0.1,0.1],d_times=[0.2,0.4])
+machine.set_num_cycles(0,3) # tells pump zero to do 3 cycles
+machine.set_num_cycles(1,5) # tells pump 1 to do 5 cycles
+machine.run() # pumps have running flag set to True and enter init_state
+machine.start_pump([0,1]) # Pumps allowed to enter pumping state
+
+while True:
+    machine.loop()
 '''
 class Sidekick:
     def __init__(self, num_pumps=1, a_times=None, d_times=None):
