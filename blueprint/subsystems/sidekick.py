@@ -1,9 +1,11 @@
+# type: ignore
 from blueprint.statemachine import StateMachine
 from blueprint.communicator import Communicator
 from blueprint.messages import parse_payload
-import blueprint.subsystems.pumpdemo as ps
+import blueprint.subsystems.lpl_dispense_pump as ps # Get pump states
 from time import sleep, monotonic
-
+import board
+import digitalio
 
 
 
@@ -13,7 +15,7 @@ from time import sleep, monotonic
 Does the container need to be a state machine?
 
 It needs to listen for available instructions and update the state machines it contains
-Sounds to me like this is a microcontroller setup/loop style 
+Sounds to me like this is a microcontroller setup/loop style
 
 Example uC code:
 
@@ -21,19 +23,42 @@ from blueprint.subsystems.sidekick import Sidekick
 from time import monotonic, sleep
 
 
-machine = Sidekick(num_pumps=2,a_times=[0.1,0.1],d_times=[0.2,0.4])
-machine.set_num_cycles(0,3) # tells pump zero to do 3 cycles
-machine.set_num_cycles(1,5) # tells pump 1 to do 5 cycles
-machine.run() # pumps have running flag set to True and enter init_state
-machine.start_pump([0,1]) # Pumps allowed to enter pumping state
+machine = Sidekick(num_pumps=4,
+    pins=["GP27","GP26","GP22","GP21"],
+    a_times=[0.1,0.1,0.1,0.1],
+    d_times=[0.2,0.25,0.3,0.35])
+
+machine.run()
+machine.start_pump([0,1,2,3])
 
 while True:
     machine.loop()
+
+
+on the host side:
+
+from blueprint.host_utilities import find_data_comports
+from blueprint import communicator
+from blueprint.messages import make_message
+
+ports = find_data_comports()
+subs = [communicator.Communicator(port= p['port']) for p in ports]
+msg = make_message(comm_type='REQUEST',payload="dispense 0 500")
+subs[0].writebuffer.store_message(msg)
+subs[0].write_serial_data()
+def d(pump, volume):
+    msg = make_message(comm_type='REQUEST', payload=f'dispense {pump} {volume}')
+    subs[0].writebuffer.store_message(msg)
+    subs[0].write_serial_data()
+
+out = [d(i,1000) for i in range(4)]
 '''
 class Sidekick:
-    def __init__(self, num_pumps=1, a_times=None, d_times=None):
+    def __init__(self, num_pumps=1, pins=None, a_times=None, d_times=None):
         self.default_a_time = 0.1
         self.default_d_time = 0.2
+        if pins is None:
+            raise ValueError("Pins must be set")
         if a_times is None:
             a_times = [self.default_a_time] * num_pumps
         if d_times is None:
@@ -41,28 +66,36 @@ class Sidekick:
         if len(a_times) != num_pumps or len(d_times) != num_pumps:
             raise ValueError("Length of a_times and d_times must match num_pumps")
         self.pumps = [
-            self.create_pump(name=f'pump{i}', a_time=a_times[i], d_time=d_times[i])
+            self.create_pump(name=f'pump{i}', pin=pins[i], a_time=a_times[i], d_time=d_times[i])
             for i in range(num_pumps)
         ]
         self.serial = Communicator(subsystem_name='SIDEKICK')
 
-    def create_pump(self, name="pump", a_time=None, d_time=None):
+    def create_pump(self, name="pump", pin=None, a_time=None, d_time=None):
         if a_time is None:
             a_time = self.default_a_time
         if d_time is None:
             d_time = self.default_d_time
+        if pin is None:
+            raise ValueError("Pins must be set - shouldn't have gotten here.")
 
         pump = StateMachine(init_state='Idle', name=name)
         pump.add_flag('start', False)
         pump.aspirate_time = a_time
         pump.dispense_time = d_time if d_time > a_time else a_time
         pump.num_cycles = 0
+        try:
+            p = getattr(board,pin)
+            pump.control_pin = digitalio.DigitalInOut(p)
+            pump.control_pin.direction = digitalio.Direction.OUTPUT
+        except AttributeError:
+            raise ValueError(f"{pin} does not seem to be a valid pin")
         pump.add_state(ps.Idle())
         pump.add_state(ps.Aspirate())
         pump.add_state(ps.Dispense())
 
         return pump
-    
+
     def start_pump(self, pump_numbers):
         self._set_pump_flags([pump_numbers] if isinstance(pump_numbers,int) else pump_numbers,
             'start', True)
@@ -88,24 +121,24 @@ class Sidekick:
             raise ValueError("Pump number and num_cycles must be integers")
         if pump_num < 0 or pump_num >= len(self.pumps):
             raise ValueError(f"Invalid pump number: {pump_num}")
-
         self.pumps[pump_num].num_cycles = num_cycles
 
-    # Container functions loop the statemachine function across all state machines in the container    
+
+    # Container functions loop the statemachine function across all state machines in the container
     def run(self):
         for p in self.pumps:
             p.run()
-    
+
     def stop(self):
         for p in self.pumps:
             p.stop()
-    
+
     def update(self):
         for p in self.pumps:
             p.update()
 
     # Communication tools
-    ''' 
+    '''
     dispense <pump number> <volume in microliters>
     '''
     def loop(self):
