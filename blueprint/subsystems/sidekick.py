@@ -157,5 +157,7 @@ class Sidekick:
                     p = int(cmd['arg1'])
                     v = int(float(cmd['arg2'])/10.)
                     self.set_num_cycles(p,v)
+        if not self.serial.writebuffer.is_empty():
+            pass
         sleep(0.001)
 

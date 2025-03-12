@@ -1,3 +1,4 @@
+#type: ignore
 """
 Classes to treat the software-driven laboratory subsystems as state machines
 
@@ -6,6 +7,11 @@ Author(s): BoB LeSuer
 from .utility import check_if_microcontroller
 from .messages import MessageBuffer
 from time import monotonic
+
+if check_if_microcontroller():
+    import adafruit_logging as logging
+else:
+    import logging
 
 class StateMachine:
     """
@@ -58,6 +64,12 @@ class StateMachine:
         self.is_microcontroller = check_if_microcontroller()
         self.init_state = init_state
         self.name = name
+        # Each state machine has a log 
+        self.buffer = MessageBuffer()
+        self.handler = MessageBufferHandler(self.buffer, subsystem_name = self.name)
+        self.log = logging.getLogger(self.name)
+        self.log.setLevel(logging.INFO)
+        self.log.addHandler(self.handler)
         
     def add_state(self, state):
         """

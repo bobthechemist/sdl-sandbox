@@ -45,3 +45,11 @@ After initializing the two communication channels, the host enters listening mod
 2. Create a basic user interface
 3. Template FSMs for the pump system and the sample chamber system
 4. Tighten up code and refactor
+
+
+# sm-communicator notes
+
+This branch is for revising states and state machine communication. I think there should be a default message buffer for states to dump information to (we are printing this information right now). This might include an actual logging function that includes various levels of logging. It may also include a flag upon creating the state machine to possibly make a communicator. Some state machines do not need a full-blown communicator - So the message buffer might be bettter referred to as a log. on regular python with can import logging, 
+
+Doing something [like this](https://learn.adafruit.com/circuitpython-essentials/circuitpython-storage) will allow us to store files on a CP drive. It requires a bit of work so adding this functionality will depend on the need.
+

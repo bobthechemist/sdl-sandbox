@@ -1,3 +1,4 @@
+#type: ignore
 """
 A message storage system for dict/json formatted information.
 
@@ -5,6 +6,14 @@ Author(s): BoB LeSuer
 """
 import json
 import sys
+
+from .utility import check_if_microcontroller
+if check_if_microcontroller():
+    import adafruit_logging as logging
+else:
+    import logging
+
+
 
 # The type of communication may be used to guide how the recipient uses the message
 valid_comm_types = [
@@ -135,10 +144,8 @@ class MessageBuffer():
         Returns:
             bool: True if the buffer is empty, False otherwise.
         """
-        if len(self.messages) == 0:
-            return True
-        else:
-            return False
+        return not self.messages
+        # if above causes problems return len(self.messages) == 0
 
     def store_message(self, content):
         """
@@ -231,3 +238,54 @@ class MessageBuffer():
         """
         self.messages = []
 
+class MessageBufferHandler(logging.Handler):
+    """
+    Custom logging handler that writes log messages to a MessageBuffer.
+    """
+
+    def __init__(self, message_buffer, subsystem_name):
+        super().__init__()
+        self.message_buffer = message_buffer
+        self.subsystem_name = subsystem_name
+        self.comm_type = 'NOTIFY'
+        self.status = 'NA'
+        self.print = False # To override logging and simply print the message
+        # Keeping a fixed format for the time being
+        self.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+
+    def emit(self, record):
+        log_entry = self.format(record)
+        message = make_message(
+            subsystem_name=self.subsystem_name,
+            comm_type=self.comm_type,
+            status=self.status,
+            payload=log_entry,
+            jsonq=False
+        )
+        if self.print:
+            print(message)
+        else:
+            self.message_buffer.store_message(message)
+
+# Won't work with the way .utility library is accessed. Remove the . 
+if __name__ == '__main__':
+    # Create a message buffer
+    message_buffer = MessageBuffer()
+
+    # Create a logger
+    log = logging.getLogger('example')
+    log.setLevel(logging.INFO)
+
+    # Create a custom handler and add it to the logger
+    message_handler = MessageBufferHandler(message_buffer, subsystem_name='None')
+    log.addHandler(message_handler)
+
+    message_handler.setLevel(logging.WARNING)
+    log.debug('this message should not be stored')
+    message_handler.comm_type='RESPONSE'
+    log.critical('this message will be stored')
+    message_handler.status='FAILED'
+    log.warning('this message will also be stored')
+
+    while not message_buffer.is_empty():
+        print(message_buffer.get_oldest_message())
