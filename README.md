@@ -53,3 +53,8 @@ This branch is for revising states and state machine communication. I think ther
 
 Doing something [like this](https://learn.adafruit.com/circuitpython-essentials/circuitpython-storage) will allow us to store files on a CP drive. It requires a bit of work so adding this functionality will depend on the need.
 
+# Unit testing
+
+Put unit testing functions in /tests see test-test.py for an example
+
+run `python -m unittest discover tests` to run all unit tests in that directory.

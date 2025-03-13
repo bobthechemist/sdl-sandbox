@@ -6,8 +6,11 @@ Author(s): BoB LeSuer
 """
 import json
 import sys
+import os
 
-from .utility import check_if_microcontroller
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+print(os.path.abspath(os.path.dirname(__file__)))
+from blueprint.utility import check_if_microcontroller
 if check_if_microcontroller():
     import adafruit_logging as logging
 else:
@@ -269,6 +272,7 @@ class MessageBufferHandler(logging.Handler):
 
 # Won't work with the way .utility library is accessed. Remove the . 
 if __name__ == '__main__':
+    print(os.path.abspath(os.path.dirname(__file__)))
     # Create a message buffer
     message_buffer = MessageBuffer()
 
