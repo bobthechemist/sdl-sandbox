@@ -19,41 +19,57 @@ if check_if_microcontroller():
 else:
     import logging
 
+# Add custom levels to logging - allows us to eliminate the comm_type variable and possibly status
 
-# The type of communication may be used to guide how the recipient uses the message
-# TODO: Should this list be aligned with logging for consistency?
-valid_comm_types = [
-    "NOTIFY", "RESPONSE","REQUEST"
-]
+HEARTBEAT_LEVEL = 15    # Custom level for providing heartbeat-style unsolicited information
+INSTRUCTION_LEVEL = 23  # Custom level for sending instructions
+SUCCESS_LEVEL = 27      # Custom level for responding to an instruction successfully
+PROBLEM_LEVEL = 35      # Custom level for responding to an instruction unsuccessfully
 
-# General indicators on whether the message, or response to the message, was successful.
-valid_status = [
-    "SUCCESS", "FAILED", "NA"
-]
+logging.addLevelName(HEARTBEAT_LEVEL, "HEARTBEAT")
+logging.addLevelName(INSTRUCTION_LEVEL, "INSTRUCTION")
+logging.addLevelName(PROBLEM_LEVEL, "PROBLEM")
+logging.addLevelName(SUCCESS_LEVEL, "SUCCESS")
 
-# TODO: Consider passing logger to `make_message` and `parse_payload` so their messages are captured.
+
+def heartbeat(self, message, *args, **kwargs):
+    if self.isEnabledFor(HEARTBEAT_LEVEL):
+        self._log(HEARTBEAT_LEVEL, message, args, **kwargs)
+
+def instruction(self, message, *args, **kwargs):
+    if self.isEnabledFor(INSTRUCTION_LEVEL):
+        self._log(INSTRUCTION_LEVEL, message, args, **kwargs)
+
+def problem(self, message, *args, **kwargs):
+    if self.isEnabledFor(PROBLEM_LEVEL):
+        self._log(PROBLEM_LEVEL, message, args, **kwargs)
+
+def success(self, message, *args, **kwargs):
+    if self.isEnabledFor(SUCCESS_LEVEL):
+        self._log(SUCCESS_LEVEL, message, args, **kwargs)
+
+
+logging.Logger.heartbeat = heartbeat
+logging.Logger.instruction = instruction
+logging.Logger.problem = problem
+logging.Logger.success = success
+
 
 def make_message(
         subsystem_name: str = None, 
-        comm_type: str = "NOTIFY", 
-        status: str = "NA", 
+        status: str = "Not Implemented", 
         meta: dict = None,
         payload: str = "", 
         jsonq: bool = False):
     """
     Creates a message with the given information in either json or dict format.
     """
-    # Errors stop things - perhaps forcing the generated message to have this info is preferred
-    if comm_type not in valid_comm_types:
-        raise ValueError(f"Invalid communication type: {comm_type}")
 
-    if status not in valid_status:
-        raise ValueError(f"Invalid status: {status}")
+
 
     # Create the dictionary with the provided information
     message = {
         "subsystem_name": subsystem_name,
-        "comm_type": comm_type,
         "status": status,
         "meta": meta if meta else {},
         "payload": payload
@@ -162,7 +178,7 @@ class MessageBuffer():
         """
         Returns the size of the message buffer.
         """        
-        return sys.getsizeof(self.messages)
+        return len(self.messages)
 
     def flush(self):
         """
@@ -180,7 +196,7 @@ class MessageBuffer():
             self.messages = self.messages[to_remove:]
 
     @staticmethod
-    def create_with_logging(subsystem_name: str, level=logging.INFO, logger_name='default'):
+    def create_with_logging(subsystem_name='none', level=logging.INFO, logger_name='default'):
         """
         Creates a MessageBuffer and attaches a MessageBufferHandler to it.
 
@@ -199,6 +215,7 @@ class MessageBuffer():
         log.addHandler(message_handler)
         return message_buffer, log
 
+# Develop various methods for handling messages via logging. Presently using the custom serial buffer
 class MessageBufferHandler(logging.Handler):
     """Custom logging handler."""
 
@@ -206,7 +223,6 @@ class MessageBufferHandler(logging.Handler):
         super().__init__()
         self.message_buffer = message_buffer
         self.subsystem_name = subsystem_name
-        self.comm_type = 'NOTIFY'
         self.status = 'NA'
         self.print = False  # To override logging and simply print the message
         self.datefmt = datefmt # Keeping a separate variable that might be changed later
@@ -223,16 +239,18 @@ class MessageBufferHandler(logging.Handler):
             "levelname": record.levelname,
         }
         print(record.msg)
-        print(record.asctime)
+        try:
+            print(metadata['asctime'])
+        except:
+            print(dir(record))
         print(record.levelname)
-        return record
+        
 
         message = make_message(
             subsystem_name=self.subsystem_name,
-            comm_type=self.comm_type,
             status=self.status,
             meta=metadata,
-            payload=record.message,
+            payload=record.msg,
             jsonq=False
         )
         if self.print:
@@ -255,7 +273,6 @@ if __name__ == '__main__':
 
     message_handler.setLevel(logging.WARNING)
     log.debug('this message should not be stored')
-    message_handler.comm_type='RESPONSE'
     log.critical('this message will be stored')
     message_handler.status='FAILED'
     log.warning('this message will also be stored')
