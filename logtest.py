@@ -22,7 +22,7 @@ log = logging.getLogger('test')
 log.setLevel(logging.DEBUG)
 
 custom_handler = myHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%Y')
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 custom_handler.setFormatter(formatter)
 
 log.addHandler(custom_handler)

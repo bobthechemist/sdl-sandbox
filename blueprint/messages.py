@@ -87,7 +87,7 @@ def parse_payload(payload):
         raise TypeError(f"Payload must be a string, not {type(payload)}")
     
     try:
-        return json.loads(paylod)
+        return json.loads(payload)
     except json.JSONDecodeError:
         # Have not established an appropriate messaging stream.
         logging.warning('Payload is not valid JSON, attempting string parsing')
