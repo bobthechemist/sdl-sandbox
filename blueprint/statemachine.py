@@ -224,3 +224,77 @@ class State:
             The state machine instance.
         """
         pass
+
+class StateMachineOrchestrator:
+    """
+    A class to manage and coordinate multiple state machines.
+    
+    Attributes:
+    -----------
+    state_machines : dict
+        A dictionary of state machines managed by the orchestrator
+    
+    Methods:
+    --------
+    add_state_machine(name, state_machine):
+        Adds a state machine to the orchestrator
+    remove_state_machine(name):
+        Removes a state machine from the orchestrator
+    update():
+        Updates all state machines managed by the orchestrator
+    run_all():
+        Starts all state machines managed by the orchestrator
+    stop_all():
+        Stops all state machines managed by the orchestrator
+    """
+    def __init__(self):
+        """
+        Constructs all the necessary attributes for the state machine orchestrator object.
+        """
+        self.state_machines = {}
+
+    def add_state_machine(self, name, state_machine):
+        """
+        Adds a state machine to the orchestrator.
+
+        Parameters:
+        -----------
+        name : str
+            The name of the state machine.
+        state_machine : StateMachine
+            The state machine to be added.
+        """
+        self.state_machines[name] = state_machine
+
+    def remove_state_machine(self, name):
+        """
+        Removes a state machine from the orchestrator.
+
+        Parameters:
+        -----------
+        name : str
+            The name of the state machine to be removed.
+        """
+        if name in self.state_machines:
+            del self.state_machines[name]
+
+    def update(self):
+        """
+        Updates all state machines managed by the orchestrator.
+        """
+        for state_machine in self.state_machines.values():
+            state_machine.update()
+
+    def run_all(self):
+        """
+        Starts all state machines managed by the orchestrator.
+        """
+        for state_machine in self.state_machines.values():
+            state_machine.run()
+
+    def stop_all(self):
+        """
+        Stops all state machines managed by the orchestrator.
+        """
+        for state_machine in self.state_machines.values():
+            state_machine.stop()    
