@@ -2,6 +2,7 @@ import time
 from message import Message
 from message_buffer import MessageBuffer
 from postman import Postman
+from statemachine import StateMachine, State
 
 # Assuming you have MessageBuffer, Postman, and other relevant classes
 class SecretaryStateMachine(StateMachine):

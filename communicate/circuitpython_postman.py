@@ -1,5 +1,5 @@
 #type: ignore
-import usb_cdc
+#import usb_cdc
 from .postman import Postman
 
 class CircuitPythonPostman(Postman):
