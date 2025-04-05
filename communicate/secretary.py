@@ -1,6 +1,6 @@
 import time
 from message import Message
-from message_buffer import MessageBuffer
+from message_buffer import LinearMessageBuffer
 from postman import Postman
 from statemachine import StateMachine, State
 
@@ -20,10 +20,10 @@ class SecretaryStateMachine(StateMachine):
         self.filer = filer
         self.postman = postman
         #Add states
-        self.add_state(Idle(self))
-        self.add_state(ProcessMessage(self))
-        self.add_state(FileMessage(self))
-        self.add_state(Error(self))
+        self.add_state(Idle())
+        self.add_state(ProcessMessage())
+        self.add_state(FileMessage())
+        self.add_state(Error())
 
 class Idle(State):
     @property
@@ -35,15 +35,15 @@ class Idle(State):
 
     def update(self, machine):
         """Checks the inbox for new messages and transitions to ProcessMessage."""
+        # Check if outbox is not empty and if so, call the postman.
+        mail = machine.outbox.get()
+        if mail:
+            self.postman.send(mail)
         message = machine.inbox.get()
         if message:
             machine.flags["current_message"] = message #Sets the current message to be used in other functions
             machine.log.info("New message, starting processing")
             machine.go_to_state('ProcessMessage')
-        else:
-            # Inbox is empty, pause briefly
-            machine.log.info("Inbox is empty")
-            time.sleep(0.1)
 
 class ProcessMessage(State):
     @property
@@ -132,14 +132,9 @@ class SubsystemRouter:  # Place holder for the logic on how the system routes me
         # Add code here that routes messages to the right subsytem
         pass  # Example, subsystems may be "engine", "brakes", "lights"
 
-class Outbox:
-    def add_message(self, message):
-        # Place holder to do code for adding a message to a subsystem. This function should never call Postman
-        pass
-
 # Create instances of the necessary components
-inbox = MessageBuffer()
-outbox = Outbox()
+inbox = LinearMessageBuffer()
+outbox = LinearMessageBuffer()
 subsystem_router = SubsystemRouter()
 
 # Create a filer (e.g., a database logger) - replace with your actual filer implementation
@@ -148,7 +143,7 @@ class DatabaseFiler:
         print(f"Filing message to database: {message}")
 
 filer = DatabaseFiler()
-postman = Postman()
+postman = Postman({"protocol":"serial"})
 
 # Instantiate the SecretaryStateMachine
 secretary = SecretaryStateMachine(inbox=inbox, outbox=outbox, subsystem_router=subsystem_router, filer=filer, postman = postman)
@@ -160,5 +155,6 @@ inbox.store({"message_type": "COMMAND", "command": "Start engine"})
 # Start the state machine
 secretary.run()
 
+print('done')
 # (Later, to stop the state machine)
 # secretary.stop()
