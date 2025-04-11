@@ -70,6 +70,7 @@ class StateMachine:
         self.log = logging.getLogger(self.name)
         self.log.setLevel(logging.INFO)
         #self.log.addHandler(self.handler)
+        #self.log.addHandler(self.handler)
         
     def add_state(self, state):
         """

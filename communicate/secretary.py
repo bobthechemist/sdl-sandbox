@@ -147,8 +147,8 @@ class Outbox:
         pass
 """
 # Create instances of the necessary components
-inbox = MessageBuffer()
-outbox = Outbox()
+inbox = LinearMessageBuffer()
+outbox = LinearMessageBuffer()
 subsystem_router = SubsystemRouter()
 
 # Create a filer (e.g., a database logger) - replace with your actual filer implementation
@@ -157,7 +157,7 @@ class DatabaseFiler:
         print(f"Filing message to database: {message}")
 
 filer = DatabaseFiler()
-postman = Postman()
+postman = Postman({"protocol":"serial"})
 
 # Instantiate the SecretaryStateMachine
 secretary = SecretaryStateMachine(inbox=inbox, outbox=outbox, subsystem_router=subsystem_router, filer=filer, postman = postman)
@@ -169,6 +169,7 @@ inbox.store({"message_type": "COMMAND", "command": "Start engine"})
 # Start the state machine
 secretary.run()
 
+print('done')
 # (Later, to stop the state machine)
 # secretary.stop()
 """
