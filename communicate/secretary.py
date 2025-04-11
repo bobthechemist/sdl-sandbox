@@ -1,8 +1,5 @@
 import time
-from message import Message
-from message_buffer import MessageBuffer
-from postman import Postman
-from statemachine import StateMachine, State
+from .statemachine import StateMachine, State
 
 # Assuming you have MessageBuffer, Postman, and other relevant classes
 class SecretaryStateMachine(StateMachine):
@@ -12,7 +9,7 @@ class SecretaryStateMachine(StateMachine):
 
     def __init__(self, inbox, outbox, subsystem_router, filer=None, postman = None, name = "secretary"):
         """Initializes the SecretaryStateMachine."""
-        super().__init__(init_state='Idle', name=name)  # set the name for the logging
+        super().__init__(init_state='Monitoring', name=name)  # set the name for the logging
 
         self.inbox = inbox
         self.outbox = outbox
@@ -20,38 +17,50 @@ class SecretaryStateMachine(StateMachine):
         self.filer = filer
         self.postman = postman
         #Add states
-        self.add_state(Idle(self))
-        self.add_state(ProcessMessage(self))
-        self.add_state(FileMessage(self))
-        self.add_state(Error(self))
+        self.add_state(Monitoring())
+        self.add_state(Reading())
+        self.add_state(Filing())
+        self.add_state(Error())
 
-class Idle(State):
+class Monitoring(State):
+    """
+    Secretary state of monitoring the inbox and outbox.
+    If either one is populated, do something about it.
+    Prefers sending messages
+    """
     @property
     def name(self):
-        return 'Idle'
+        return 'Monitoring'
     
     def enter(self, machine):
-        machine.log.info("idling")
+        machine.log.info("Monitoring")
 
     def update(self, machine):
-        """Checks the inbox for new messages and transitions to ProcessMessage."""
-        message = machine.inbox.get()
-        if message:
-            machine.flags["current_message"] = message #Sets the current message to be used in other functions
-            machine.log.info("New message, starting processing")
-            machine.go_to_state('ProcessMessage')
+        """
+        Checks outbox and calls postman if necessary. Then checks the inbox 
+        for new messages and transitions to ProcessMessage.
+        """
+        if not machine.outbox.is_empty():
+            machine.log.info("Something to send, calling the postman")
+            machine.go_to_state('Mailing')
         else:
-            # Inbox is empty, pause briefly
-            machine.log.info("Inbox is empty")
-            time.sleep(0.1)
+            message = machine.inbox.get()
+            if message:
+                machine.flags["current_message"] = message #Sets the current message to be used in other functions
+                machine.log.info("New message, starting processing")
+                machine.go_to_state('Reading')
 
-class ProcessMessage(State):
+
+class Reading(State):
+    """
+    Secretary state of reading a message from the inbox and deciding what to do
+    """
     @property
     def name(self):
-        return 'ProcessMessage'
+        return 'Reading'
 
     def enter(self, machine):
-        machine.log.info("Processing a message")
+        machine.log.info("Reading a message")
 
     def update(self, machine):
       message = machine.flags["current_message"]
@@ -72,7 +81,7 @@ class ProcessMessage(State):
         machine.log.critical(f"The following error has occured{e}")
         machine.go_to_state("Error")
       finally:
-        machine.go_to_state("Idle")
+        machine.go_to_state("Monitoring")
 
     def should_file_message(self, message, machine):
       #Add your logic to determine if the message should be filed or not.
@@ -92,14 +101,14 @@ class ProcessMessage(State):
       machine.log.debug("checking to send to outbox")
       return True
 
-class FileMessage(State):
+class Filing(State):
     """Filing class reads the message and processes the message to complete the goal of the subsystem"""
     @property
     def name(self):
-        return 'FileMessage'
+        return 'Filing'
 
     def enter(self, machine):
-        machine.log.info("Storing in the filer")
+        machine.log.info("Storing the message")
 
     def update(self, machine):
         if machine.filer:
@@ -125,7 +134,7 @@ class Error(State):
     def update(self, machine):
         time.sleep(10)
         machine.log.warning("Going back to idling")
-        machine.go_to_state("Idle")
+        machine.go_to_state("Monitoring")
 
 class SubsystemRouter:  # Place holder for the logic on how the system routes messages
     def route(self, message):
@@ -136,7 +145,7 @@ class Outbox:
     def add_message(self, message):
         # Place holder to do code for adding a message to a subsystem. This function should never call Postman
         pass
-
+"""
 # Create instances of the necessary components
 inbox = MessageBuffer()
 outbox = Outbox()
@@ -162,3 +171,4 @@ secretary.run()
 
 # (Later, to stop the state machine)
 # secretary.stop()
+"""

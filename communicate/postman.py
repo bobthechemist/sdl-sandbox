@@ -82,3 +82,57 @@ class Postman():
     def _receive(self):
         """implementation to receive"""
         raise NotImplementedError("Implementation specific receive not implemented")
+    
+#type: ignore
+
+class DummyPostman(Postman):
+    """
+    Dummy Postman for testing without a real communication channel.  Can be configured
+    to send canned responses.
+    """
+
+    def __init__(self, params: dict = None, canned_responses=None):
+        """
+        Initializes the DummyPostman.
+
+        Args:
+            params: Dictionary of parameters (ignored, present for compatibility).
+            canned_responses: An optional list of values to be returned by 
+                              successive calls to receive().  If None, receive() 
+                              will always return an empty string.  If a list,
+                              receive() will return values from the list in 
+                              order, then empty strings once the list is exhausted.
+        """
+        super().__init__(params or {})  # Pass empty dict if params is None
+        self.canned_responses = canned_responses or []
+        self.response_index = 0
+        self.sent_values = []  # Store sent values for verification
+
+    def _open_channel(self):
+        """Dummy open - does nothing."""
+        pass  # No real channel to open
+
+    def _close_channel(self):
+        """Dummy close - does nothing."""
+        pass  # No real channel to close
+
+    def _send(self, value):
+        """Stores the sent value for later retrieval."""
+        self.sent_values.append(value)
+
+    def _receive(self):
+        """Returns a canned response or an empty string."""
+        if self.response_index < len(self.canned_responses):
+            response = self.canned_responses[self.response_index]
+            self.response_index += 1
+            return response
+        else:
+            return ""
+
+    def get_sent_values(self):
+        """Returns a list of all values sent."""
+        return self.sent_values
+
+    def clear_sent_values(self):
+        """Clears the list of sent values."""
+        self.sent_values = []
