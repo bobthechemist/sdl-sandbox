@@ -1,6 +1,19 @@
 import time
 from .statemachine import StateMachine, State
 
+'''
+The secretary may need better task management. Right now it is very linear. Perhaps in a refactor reading a new message starts
+with setting flags for what to do with the message (route, mail, file). Then there is a new state processing which cycles
+through the other states. I cannot envision a situation when we need to go through secretary states more than once for a given
+message. State machine might already be overkill.
+
+For now: Monitor watches the inbox/outbox. If outbox gets populated, call the postman. If inbox is not empty, read. Reading
+involves routing or mailing (not states, but probably will be in the future) and filing (a state). All of these should go back
+reading because the message is processed multiple times. A flag of some sort informs secretary that everyone is done with the 
+message, at which point it is removed from memory and we go back to monitoring.
+'''
+
+
 # Assuming you have MessageBuffer, Postman, and other relevant classes
 class SecretaryStateMachine(StateMachine):
     """
@@ -65,7 +78,13 @@ class Reading(State):
         return 'Reading'
 
     def enter(self, machine):
-        machine.log.debug("Reading a message")
+        message = machine.flags["current_message"]
+        if message:
+            machine.log.debug(f"Reading a message: {message}")
+        else: 
+            # My state machine logic currently goes back to Reading right after filing a message.
+            machine.log.warning("No message! I shouldn't be here")
+            machine.go_to_state('Monitoring')
 
 
     def update(self, machine):
@@ -74,31 +93,33 @@ class Reading(State):
         # Example actions (you can customize these based on your needs):
         if self.should_route_to_subsystem(message, machine):
             machine.subsystem_router.route(message)
+            machine.log.debug(f'routing {message["payload"]}')
         if self.should_send_to_outbox(message, machine):
             machine.outbox.store(message)
+            machine.log.debug(f'mailing {message["payload"]}')
         if self.should_file_message(message, machine):
+            machine.log.debug(f'filing {message["payload"]}')
             machine.go_to_state("Filing")
         else:
             machine.go_to_state("Monitoring")
 
 
     def should_file_message(self, message, machine):
-      #Add your logic to determine if the message should be filed or not.
-      #For testing always file the message
-      machine.log.debug("checking to file - will do it")
+      # Always file messages - if you don't want the messages, use the CircularFiler with 'print':False
       return True
     
     def should_route_to_subsystem(self, message, machine):
       #Add your logic to determine if the message should be sent to a subsystem
       #For testing always send the message
-      machine.log.debug("checking to route - won't do it")
+      machine.log.debug("I Route nothing, but will eventually route instructions")
       return False
     
     def should_send_to_outbox(self, message, machine):
-      #Add your logic to determine if the message should be sent to the outbox
-      #For testing always send the message
-      machine.log.debug("checking to send to outbox - will do it")
-      return True
+      # For testing, only sending INFO. Might make sense for this to be the message_types above Instruction?
+
+      return message["message_type"]=="INFO"
+
+
 
 class Filing(State):
     """Filing class reads the message and processes the message to complete the goal of the subsystem"""
@@ -112,8 +133,8 @@ class Filing(State):
     def update(self, machine):
         if machine.filer:
             message = machine.flags["current_message"]
-            machine.filer.file_message(message)  # Assumes the filer provides store_message
-            #machine.flags["current_message"] = None #Remove the old value
+            machine.filer.file_message(message)  # Assumes the filer provides file_message
+            machine.flags["current_message"] = None #Remove the old value
             machine.flags['file'] = False # Done filing - do this in exit?
         else:
             machine.log.warning("There is no filing system to store")
@@ -136,16 +157,19 @@ class Error(State):
         machine.log.warning("Going back to idling")
         machine.go_to_state("Monitoring")
 
-class SubsystemRouter:  # Place holder for the logic on how the system routes messages
+'''
+Secretary may always have a technician to work with, but it is possible that technicians are part of the subsystems they control.
+Alternatively, this might be technician logic. 
+'''
+class Router: 
     def route(self, message):
         # Add code here that routes messages to the right subsytem
         pass  # Example, subsystems may be "engine", "brakes", "lights"
 
-class Outbox:
-    def add_message(self, message):
-        # Place holder to do code for adding a message to a subsystem. This function should never call Postman
-        pass
 
+'''
+Secretary needs a way to file messages, so this class is a part of secretary.py
+'''
 class Filer():
     """
     Base class for filing messages
@@ -185,31 +209,3 @@ class CircularFiler(Filer):
         else:
             print('nom nom nom')
 
-"""
-# Create instances of the necessary components
-inbox = LinearMessageBuffer()
-outbox = LinearMessageBuffer()
-subsystem_router = SubsystemRouter()
-
-# Create a filer (e.g., a database logger) - replace with your actual filer implementation
-class DatabaseFiler:
-    def store_message(self, message):
-        print(f"Filing message to database: {message}")
-
-filer = DatabaseFiler()
-postman = Postman({"protocol":"serial"})
-
-# Instantiate the SecretaryStateMachine
-secretary = SecretaryStateMachine(inbox=inbox, outbox=outbox, subsystem_router=subsystem_router, filer=filer, postman = postman)
-
-# Add some messages to the inbox
-inbox.store({"message_type": "DATA", "data": "Some sensor data"})
-inbox.store({"message_type": "COMMAND", "command": "Start engine"})
-
-# Start the state machine
-secretary.run()
-
-print('done')
-# (Later, to stop the state machine)
-# secretary.stop()
-"""
