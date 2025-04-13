@@ -42,7 +42,10 @@ class Monitoring(State):
         """
         if not machine.outbox.is_empty():
             machine.log.info("Something to send, calling the postman")
-            machine.go_to_state('Mailing')
+            # Does mailing require its own state? It is just one line?
+            #machine.go_to_state('Mailing')
+            mail = machine.outbox.get()
+            machine.postman.send(mail)
         else:
             message = machine.inbox.get()
             if message:
@@ -54,51 +57,47 @@ class Monitoring(State):
 class Reading(State):
     """
     Secretary state of reading a message from the inbox and deciding what to do
+    Upon entering, create flags to decide if message should be filed, routed, or mailed. 
+    Then, only exit state if all three are false.
     """
     @property
     def name(self):
         return 'Reading'
 
     def enter(self, machine):
-        machine.log.info("Reading a message")
+        machine.log.debug("Reading a message")
+
 
     def update(self, machine):
-      message = machine.flags["current_message"]
-      # Determine actions to take based on the message (e.g., based on message.status, message.meta, etc.)
-      # Example actions (you can customize these based on your needs):
-      try: # Wrap the actions in a try block, so that the state can be transitioned if fails
-        if self.should_file_message(message, machine): #pass the machine to the helper as well
-            machine.go_to_state("FileMessage")
-
+        message = machine.flags["current_message"]
+        # Determine actions to take based on the message (e.g., based on message.status, message.meta, etc.)
+        # Example actions (you can customize these based on your needs):
         if self.should_route_to_subsystem(message, machine):
             machine.subsystem_router.route(message)
-
         if self.should_send_to_outbox(message, machine):
-            machine.outbox.add_message(message)
-      except Exception as e:
-        print(f"ERROR MESSAGE: {e}")
-        machine.flags["error_message"] = e
-        machine.log.critical(f"The following error has occured{e}")
-        machine.go_to_state("Error")
-      finally:
-        machine.go_to_state("Monitoring")
+            machine.outbox.store(message)
+        if self.should_file_message(message, machine):
+            machine.go_to_state("Filing")
+        else:
+            machine.go_to_state("Monitoring")
+
 
     def should_file_message(self, message, machine):
       #Add your logic to determine if the message should be filed or not.
       #For testing always file the message
-      machine.log.debug("checking to file")
+      machine.log.debug("checking to file - will do it")
       return True
     
     def should_route_to_subsystem(self, message, machine):
       #Add your logic to determine if the message should be sent to a subsystem
       #For testing always send the message
-      machine.log.debug("checking to route")
-      return True
+      machine.log.debug("checking to route - won't do it")
+      return False
     
     def should_send_to_outbox(self, message, machine):
       #Add your logic to determine if the message should be sent to the outbox
       #For testing always send the message
-      machine.log.debug("checking to send to outbox")
+      machine.log.debug("checking to send to outbox - will do it")
       return True
 
 class Filing(State):
@@ -108,16 +107,17 @@ class Filing(State):
         return 'Filing'
 
     def enter(self, machine):
-        machine.log.info("Storing the message")
+        machine.log.info("Filing the message")
 
     def update(self, machine):
         if machine.filer:
             message = machine.flags["current_message"]
-            machine.filer.store_message(message)  # Assumes the filer provides store_message
-            machine.flags["current_message"] = None #Remove the old value
+            machine.filer.file_message(message)  # Assumes the filer provides store_message
+            #machine.flags["current_message"] = None #Remove the old value
+            machine.flags['file'] = False # Done filing - do this in exit?
         else:
             machine.log.warning("There is no filing system to store")
-        #Transition to the next state
+        machine.go_to_state('Reading')
 
 class Error(State):
     def __init__(self):
@@ -145,6 +145,46 @@ class Outbox:
     def add_message(self, message):
         # Place holder to do code for adding a message to a subsystem. This function should never call Postman
         pass
+
+class Filer():
+    """
+    Base class for filing messages
+    """
+
+    def __init__(self, param = {}):
+        """
+        Initilize the filing system
+        """
+        self.parameters = param # Implementation specific parameter set
+
+    def file_message(self, msg = None):
+        """
+        Files message
+        """
+        if msg:
+            self._file_message(msg) # Implemenation specific filing
+        else:
+            pass
+    
+    def _file_message(self, msg):
+        """files message, implementation specific"""
+        raise NotImplementedError("Implementation specific filing not implemented")
+
+class CircularFiler(Filer):
+    """
+    Prints message to console unless print parameter is False
+    """
+
+    def __init__(self, param = {'print': True}):
+        super().__init__(param)
+        
+
+    def _file_message(self, msg):
+        if self.parameters['print']:
+            print(msg)
+        else:
+            print('nom nom nom')
+
 """
 # Create instances of the necessary components
 inbox = LinearMessageBuffer()

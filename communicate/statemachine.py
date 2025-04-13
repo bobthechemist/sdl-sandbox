@@ -67,8 +67,9 @@ class StateMachine:
         # Each state machine has a log 
         self.buffer = MessageBuffer()
         #self.handler = MessageBufferHandler(self.buffer, subsystem_name = self.name)
+        logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         self.log = logging.getLogger(self.name)
-        self.log.setLevel(logging.INFO)
+        #self.log.setLevel(logging.INFO)
         #self.log.addHandler(self.handler)
         #self.log.addHandler(self.handler)
         
@@ -213,7 +214,7 @@ class State:
         machine : StateMachine
             The state machine instance.
         """
-        print(f'{machine.name} left {self.name} after {round(monotonic()-self.entered_at,3)} seconds.')
+        machine.log.info(f'{machine.name} left {self.name} after {round(monotonic()-self.entered_at,3)} seconds.')
 
     def update(self, machine):
         """
