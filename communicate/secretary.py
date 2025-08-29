@@ -1,5 +1,5 @@
 import time
-from ..shared_lib.statemachine import StateMachine, State
+from shared_lib.statemachine import StateMachine, State
 
 '''
 The secretary may need better task management. Right now it is very linear. Perhaps in a refactor reading a new message starts
@@ -46,7 +46,7 @@ class Monitoring(State):
         return 'Monitoring'
     
     def enter(self, machine):
-        machine.log.info("Monitoring")
+        machine.log.info("Monitoring for new tasks.")
 
     def update(self, machine):
         """
@@ -54,16 +54,16 @@ class Monitoring(State):
         for new messages and transitions to ProcessMessage.
         """
         if not machine.outbox.is_empty():
-            machine.log.info("Something to send, calling the postman")
-            # Does mailing require its own state? It is just one line?
-            #machine.go_to_state('Mailing')
+            machine.log.info("Message in outbox. Calling the postman to send.")
             mail = machine.outbox.get()
-            machine.postman.send(mail)
+            if mail:
+                # Issue 2 FIX: Serialize the message object before sending.
+                machine.postman.send(mail.serialize())
         else:
             message = machine.inbox.get()
             if message:
                 machine.flags["current_message"] = message #Sets the current message to be used in other functions
-                machine.log.info("New message, starting processing")
+                machine.log.info("New message received. Transitioning to Reading.")
                 machine.go_to_state('Reading')
 
 
@@ -78,29 +78,40 @@ class Reading(State):
         return 'Reading'
 
     def enter(self, machine):
-        message = machine.flags["current_message"]
+        message = machine.flags.get("current_message")
         if message:
-            machine.log.debug(f"Reading a message: {message}")
+            # Log the dictionary representation for better readability
+            machine.log.debug(f"Now reading message: {message.to_dict()}")
         else: 
-            # My state machine logic currently goes back to Reading right after filing a message.
-            machine.log.warning("No message! I shouldn't be here")
+            machine.log.warning("Entered Reading state with no message! Returning to Monitoring.")
             machine.go_to_state('Monitoring')
 
 
     def update(self, machine):
-        message = machine.flags["current_message"]
-        # Determine actions to take based on the message (e.g., based on message.status, message.meta, etc.)
-        # Example actions (you can customize these based on your needs):
+        # Issue 1 FIX: Get the message from the machine flags, not the inbox.
+        message = machine.flags.get("current_message")
+
+        if not message:
+             # If there's no message, we shouldn't be here. Go back to monitoring.
+             machine.log.warning("No message found in flags during Reading update. Returning to Monitoring.")
+             machine.go_to_state('Monitoring')
+             return # Exit the update function for this cycle
+
+        # Determine actions to take based on the message object's properties
         if self.should_route_to_subsystem(message, machine):
+            machine.log.debug(f"Routing message payload: {message.payload}")
             machine.subsystem_router.route(message)
-            machine.log.debug(f'routing {message["payload"]}')
+
         if self.should_send_to_outbox(message, machine):
+            machine.log.debug(f"Mailing message payload: {message.payload}")
             machine.outbox.store(message)
-            machine.log.debug(f'mailing {message["payload"]}')
+
         if self.should_file_message(message, machine):
-            machine.log.debug(f'filing {message["payload"]}')
+            machine.log.debug(f"Filing message payload: {message.payload}")
             machine.go_to_state("Filing")
         else:
+            # If not filing, the message is processed, so clear the flag and go back to monitoring.
+            machine.flags["current_message"] = None
             machine.go_to_state("Monitoring")
 
 
@@ -109,15 +120,14 @@ class Reading(State):
       return True
     
     def should_route_to_subsystem(self, message, machine):
-      #Add your logic to determine if the message should be sent to a subsystem
-      #For testing always send the message
-      machine.log.debug("I Route nothing, but will eventually route instructions")
-      return False
+      # Route any message with the status "INSTRUCTION"
+      machine.log.debug(f"Checking if message status '{message.status}' should be routed...")
+      return message.status == "INSTRUCTION"
     
     def should_send_to_outbox(self, message, machine):
-      # For testing, only sending INFO. Might make sense for this to be the message_types above Instruction?
-
-      return message["message_type"]=="INFO"
+      # This logic is for the host-side secretary to echo things.
+      # Responses should be generated by the subsystem router, so this is correctly False.
+      return False
 
 
 
@@ -128,17 +138,25 @@ class Filing(State):
         return 'Filing'
 
     def enter(self, machine):
-        machine.log.info("Filing the message")
+        machine.log.info("Entering Filing state.")
 
     def update(self, machine):
+        # Issue 1 FIX: Get the message from machine flags.
+        message = machine.flags.get("current_message")
+        if not message:
+            machine.log.warning("No message in flags to file. Returning to Monitoring.")
+            machine.go_to_state('Monitoring')
+            return
+
         if machine.filer:
-            message = machine.flags["current_message"]
-            machine.filer.file_message(message)  # Assumes the filer provides file_message
-            machine.flags["current_message"] = None #Remove the old value
-            machine.flags['file'] = False # Done filing - do this in exit?
+            machine.filer.file_message(message)
+            machine.log.info("Message filed.")
         else:
-            machine.log.warning("There is no filing system to store")
-        machine.go_to_state('Reading')
+            machine.log.warning("No filing system configured to store the message.")
+        
+        # After filing, we're done with this message. Clear the flag and go back to monitoring.
+        machine.flags["current_message"] = None
+        machine.go_to_state('Monitoring')
 
 class Error(State):
     def __init__(self):
@@ -149,12 +167,13 @@ class Error(State):
         return 'Error'
 
     def enter(self, machine):
-        machine.log.critical("error")
-        machine.log.critical(machine.flags["error_message"])
+        machine.log.critical("An error has occurred in the Secretary.")
+        error_msg = machine.flags.get("error_message", "No error message provided.")
+        machine.log.critical(error_msg)
 
     def update(self, machine):
         time.sleep(10)
-        machine.log.warning("Going back to idling")
+        machine.log.warning("Exiting error state and returning to Monitoring.")
         machine.go_to_state("Monitoring")
 
 '''
@@ -181,15 +200,15 @@ class Filer():
         """
         self.parameters = param # Implementation specific parameter set
 
-    def file_message(self, msg = None):
+    def file_message(self, msg = None): 
         """
         Files message
         """
         if msg:
-            self._file_message(msg) # Implemenation specific filing
+            self._file_message(msg) # Implementation specific filing
         else:
             pass
-    
+
     def _file_message(self, msg):
         """files message, implementation specific"""
         raise NotImplementedError("Implementation specific filing not implemented")
@@ -203,9 +222,10 @@ class CircularFiler(Filer):
         super().__init__(param)
         
 
-    def _file_message(self, msg):
+    def _file_message(self, msg): 
         if self.parameters['print']:
-            print(msg)
+            # Print the dictionary representation of the message for readability
+            print(f"Filer: {msg.to_dict()}")
         else:
-            print('nom nom nom')
-
+            # Silently "file" the message
+            pass

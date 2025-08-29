@@ -37,18 +37,27 @@ class Message():
         """Serializes the message to JSON."""
         return json.dumps(self.to_dict())
 
-    def from_json(self, json_string):
-        """Populates the message from a JSON string."""
+    @classmethod
+    def from_json(cls, json_string: str):
+        """
+        Creates a new Message instance from a JSON string.
+        This is a class method.
+        """
         try:
             data = json.loads(json_string)
-            self.subsystem_name = data.get("subsystem_name")
-            # Validate that the status deserialized from JSON is valid
+            subsystem_name = data.get("subsystem_name")
             status = data.get("status")
-            if status is not None and status not in Message.VALID_STATUS:
-               raise ValueError("Invalid Status Level")
-            self.status = status
-            self.meta = data.get("meta", {})  # Default to empty dict if missing
-            self.payload = data.get("payload")
+            meta = data.get("meta", {})
+            payload = data.get("payload")
+
+            # The validation for status is handled by the __init__ method,
+            # so we just pass the values along.
+            return cls(
+                subsystem_name=subsystem_name,
+                status=status,
+                meta=meta,
+                payload=payload
+            )
         except json.JSONDecodeError:
             raise ValueError("Invalid JSON string")
 
