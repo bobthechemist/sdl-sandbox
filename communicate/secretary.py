@@ -1,5 +1,5 @@
 import time
-from .statemachine import StateMachine, State
+from ..shared_lib.statemachine import StateMachine, State
 
 '''
 The secretary may need better task management. Right now it is very linear. Perhaps in a refactor reading a new message starts

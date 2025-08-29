@@ -4,7 +4,7 @@ Utility functions relevant to the host (PC/MAC/LINUX) computer operating the sof
 
 Author(s): BoB LeSuer
 """
-from .utility import check_if_microcontroller
+from ..shared_lib.utility import check_if_microcontroller
 
 # Import appropriate modules based on the environment
 if check_if_microcontroller():
