@@ -1,5 +1,17 @@
 # Notes and such
 
+## 250413
+
+- on my way to POSE
+- Working on communicate, which is a generalizable package for transmitting and processing mesages.
+- inbox when created in main is accessible inside and outside secretary.
+- done processing a message, then file it. 
+- turning subsystem router into the technician
+    - (super)state machine that monitors an inbox (populated by the secretary), populates a shared outbox and operates the state machines/subsystems under its control. 
+- Above isn't going to work. Technician must be a state machine and the system itself is the state machine orchestrator. This might make things a bit cleaner since the orchestrator can instantiate the inbox/outbox and such.
+- Secretary populates the buffers of the state machines with their tasks, and they use that buffer to figure out what to do. They should have access to the outbox so they can deliver results.
+- Secretary needs a knowledge base to figure out what to do with instructions. For example, if a system has SM that is blinking lights and a SM that is controlling pumps, then knowing which command goes to which SM will be important. Could be a simple dictionary with funtion names as keys and SMs as values.
+
 ## 240904
 
 - Created state machine code

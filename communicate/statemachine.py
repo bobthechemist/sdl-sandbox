@@ -5,7 +5,7 @@ Classes to treat the software-driven laboratory subsystems as state machines
 Author(s): BoB LeSuer
 """
 from .utility import check_if_microcontroller
-from .messages import MessageBuffer
+from .message_buffer import LinearMessageBuffer # Keep it simple, although at some point, SM should be able to choose
 from time import monotonic
 
 if check_if_microcontroller():
@@ -64,12 +64,10 @@ class StateMachine:
         self.is_microcontroller = check_if_microcontroller()
         self.init_state = init_state
         self.name = name
-        # Each state machine has a log 
-        self.buffer = MessageBuffer()
-        self.handler = MessageBufferHandler(self.buffer, subsystem_name = self.name)
+        # Each state machine has an inbox
+        self.inbox = LinearMessageBuffer()
+        logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(name)s] %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         self.log = logging.getLogger(self.name)
-        self.log.setLevel(logging.INFO)
-        self.log.addHandler(self.handler)
         
     def add_state(self, state):
         """
@@ -212,7 +210,7 @@ class State:
         machine : StateMachine
             The state machine instance.
         """
-        print(f'{machine.name} left {self.name} after {round(monotonic()-self.entered_at,3)} seconds.')
+        machine.log.info(f'{machine.name} left {self.name} after {round(monotonic()-self.entered_at,3)} seconds.')
 
     def update(self, machine):
         """
