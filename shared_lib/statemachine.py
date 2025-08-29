@@ -9,7 +9,7 @@ from .message_buffer import LinearMessageBuffer # Keep it simple, although at so
 from time import monotonic
 
 if check_if_microcontroller():
-    import adafruit_logging as logging
+    import logging as logging
 else:
     import logging
 

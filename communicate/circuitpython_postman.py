@@ -1,5 +1,6 @@
+# communicate/circuitpython_postman.py
 #type: ignore
-#import usb_cdc
+import usb_cdc  # Make sure this is not commented out
 from .postman import Postman
 
 class CircuitPythonPostman(Postman):
@@ -26,9 +27,17 @@ class CircuitPythonPostman(Postman):
         self.channel.write(data)
 
     def _receive(self):
-        """Receives data from the serial port."""
-        # Read a line of data (terminated by newline character)
-        data = self.channel.readline()
-        # Decode the bytes to a string, stripping any trailing whitespace
-        return data.decode('utf-8').strip()
-
+        """
+        Receives data from the serial port in a NON-BLOCKING way.
+        """
+        # --- FIX IS HERE ---
+        # First, check if there is any data waiting to be read.
+        if self.channel.in_waiting > 0:
+            # If there is data, read one line.
+            data = self.channel.readline()
+            # Decode the bytes to a string, stripping any trailing whitespace.
+            return data.decode('utf-8').strip()
+        
+        # If no data is waiting, return an empty string immediately.
+        # This prevents the main loop from blocking.
+        return ""
