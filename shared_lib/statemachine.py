@@ -9,7 +9,7 @@ from .message_buffer import LinearMessageBuffer # Keep it simple, although at so
 from time import monotonic
 
 if check_if_microcontroller():
-    import logging as logging
+    import adafruit_logging as logging
 else:
     import logging
 
@@ -66,7 +66,9 @@ class StateMachine:
         self.name = name
         # Each state machine has an inbox
         self.inbox = LinearMessageBuffer()
-        logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(name)s] %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        # TODO: Create a custom handler or other solution to address that adafruit_logging doesn't have basicConfig
+        if not self.is_microcontroller:
+            logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(name)s] %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         self.log = logging.getLogger(self.name)
         
     def add_state(self, state):
