@@ -59,7 +59,9 @@ class StateMachine:
         """
         self.state = None
         self.states = {}
-        self.flags = {} # Includes parameters. May want to separate in the future
+        self.flags = {} 
+        self.command_handlers = {}
+        self.supported_commands = {}
         self.running = False
         self.is_microcontroller = check_if_microcontroller()
         self.init_state = init_state
@@ -70,7 +72,38 @@ class StateMachine:
         if not self.is_microcontroller:
             logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(name)s] %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         self.log = logging.getLogger(self.name)
+
+        def add_command(self, name: str, handler, doc: dict):
+        """Adds a command handler and its documentation to the machine."""
+        self.command_handlers[name] = handler
+        self.supported_commands[name] = doc
         
+    def handle_instruction(self, payload: dict):
+        """Dispatches an instruction payload to the correct handler."""
+        func_name = payload.get("func") if isinstance(payload, dict) else None
+        
+        handler = self.command_handlers.get(func_name)
+        
+        if handler:
+            # Call the handler, passing the machine instance and payload
+            handler(self, payload)
+        else:
+            self._handle_unknown(payload)
+            
+    def _handle_unknown(self, payload):
+        """Default handler for any command not found."""
+        from .messages import Message # Local import for CircuitPython memory optimization
+        func_name = payload.get("func") if payload else "N/A"
+        self.log.error(f"Received an unknown instruction: {func_name}")
+        response = Message.create_message(
+            subsystem_name=self.name,
+            status="PROBLEM",
+            payload={"error": f"Unknown instruction: {func_name}"}
+        )
+        if hasattr(self, 'postman'):
+            self.postman.send(response.serialize())
+
+
     def add_state(self, state):
         """
         Adds a state to the state machine.

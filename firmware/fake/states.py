@@ -5,6 +5,7 @@ import digitalio
 import analogio
 from shared_lib.statemachine import State
 from shared_lib.messages import Message
+from shared_lib.command_library import CommonCommandHandler
 
 # Constants for the state machine
 ANALOG_READ_INTERVAL = 5.0  # seconds
@@ -60,70 +61,79 @@ class Idle(State):
         return 'Idle'
 
     def enter(self, machine):
+        """Called once when entering the Idle state."""
         super().enter(machine)
-        # Set a timer for the next analog data transmission
+        
+        # --- THE FIX IS HERE ---
+        # We must store the machine instance on self so that our
+        # handler methods can access it.
+        self.machine = machine
+        
         self.next_analog_read_time = time.monotonic() + ANALOG_READ_INTERVAL
         machine.log.info("Entering Idle state. Listening for commands.")
 
+        # Instantiate the common command handler
+        self.common_command_handler = CommonCommandHandler(machine, SUPPORTED_COMMANDS)
+        
+        common_handlers = self.common_command_handler.get_handlers()
+        
+        device_specific_handlers = {
+            "blink": self._handle_blink,
+        }
+
+        # Merge the dictionaries using a CircuitPython-compatible method.
+        self.command_handlers = common_handlers.copy()
+        self.command_handlers.update(device_specific_handlers)
+
     def update(self, machine):
-        # 1. Check for incoming commands from the host
+        """Called on every loop while in the Idle state."""
         raw_message = machine.postman.receive()
         if raw_message:
             try:
                 message = Message.from_json(raw_message)
-                machine.log.info(f"Received message: {message.to_dict()}")
-
                 if message.status == "INSTRUCTION":
                     payload = message.payload
-                    func = payload.get("func") if isinstance(payload, dict) else None
-                    machine.log.critical(f"func:{func}")
-                    if func == "help":
-                        # If the command is 'help', send back the command dictionary.
-                        machine.log.info("Help command received. Sending capabilities.")
-                        response = Message.create_message(
-                            subsystem_name=machine.name,
-                            status="SUCCESS",
-                            payload=SUPPORTED_COMMANDS
-                        )
-                        machine.postman.send(response.serialize())
-                        return
+                    func_name = payload.get("func") if isinstance(payload, dict) else None
                     
-                    elif func == "blink":
-                        # Got a blink command; parse args and switch to the Blinking state
-                        try:
-                            count = int(payload.get("args", [1])[0])
-                        except (ValueError, IndexError):
-                            count = 1  # Default to 1 blink
-                        
-                        machine.flags['blink_count'] = count
-                        machine.log.info(f"Blink request received for {count} times.")
-                        machine.go_to_state('Blinking')
-                        return # Exit update early since we changed state
-                    else:
-                        machine.log.error(f"Received an invalid instruction {func}")
-                        response = Message.create_message(
-                            subsystem_name=machine.name,
-                            status="PROBLEM",
-                            payload=f"Received an invalid instruction {func}"
-                        )
-                        machine.postman.send(response.serialize())
+                    handler = self.command_handlers.get(func_name, self._handle_unknown)
+                    handler(payload) # Call the handler with just the payload
+
             except Exception as e:
                 machine.log.error(f"Could not process message: '{raw_message}'. Error: {e}")
 
-
-        # 2. Send periodic analog data (HEARTBEAT)
+        # Send periodic analog data (unchanged)
         if time.monotonic() >= self.next_analog_read_time:
             analog_value = machine.analog_in.value
-            machine.log.info(f"Reading analog value: {analog_value}")
-            
             heartbeat_message = Message.create_message(
-                subsystem_name=machine.name,
-                status="HEARTBEAT",
-                payload={"analog_value": analog_value}
+                subsystem_name=machine.name, status="HEARTBEAT", payload={"analog_value": analog_value}
             )
-            
             machine.postman.send(heartbeat_message.serialize())
             self.next_analog_read_time = time.monotonic() + ANALOG_READ_INTERVAL
+
+    # --- Handlers ---
+    
+    def _handle_blink(self, payload):
+        """Handles the 'blink' command."""
+        try:
+            count = int(payload.get("args", [1])[0])
+        except (ValueError, IndexError):
+            count = 1
+        
+        # Now this will work, because self.machine was set in enter()
+        self.machine.flags['blink_count'] = count
+        self.machine.log.info(f"Blink request received for {count} times.")
+        self.machine.go_to_state('Blinking')
+
+    def _handle_unknown(self, payload):
+        """Handles any command not in our dispatcher dictionary."""
+        func_name = payload.get("func") if payload else "N/A"
+        self.machine.log.error(f"Received an unknown instruction: {func_name}")
+        response = Message.create_message(
+            subsystem_name=self.machine.name,
+            status="PROBLEM",
+            payload={"error": f"Unknown instruction: {func_name}"}
+        )
+        self.machine.postman.send(response.serialize())
 
 class Blinking(State):
     """
