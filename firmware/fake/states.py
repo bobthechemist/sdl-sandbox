@@ -6,13 +6,6 @@ import analogio
 from shared_lib.statemachine import State
 from shared_lib.messages import Message
 
-
-# Constants for the state machine
-ANALOG_READ_INTERVAL = 5.0  # seconds
-BLINK_ON_TIME = 0.25        # seconds
-BLINK_OFF_TIME = 0.25       # seconds
-
-
 class Initialize(State):
     """
     Initializes the hardware (LED, ADC) required for the fake device.
@@ -28,7 +21,6 @@ class Initialize(State):
             machine.led = digitalio.DigitalInOut(board.LED)
             machine.led.direction = digitalio.Direction.OUTPUT
             machine.led.value = False
-            
             machine.analog_in = analogio.AnalogIn(board.A0)
             
             machine.log.info("Fake device initialized successfully.")
@@ -50,13 +42,15 @@ class Idle(State):
 
     def enter(self, machine):
         super().enter(machine)
-        self.next_analog_read_time = time.monotonic() + 5.0 # ANALOG_READ_INTERVAL
-        machine.log.info("Entering Idle state. Listening for commands.")
+        self.next_analog_read_time = time.monotonic() + machine.flags['heartbeat']
 
     def update(self, machine):
+        super().update(machine)
+
         # 1. Check for incoming commands from the host
         raw_message = machine.postman.receive()
         if raw_message:
+            machine.log.debug("Received a message")
             try:
                 message = Message.from_json(raw_message)
                 if message.status == "INSTRUCTION":
@@ -67,12 +61,13 @@ class Idle(State):
 
         # Send periodic analog data (unchanged)
         if time.monotonic() >= self.next_analog_read_time:
+            machine.log.debug("Heartbeat.")
             analog_value = machine.analog_in.value
             heartbeat_message = Message.create_message(
                 subsystem_name=machine.name, status="HEARTBEAT", payload={"analog_value": analog_value}
             )
             machine.postman.send(heartbeat_message.serialize())
-            self.next_analog_read_time = time.monotonic() + ANALOG_READ_INTERVAL
+            self.next_analog_read_time = time.monotonic() + machine.flags['heartbeat']
 
 
 
@@ -95,7 +90,7 @@ class Blinking(State):
 
         # Start the first blink
         machine.led.value = True
-        self.next_toggle_time = time.monotonic() + BLINK_ON_TIME
+        self.next_toggle_time = time.monotonic() + machine.flags['blink_on_time']
 
     def update(self, machine):
         if time.monotonic() >= self.next_toggle_time:
@@ -103,10 +98,10 @@ class Blinking(State):
             machine.led.value = not machine.led.value
             
             if machine.led.value: # Just turned ON (start of a new cycle)
-                self.next_toggle_time = time.monotonic() + BLINK_ON_TIME
+                self.next_toggle_time = time.monotonic() + machine.flags['blink_on_time']
             else: # Just turned OFF (end of a cycle)
                 self.blinks_remaining -= 1
-                self.next_toggle_time = time.monotonic() + BLINK_OFF_TIME
+                self.next_toggle_time = time.monotonic() + machine.flags['blink_off_time']
 
             # Check if all blink cycles are complete
             if self.blinks_remaining <= 0:

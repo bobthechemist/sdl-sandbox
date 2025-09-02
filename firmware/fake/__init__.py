@@ -30,4 +30,7 @@ machine.add_command("blink", handle_blink, {
 
 # 5. Add flags that states might use. This pre-defines them for clarity.
 machine.add_flag('blink_count', 0)
+machine.add_flag('blink_on_time', 0.4)
+machine.add_flag('blink_off_time', 0.1)
+machine.add_flag('heartbeat', 5)
 machine.add_flag('error_message', '')

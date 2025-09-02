@@ -80,6 +80,8 @@ class StateMachine:
         
     def handle_instruction(self, payload: dict):
         """Dispatches an instruction payload to the correct handler."""
+        # Handler should set any flags and move to a different state
+        
         func_name = payload.get("func") if isinstance(payload, dict) else None
         
         handler = self.command_handlers.get(func_name)
@@ -235,6 +237,7 @@ class State:
             The state machine instance.
         """
         self.entered_at = monotonic()
+        machine.log.info(f'{machine.name} entered {self.name}.')
 
     def exit(self, machine):
         """
@@ -256,6 +259,7 @@ class State:
         machine : StateMachine
             The state machine instance.
         """
+        # Update gets looped regularly, so leave logging to the individual state
         pass
 
 class StateMachineOrchestrator:
