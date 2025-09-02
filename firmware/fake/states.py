@@ -5,24 +5,12 @@ import digitalio
 import analogio
 from shared_lib.statemachine import State
 from shared_lib.messages import Message
-from shared_lib.command_library import CommonCommandHandler
+
 
 # Constants for the state machine
 ANALOG_READ_INTERVAL = 5.0  # seconds
 BLINK_ON_TIME = 0.25        # seconds
 BLINK_OFF_TIME = 0.25       # seconds
-
-# This dictionary documents the device's capabilities.
-SUPPORTED_COMMANDS = {
-    "help": {
-        "description": "Returns a list of all supported commands and their arguments.",
-        "args": []
-    },
-    "blink": {
-        "description": "Blinks the onboard LED a specified number of times.",
-        "args": ["count (integer, default: 1)"]
-    }
-}
 
 
 class Initialize(State):
@@ -61,43 +49,19 @@ class Idle(State):
         return 'Idle'
 
     def enter(self, machine):
-        """Called once when entering the Idle state."""
         super().enter(machine)
-        
-        # --- THE FIX IS HERE ---
-        # We must store the machine instance on self so that our
-        # handler methods can access it.
-        self.machine = machine
-        
-        self.next_analog_read_time = time.monotonic() + ANALOG_READ_INTERVAL
+        self.next_analog_read_time = time.monotonic() + 5.0 # ANALOG_READ_INTERVAL
         machine.log.info("Entering Idle state. Listening for commands.")
 
-        # Instantiate the common command handler
-        self.common_command_handler = CommonCommandHandler(machine, SUPPORTED_COMMANDS)
-        
-        common_handlers = self.common_command_handler.get_handlers()
-        
-        device_specific_handlers = {
-            "blink": self._handle_blink,
-        }
-
-        # Merge the dictionaries using a CircuitPython-compatible method.
-        self.command_handlers = common_handlers.copy()
-        self.command_handlers.update(device_specific_handlers)
-
     def update(self, machine):
-        """Called on every loop while in the Idle state."""
+        # 1. Check for incoming commands from the host
         raw_message = machine.postman.receive()
         if raw_message:
             try:
                 message = Message.from_json(raw_message)
                 if message.status == "INSTRUCTION":
-                    payload = message.payload
-                    func_name = payload.get("func") if isinstance(payload, dict) else None
-                    
-                    handler = self.command_handlers.get(func_name, self._handle_unknown)
-                    handler(payload) # Call the handler with just the payload
-
+                    # The state's only job is to pass the payload to the machine's handler.
+                    machine.handle_instruction(message.payload)
             except Exception as e:
                 machine.log.error(f"Could not process message: '{raw_message}'. Error: {e}")
 
@@ -110,30 +74,7 @@ class Idle(State):
             machine.postman.send(heartbeat_message.serialize())
             self.next_analog_read_time = time.monotonic() + ANALOG_READ_INTERVAL
 
-    # --- Handlers ---
-    
-    def _handle_blink(self, payload):
-        """Handles the 'blink' command."""
-        try:
-            count = int(payload.get("args", [1])[0])
-        except (ValueError, IndexError):
-            count = 1
-        
-        # Now this will work, because self.machine was set in enter()
-        self.machine.flags['blink_count'] = count
-        self.machine.log.info(f"Blink request received for {count} times.")
-        self.machine.go_to_state('Blinking')
 
-    def _handle_unknown(self, payload):
-        """Handles any command not in our dispatcher dictionary."""
-        func_name = payload.get("func") if payload else "N/A"
-        self.machine.log.error(f"Received an unknown instruction: {func_name}")
-        response = Message.create_message(
-            subsystem_name=self.machine.name,
-            status="PROBLEM",
-            payload={"error": f"Unknown instruction: {func_name}"}
-        )
-        self.machine.postman.send(response.serialize())
 
 class Blinking(State):
     """

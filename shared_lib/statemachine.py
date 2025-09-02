@@ -73,7 +73,7 @@ class StateMachine:
             logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(name)s] %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         self.log = logging.getLogger(self.name)
 
-        def add_command(self, name: str, handler, doc: dict):
+    def add_command(self, name: str, handler, doc: dict):
         """Adds a command handler and its documentation to the machine."""
         self.command_handlers[name] = handler
         self.supported_commands[name] = doc
