@@ -11,6 +11,19 @@ ANALOG_READ_INTERVAL = 5.0  # seconds
 BLINK_ON_TIME = 0.25        # seconds
 BLINK_OFF_TIME = 0.25       # seconds
 
+# This dictionary documents the device's capabilities.
+SUPPORTED_COMMANDS = {
+    "help": {
+        "description": "Returns a list of all supported commands and their arguments.",
+        "args": []
+    },
+    "blink": {
+        "description": "Blinks the onboard LED a specified number of times.",
+        "args": ["count (integer, default: 1)"]
+    }
+}
+
+
 class Initialize(State):
     """
     Initializes the hardware (LED, ADC) required for the fake device.
@@ -62,7 +75,20 @@ class Idle(State):
 
                 if message.status == "INSTRUCTION":
                     payload = message.payload
-                    if isinstance(payload, dict) and payload.get("func") == "blink":
+                    func = payload.get("func") if isinstance(payload, dict) else None
+                    machine.log.critical(f"func:{func}")
+                    if func == "help":
+                        # If the command is 'help', send back the command dictionary.
+                        machine.log.info("Help command received. Sending capabilities.")
+                        response = Message.create_message(
+                            subsystem_name=machine.name,
+                            status="SUCCESS",
+                            payload=SUPPORTED_COMMANDS
+                        )
+                        machine.postman.send(response.serialize())
+                        return
+                    
+                    elif func == "blink":
                         # Got a blink command; parse args and switch to the Blinking state
                         try:
                             count = int(payload.get("args", [1])[0])
@@ -73,8 +99,17 @@ class Idle(State):
                         machine.log.info(f"Blink request received for {count} times.")
                         machine.go_to_state('Blinking')
                         return # Exit update early since we changed state
+                    else:
+                        machine.log.error(f"Received an invalid instruction {func}")
+                        response = Message.create_message(
+                            subsystem_name=machine.name,
+                            status="PROBLEM",
+                            payload=f"Received an invalid instruction {func}"
+                        )
+                        machine.postman.send(response.serialize())
             except Exception as e:
                 machine.log.error(f"Could not process message: '{raw_message}'. Error: {e}")
+
 
         # 2. Send periodic analog data (HEARTBEAT)
         if time.monotonic() >= self.next_analog_read_time:
