@@ -7,7 +7,7 @@ from communicate.circuitpython_postman import CircuitPythonPostman
 from . import states
 # --- NEW ---: Import the new generic state
 from firmware.common.common_states import GenericIdle
-from shared_lib.command_library import register_common_commands
+from firmware.common.command_library import register_common_commands
 from .handlers import handle_blink
 
 # --- NEW ---: Define the device-specific heartbeat logic as a simple function.

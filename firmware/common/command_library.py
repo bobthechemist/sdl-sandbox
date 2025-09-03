@@ -1,6 +1,6 @@
 # shared_lib/command_library.py
 #type: ignore
-from .messages import Message
+from shared_lib.messages import Message
 
 # Helper function, not a class, to register common commands.
 def register_common_commands(machine):
