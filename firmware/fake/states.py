@@ -31,46 +31,6 @@ class Initialize(State):
             machine.log.critical(f"Initialization failed: {e}")
             machine.go_to_state('Error')
 
-class Idle(State):
-    """
-    The main operational state. It listens for incoming commands from the host
-    and periodically sends back analog sensor readings.
-    """
-    @property
-    def name(self):
-        return 'Idle'
-
-    def enter(self, machine):
-        super().enter(machine)
-        self.next_analog_read_time = time.monotonic() + machine.flags['heartbeat']
-
-    def update(self, machine):
-        super().update(machine)
-
-        # 1. Check for incoming commands from the host
-        raw_message = machine.postman.receive()
-        if raw_message:
-            machine.log.debug("Received a message")
-            try:
-                message = Message.from_json(raw_message)
-                if message.status == "INSTRUCTION":
-                    # The state's only job is to pass the payload to the machine's handler.
-                    machine.handle_instruction(message.payload)
-            except Exception as e:
-                machine.log.error(f"Could not process message: '{raw_message}'. Error: {e}")
-
-        # Send periodic analog data (unchanged)
-        if time.monotonic() >= self.next_analog_read_time:
-            machine.log.debug("Heartbeat.")
-            analog_value = machine.analog_in.value
-            heartbeat_message = Message.create_message(
-                subsystem_name=machine.name, status="HEARTBEAT", payload={"analog_value": analog_value}
-            )
-            machine.postman.send(heartbeat_message.serialize())
-            self.next_analog_read_time = time.monotonic() + machine.flags['heartbeat']
-
-
-
 class Blinking(State):
     """
     Handles the non-blocking logic for blinking the LED a set number of times.
