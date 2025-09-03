@@ -40,28 +40,41 @@ class Blinking(State):
         return 'Blinking'
 
     def enter(self, machine):
+        """
+        Called once when entering the Blinking state. Sets up the blink count
+        and initializes the timer for the first toggle.
+        """
         super().enter(machine)
         self.blinks_remaining = machine.flags.get('blink_count', 0)
         machine.log.info(f"Starting to blink {self.blinks_remaining} times.")
         
+        # Handle the case where we are asked to blink 0 or fewer times.
         if self.blinks_remaining <= 0:
+            machine.led.value = False # Ensure LED is off
             machine.go_to_state('Idle')
             return
 
-        # Start the first blink
+        # --- THE FIX IS HERE ---
+        # Start the first blink immediately and set the timer for the next toggle.
         machine.led.value = True
-        self.next_toggle_time = time.monotonic() + machine.flags['blink_on_time']
+        # Initialize the 'next_toggle_time' attribute on self.
+        self.next_toggle_time = time.monotonic() + machine.flags['blink_on_time'] # BLINK_ON_TIME
 
     def update(self, machine):
+        """
+        Called repeatedly. Checks the timer and toggles the LED or returns
+        to Idle when complete.
+        """
+        # This check will now work correctly.
         if time.monotonic() >= self.next_toggle_time:
             # Toggle the LED
             machine.led.value = not machine.led.value
             
             if machine.led.value: # Just turned ON (start of a new cycle)
-                self.next_toggle_time = time.monotonic() + machine.flags['blink_on_time']
+                self.next_toggle_time = time.monotonic() + machine.flags['blink_on_time'] # BLINK_ON_TIME
             else: # Just turned OFF (end of a cycle)
                 self.blinks_remaining -= 1
-                self.next_toggle_time = time.monotonic() + machine.flags['blink_off_time']
+                self.next_toggle_time = time.monotonic() + machine.flags['blink_off_time'] # BLINK_OFF_TIME
 
             # Check if all blink cycles are complete
             if self.blinks_remaining <= 0:
