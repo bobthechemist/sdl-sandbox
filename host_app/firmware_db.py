@@ -5,7 +5,7 @@ FIRMWARE_DATABASE = {
         'manufacturer': 'Brockport Original Builds',
         'products': {
             810: 'Fake Device',
-            811: 'DIY Stirplate', # Example for a future PID,
+            811: 'DIY Stirplate', 
             812: 'Sidekick dispenser',
             813: 'Colorimeter'
         }

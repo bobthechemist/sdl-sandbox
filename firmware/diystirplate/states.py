@@ -1,9 +1,9 @@
+# firmware/diystirplate/states.py
 from shared_lib.statemachine import State
-from shared_lib.messages import Message
-from time import sleep, monotonic
+from time import monotonic
 import board
 import digitalio
-
+from firmware.common.common_states import listen_for_instructions
 
 class Initialize(State):
     def __init__(self):
@@ -14,103 +14,50 @@ class Initialize(State):
         return 'Initialize'
 
     def enter(self, machine):
-        pass
-
-
-    def update(self, machine):
-        pass
-
-    def exit(self, machine):
-        pass
-
-class Error(State):
-    def __init__(self):
-        super().__init__()
-
-    @property
-    def name(self):
-        return 'Error'
-
-    def enter(self, machine):
-        self.entered_at = monotonic()
-        print(f'ERROR MESSAGE: {machine.properties["error_message"]}')
-        machine.go_to_state(machine.final_state)
-
-    def update(self, machine):
-        pass
-
-    def exit(self, machine):
-        pass
-
-class Listening(State):
-    def __init__(self):
-        super().__init__()
-
-    @property
-    def name(self):
-        return 'Listening'
-
-    def enter(self, machine):
-        self.entered_at = monotonic()
-        # Check for messages
-        machine.serial.read_serial_data()
-        if not machine.serial.readbuffer.is_empty():
-            msg = machine.serial.readbuffer.get_oldest_message(jsonq=False)
-            print(msg)
-
-            # process the message if it is a REQUEST
-            if msg['comm_type'] is 'REQUEST':
-                print("Performing operation")
-                # May have a request processing state that looks at function and decides what to do.
-                cmd = parse_payload(msg['payload'])
-                # Store the command for other states
-                machine.active_command = cmd
-                print(cmd)
-                if cmd['func'] is 'low':
-                    machine.duty_cycle = 0.5
-                    machine.period = 1
-                elif cmd['func'] is 'high':
-                    machine.duty_cycle = 1
-                    machine.period = 1
-                elif cmd['func'] is 'off':
-                    machine.duty_cycle = 0
-                    machine.period = 1
-
-
-    def update(self, machine):
-        machine.go_to_state('Stirring')
-
-    def exit(self, machine):
-        pass
+        # Setup hardware
+        super().enter(machine)
+        try:
+            machine.tachometer_pin = board.A0
+            machine.pwm = digitalio.DigitalInOut(board.D10)
+            machine.pwm.direction = digitalio.Direction.OUTPUT
+            machine.duty_cycle = 0
+            machine.period = 1
+            machine.start = True
+            machine.log.debug(f"{machine.name} has been Initialized")
+            machine.go_to_state('Idle')
+        except Exception as e:
+            machine.flags['error_message'] = str(e)
+            machine.log.critical(f"Initialization of {machine.name} failed: {e}")
+            machine.go_to_state('Error')
 
 class Stirring(State):
-    def __init__(self):
-        super().__init__()
-
     @property
     def name(self):
         return 'Stirring'
 
     def enter(self, machine):
-        self.entered_at = monotonic()
-        #print(machine.active_command)
-        if machine.start:
-            machine.pwm.value = True
-            machine.start = False
-            machine.current_time = monotonic()
-            machine.target_time = machine.duty_cycle * machine.period
-        else:
-            if machine.pwm.value: # The stirplate cycle is high
-                if monotonic() - machine.current_time > machine.target_time:
-                    machine.current_time = monotonic()
-                    machine.target_time = (1-machine.duty_cycle)*machine.period
-                    machine.pwm.value = False
-            else: # The stirplate cycle is low
-                if monotonic() - machine.current_time > machine.target_time:
-                    machine.current_time = monotonic()
-                    machine.target_time = machine.duty_cycle * machine.period
-                    machine.pwm.value = True
-
+        """Called once when we start stirring."""
+        super().enter(machine)
+        machine.log.info(f"Entering Stirring state with duty cycle {machine.duty_cycle}")
+        
+        # Initialize the PWM logic
+        machine.pwm.value = True
+        self._toggle_time = monotonic() + (machine.duty_cycle * machine.period)
 
     def update(self, machine):
-        machine.go_to_state("Listening")
+        """Called on every loop to run the motor AND listen for commands."""
+        super().update(machine)
+
+        # 1. ALWAYS listen for commands. This allows an 'off' command to be received.
+        listen_for_instructions(machine)
+
+        # 2. Perform the non-blocking PWM work.
+        if monotonic() >= self._toggle_time:
+            if machine.pwm.value: # Currently HIGH, switch to LOW
+                machine.pwm.value = False
+                on_time = (1 - machine.duty_cycle) * machine.period
+                self._toggle_time = monotonic() + on_time
+            else: # Currently LOW, switch to HIGH
+                machine.pwm.value = True
+                off_time = machine.duty_cycle * machine.period
+                self._toggle_time = monotonic() + off_time 
