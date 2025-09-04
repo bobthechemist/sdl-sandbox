@@ -81,28 +81,99 @@ class Homing(State):
         pass # The enter method does everything for this simple simulation
 
 class Moving(State):
+    """
+    The 'Motion Engine' state. It executes a planned move from a start point
+    to a target point in a non-blocking way.
+    """
     @property
     def name(self): return 'Moving'
-    # This is a placeholder. A real implementation would use trajectory
-    # planning (e.g., Bresenham's algorithm) for smooth, coordinated motion.
+
     def enter(self, machine):
+        """
+        Called once on entry. This is where we plan the entire move.
+        """
         super().enter(machine)
+        
+        # 1. Read start and target positions from the machine's flags
+        start_m1 = machine.flags['current_m1_steps']
+        start_m2 = machine.flags['current_m2_steps']
         self.target_m1 = machine.flags['target_m1_steps']
         self.target_m2 = machine.flags['target_m2_steps']
-        machine.log.info(f"Moving to ({self.target_m1}, {self.target_m2})...")
-        machine.hardware['motor1_enable'].value = False # Enable motors
+        
+        machine.log.info(f"Moving from ({start_m1}, {start_m2}) to ({self.target_m1}, {self.target_m2}).")
+
+        # 2. Calculate the plan: steps and direction for each motor
+        delta_m1 = self.target_m1 - start_m1
+        delta_m2 = self.target_m2 - start_m2
+        
+        self.steps_left_m1 = abs(delta_m1)
+        self.steps_left_m2 = abs(delta_m2)
+        
+        # Set motor direction pins (True/False may need to be adjusted for your wiring)
+        machine.hardware['motor1_dir'].value = True if delta_m1 > 0 else False
+        machine.hardware['motor2_dir'].value = True if delta_m2 > 0 else False
+
+        # 3. Enable the motors
+        machine.hardware['motor1_enable'].value = False
         machine.hardware['motor2_enable'].value = False
+        time.sleep(0.01) # Short delay to ensure drivers are fully enabled
+
     def update(self, machine):
-        # For now, we will simulate arriving instantly.
-        machine.flags['current_m1_steps'] = self.target_m1
-        machine.flags['current_m2_steps'] = self.target_m2
+        """
+        Called on every loop. This is the core stepper pulse generator.
+        This is a simple implementation that steps both motors on each loop.
+        A more advanced version would use Bresenham's algorithm for smoother lines.
+        """
+        super().update(machine)
         
-        # --- The State Sequencer Logic ---
-        next_state = machine.flags.get('on_move_complete', 'Idle')
-        machine.flags['on_move_complete'] = None # Clear the flag
+        # Check for unexpected endstops (Safety First!)
+        # Note: Endstop value is False when pressed due to Pull.UP
+        if not machine.hardware['endstop_m1'].value or not machine.hardware['endstop_m2'].value:
+            machine.hardware['motor1_enable'].value = True # Immediately disable motors
+            machine.hardware['motor2_enable'].value = True
+            machine.flags['is_homed'] = False # We no longer know our position
+            machine.flags['error_message'] = "FAULT: Endstop triggered during move!"
+            machine.go_to_state('Error')
+            return # Stop processing immediately
+
+        move_is_done = True
         
-        machine.log.info(f"Move complete. Transitioning to '{next_state}'.")
-        machine.go_to_state(next_state)
+        # Pulse Motor 1 if it still has steps to go
+        if self.steps_left_m1 > 0:
+            step_pin = machine.hardware['motor1_step']
+            step_pin.value = True
+            step_pin.value = False # This pulse is very short
+            self.steps_left_m1 -= 1
+            move_is_done = False
+        
+        # Pulse Motor 2 if it still has steps to go
+        if self.steps_left_m2 > 0:
+            step_pin = machine.hardware['motor2_step']
+            step_pin.value = True
+            step_pin.value = False
+            self.steps_left_m2 -= 1
+            move_is_done = False
+            
+        # If both motors have completed their moves
+        if move_is_done:
+            # Update the final position in the machine's flags
+            machine.flags['current_m1_steps'] = self.target_m1
+            machine.flags['current_m2_steps'] = self.target_m2
+
+            # Use the State Sequencer to decide where to go next
+            next_state = machine.flags.get('on_move_complete', 'Idle')
+            machine.flags['on_move_complete'] = None # Clear the flag for the next command
+            
+            machine.log.info(f"Move complete. Transitioning to '{next_state}'.")
+            machine.go_to_state(next_state)
+
+    def exit(self, machine):
+        """
+        Called once on exit. Ensures motors are disabled to save power.
+        """
+        super().exit(machine)
+        machine.hardware['motor1_enable'].value = True
+        machine.hardware['motor2_enable'].value = True
 
 class Dispensing(State):
     @property

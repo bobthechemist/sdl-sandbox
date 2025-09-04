@@ -107,6 +107,10 @@ machine.add_command("dispense_at", handlers.handle_dispense_at, {
     "description": "Moves a pump to an absolute (x, y) coordinate and then dispenses.",
     "args": ["pump: str", "vol: float", "x: float", "y: float"]
 })
+machine.add_command("steps", handlers.handle_steps, {
+    "description": "Moves motors by a relative number of steps. FOR TESTING ONLY.",
+    "args": ["m1: int", "m2: int"]
+})
 
 # 5. Add dynamic flags (values that will change during operation)
 machine.add_flag('is_homed', False)

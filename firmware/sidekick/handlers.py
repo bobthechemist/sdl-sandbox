@@ -94,3 +94,27 @@ def handle_dispense_at(machine, payload):
     # 6. Go to the first state in the sequence: machine.go_to_state('Moving')
     
     send_problem(machine, "dispense_at not yet implemented.")
+
+def handle_steps(machine, payload):
+    """
+    Handles the low-level 'steps' command for relative motor movement.
+    This command bypasses the standard homing and safety checks.
+    """
+    m1_rel_steps = payload.get('m1', 0)
+    m2_rel_steps = payload.get('m2', 0)
+
+    # Calculate the absolute target position from the current position
+    # AI may be thinking absolute positions, so this is modified
+    target_m1 = machine.flags['current_m1_steps'] + m1_rel_steps
+    target_m2 = machine.flags['current_m2_steps'] + m2_rel_steps
+    # target_m1 = m1_rel_steps
+    # target_m2 = m2_rel_steps
+
+    machine.log.info(f"Steps command accepted. Moving to ({target_m1}, {target_m2}).")
+    
+    # Set the flags that the 'Moving' state will use
+    machine.flags['target_m1_steps'] = target_m1
+    machine.flags['target_m2_steps'] = target_m2
+    machine.flags['on_move_complete'] = 'Idle' # Tell the sequencer to return to Idle when done
+
+    machine.go_to_state('Moving')
