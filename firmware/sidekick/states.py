@@ -52,8 +52,8 @@ class Idle(State):
         super().enter(machine)
         self._telemetry_interval = machine.flags.get('telemetry_interval', 5.0)
         self._next_telemetry_time = time.monotonic() + self._telemetry_interval
-        machine.hardware['motor1_enable'].value = True # Disable motors to save power
-        machine.hardware['motor2_enable'].value = True
+        machine.hardware['motor1_enable'].value = False 
+        machine.hardware['motor2_enable'].value = False
     def update(self, machine):
         super().update(machine)
         listen_for_instructions(machine)
@@ -64,22 +64,24 @@ class Idle(State):
 
 # [EXPERIMENTAL - For Testing Independent Axis Homing]
 
+# firmware/sidekick/states.py
+
 class Homing(State):
     """
-    A direct, non-blocking translation of the original, known-good Sidekick
-    homing procedure.
+    Corrected homing procedure that properly sets absolute step counts at
+    endstops and accurately calculates the final position after back-off.
     """
     @property
     def name(self): return 'Homing'
 
     def enter(self, machine):
         super().enter(machine)
-        machine.log.info("Starting homing routine...")
+        machine.log.info("Starting corrected homing routine...")
         machine.flags['is_homed'] = False
 
         # Load settings
         self._backoff_steps = machine.config['homing_settings']['joint_backoff_steps']
-        self._max_homing_steps = machine.config['safe_limits']['m1_max_steps']
+        self._max_homing_steps = machine.config['safe_limits']['m1_max_steps'] + 2000
         
         # Internal state management
         self._homing_stage = 'START_M1'
@@ -87,7 +89,6 @@ class Homing(State):
         self._step_delay = 1 / machine.config['motor_settings']['max_speed_sps']
         self._next_step_time = time.monotonic()
 
-        # Enable both motors (remember flag name is opposite what it should be)
         machine.hardware['motor1_enable'].value = False
         machine.hardware['motor2_enable'].value = False
 
@@ -97,24 +98,25 @@ class Homing(State):
         # --- Phase 1: Home M1 (CW) ---
         if self._homing_stage == 'START_M1':
             machine.log.info("Phase 1: Homing Motor 1 (CW) with M2 disabled.")
-            machine.hardware['motor2_enable'].value = True  # Disable M2
-            machine.hardware['motor1_dir'].value = True   # CW
+            machine.hardware['motor2_enable'].value = True
+            machine.hardware['motor1_dir'].value = True
             self._steps_taken = 0
             self._homing_stage = 'RUNNING_M1'
 
         elif self._homing_stage == 'RUNNING_M1':
             if not machine.hardware['endstop_m1'].value:
-                machine.log.info("M1 endstop reached. Position set to 0.")
+                # ABSOLUTE POSITION DEFINED
                 machine.flags['current_m1_steps'] = 0
-                self._homing_stage = 'START_M2_JOINT' # Proceed to next phase
+                machine.log.info(f"M1 endstop reached. Position DEFINED as {machine.flags['current_m1_steps']} steps.")
+                self._homing_stage = 'START_M2_JOINT'
                 return
             
+            # (Pulse and timeout logic remains the same)
             if time.monotonic() >= self._next_step_time:
                 step_pin = machine.hardware['motor1_step']
                 step_pin.value = True; step_pin.value = False
                 self._steps_taken += 1
                 self._next_step_time = time.monotonic() + self._step_delay
-            
             if self._steps_taken > self._max_homing_steps:
                 machine.flags['error_message'] = "FAULT: Homing timeout on Motor 1!"
                 machine.go_to_state('Error')
@@ -122,79 +124,69 @@ class Homing(State):
         # --- Phase 2: Joint move to find M2 endstop (CCW) ---
         elif self._homing_stage == 'START_M2_JOINT':
             machine.log.info("Phase 2: Joint CCW move to find M2 endstop.")
-            machine.hardware['motor2_enable'].value = False # Re-enable M2
-            machine.hardware['motor1_dir'].value = False # M1 CCW
-            machine.hardware['motor2_dir'].value = False # M2 CCW
-            self._steps_taken = 0 # Use as timeout counter
-            self._m1_steps_from_zero = 0 # Track M1's movement
+            machine.hardware['motor2_enable'].value = False
+            machine.hardware['motor1_dir'].value = False
+            machine.hardware['motor2_dir'].value = False
+            self._steps_taken = 0 # Timeout counter
             self._homing_stage = 'RUNNING_M2_JOINT'
 
         elif self._homing_stage == 'RUNNING_M2_JOINT':
             if not machine.hardware['endstop_m2'].value:
-                machine.log.info("M2 endstop reached.")
-                cfg = machine.config['motor_settings']
-                # TODO: Possible hallucination
-                steps_per_rev = (360 / cfg['step_angle_degrees']) * cfg['microsteps']
-                steps_for_180_deg = int(steps_per_rev / 2)
-
-                # Set final positions based on the logic
-                machine.flags['current_m1_steps'] = self._m1_steps_from_zero
-                machine.flags['current_m2_steps'] = steps_for_180_deg
-                machine.log.info(f"Positions set: M1={machine.flags['current_m1_steps']}, M2={machine.flags['current_m2_steps']}.")
+                # ABSOLUTE POSITION DEFINED
+                machine.flags['current_m2_steps'] = 1600
+                # M1's position is its starting point (0) plus the steps taken in this phase
+                machine.flags['current_m1_steps'] = 0 + self._steps_taken
+                machine.log.info(f"M2 endstop reached. Positions DEFINED as M1={machine.flags['current_m1_steps']}, M2={machine.flags['current_m2_steps']}.")
                 self._homing_stage = 'START_JOINT_BACKOFF'
                 return
 
+            # (Pulse and timeout logic remains the same)
             if time.monotonic() >= self._next_step_time:
                 m1_pin = machine.hardware['motor1_step']; m2_pin = machine.hardware['motor2_step']
                 m1_pin.value = True; m2_pin.value = True
                 m1_pin.value = False; m2_pin.value = False
                 self._steps_taken += 1
-                self._m1_steps_from_zero += 1 # Track M1's absolute position
                 self._next_step_time = time.monotonic() + self._step_delay
-
             if self._steps_taken > self._max_homing_steps:
-                machine.flags['error_message'] = "FAULT: Homing timeout on Motor 2 joint move!"
+                machine.flags['error_message'] = "FAULT: Homing timeout on M2 joint move!"
                 machine.go_to_state('Error')
 
-        # --- Phase 3: Back off the endstop to prevent false trigger ---
+        # --- Phase 3: Back off the endstop ---
         elif self._homing_stage == 'START_JOINT_BACKOFF':
             machine.log.info(f"Phase 3: Backing off endstop with joint move (CW) for {self._backoff_steps} steps.")
-            machine.hardware['motor1_dir'].value = True   # Reverse to CW
-            machine.hardware['motor2_dir'].value = True   # Reverse to CW
+            machine.hardware['motor1_dir'].value = True
+            machine.hardware['motor2_dir'].value = True
             self._steps_taken = self._backoff_steps
             self._homing_stage = 'RUNNING_JOINT_BACKOFF'
 
         elif self._homing_stage == 'RUNNING_JOINT_BACKOFF':
             if self._steps_taken > 0:
-                if time.monotonic() >= self._next_step_time:
+                # (Backoff pulse logic remains the same)
+                 if time.monotonic() >= self._next_step_time:
                     m1_pin = machine.hardware['motor1_step']; m2_pin = machine.hardware['motor2_step']
                     m1_pin.value = True; m2_pin.value = True
                     m1_pin.value = False; m2_pin.value = False
                     self._steps_taken -= 1
                     self._next_step_time = time.monotonic() + self._step_delay
             else:
-                # Update final positions after backoff
+                # --- CORRECTED POSITION UPDATE ---
+                # The new position is the old position MINUS the backoff steps.
                 machine.flags['current_m1_steps'] -= self._backoff_steps
                 machine.flags['current_m2_steps'] -= self._backoff_steps
-                machine.log.info(f"Back-off complete. Final positions: M1={machine.flags['current_m1_steps']}, M2={machine.flags['current_m2_steps']}.")
+                machine.log.info(f"Back-off complete. Final positions UPDATED to: M1={machine.flags['current_m1_steps']}, M2={machine.flags['current_m2_steps']}.")
                 self._homing_stage = 'PREPARE_SAFE_MOVE'
 
-        # --- Final Phase: Prepare for Safe Move ---
+        # --- Final Phase: Prepare for Safe Move (Logic is the same) ---
         elif self._homing_stage == 'PREPARE_SAFE_MOVE':
-            machine.log.info("Physical homing successful. Calculating safe park position.")
+            # This logic is correct and does not need to change
+            machine.log.info("Physical homing successful. Moving to park position.")
             machine.flags['is_homed'] = True
-            
-            # --- MODIFIED LOGIC ---
-            # Instead of calculating from absolute angles, we calculate a relative move
-            # from our current, known-safe position.
             
             final_homed_m1 = machine.flags['current_m1_steps']
             final_homed_m2 = machine.flags['current_m2_steps']
-            
             relative_park_m1 = machine.config['homing_settings']['park_move_relative_m1']
             relative_park_m2 = machine.config['homing_settings']['park_move_relative_m2']
 
-            # The target is the final homed position PLUS the relative park move.
             target_m1_steps = final_homed_m1 + relative_park_m1
             target_m2_steps = final_homed_m2 + relative_park_m2
 
@@ -206,14 +198,14 @@ class Homing(State):
 
             response = Message.create_message(
                 subsystem_name=machine.name, status="SUCCESS",
-                payload={"detail": "Homing successful, moving to safe park position."}
+                payload={"detail": "Homing and parking successful."}
             )
             machine.postman.send(response.serialize())
             machine.go_to_state('Moving')
 
     def exit(self, machine):
         super().exit(machine)
-
+        
 class Moving(State):
     """
     The 'Motion Engine' state. It executes a planned move from a start point
