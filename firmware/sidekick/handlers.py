@@ -22,8 +22,64 @@ def check_homed(machine):
         return False
     return True
 
-# --- Command Handlers ---
+def degrees_to_steps(machine, theta1, theta2):
+    """Converts motor angles in degrees to absolute step counts."""
+    cfg = machine.config['motor_settings']
+    steps_per_rev = (360 / cfg['step_angle_degrees']) * cfg['microsteps']
+    
+    m1_steps = int((theta1 / 360) * steps_per_rev)
+    m2_steps = int((theta2 / 360) * steps_per_rev)
+    
+    return m1_steps, m2_steps
 
+# --- Command Handlers ---
+def handle_angles(machine, payload):
+    """
+    Moves the motors to a specified angular position (theta1, theta2)
+    after validating that the target is within safe operational limits.
+    """
+    # 1. Guard Condition: Check if homed
+    if not check_homed(machine):
+        return
+
+    # 2. Extract and Validate Input Arguments
+    args = payload.get("args", {})
+    theta1 = args.get("theta1")
+    theta2 = args.get("theta2")
+
+    if theta1 is None or theta2 is None:
+        send_problem(machine, "Missing 'theta1' or 'theta2' in command arguments.")
+        return
+
+    try:
+        theta1 = float(theta1)
+        theta2 = float(theta2)
+    except ValueError:
+        send_problem(machine, "Invalid angle format; 'theta1' and 'theta2' must be numbers.")
+        return
+
+    # 3. Validate Against Operational Limits
+    limits = machine.config['operational_limits_degrees']
+    if not (limits['m1_min'] <= theta1 <= limits['m1_max']):
+        msg = f"Target theta1 ({theta1}) is outside operational limits [{limits['m1_min']}, {limits['m1_max']}]."
+        send_problem(machine, msg)
+        return
+    
+    if not (limits['m2_min'] <= theta2 <= limits['m2_max']):
+        msg = f"Target theta2 ({theta2}) is outside operational limits [{limits['m2_min']}, {limits['m2_max']}]."
+        send_problem(machine, msg)
+        return
+
+    # 4. Convert Validated Angles to Steps
+    target_m1_steps, target_m2_steps = degrees_to_steps(machine, theta1, theta2)
+    machine.log.info(f"Angle command accepted. Target: ({theta1}, {theta2}) degrees -> ({target_m1_steps}, {target_m2_steps}) steps.")
+
+    # 5. Set Flags and Execute Move
+    machine.flags['target_m1_steps'] = target_m1_steps
+    machine.flags['target_m2_steps'] = target_m2_steps
+    machine.flags['on_move_complete'] = 'Idle'
+    machine.go_to_state('Moving')
+    
 def handle_home(machine, payload):
     machine.log.info("Home command received.")
     machine.go_to_state('Homing')

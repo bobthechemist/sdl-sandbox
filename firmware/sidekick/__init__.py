@@ -20,6 +20,7 @@ from . import handlers
 # ============================================================================
 SIDEKICK_CONFIG = {
     "pins": {
+        # M1 is the top motor, controls A1 (arm with arrow)
         "motor1_step": board.GP1, "motor1_dir": board.GP0, "motor1_enable": board.GP7,
         "motor2_step": board.GP10, "motor2_dir": board.GP9, "motor2_enable": board.GP16,
         "motor1_m0": board.GP6, "motor1_m1": board.GP5,
@@ -29,7 +30,7 @@ SIDEKICK_CONFIG = {
         "pump1": board.GP27, "pump2": board.GP26, "pump3": board.GP22, "pump4": board.GP21,
     },
     "motor_settings": {
-        "step_angle_degrees": 0.9, "microsteps": 8, "max_speed_sps": 500,
+        "step_angle_degrees": 0.9, "microsteps": 8, "max_speed_sps": 200,
     },
     "pump_timings": {
         "aspirate_time": 0.1, "dispense_time": 0.1, "increment_ul": 10.0,
@@ -38,11 +39,21 @@ SIDEKICK_CONFIG = {
         "L1": 7.0, "L2": 3.0, "L3": 10.0, "Ln": 0.5,
     },
     "safe_limits": {
-        # These are now determined during the Homing state, but placeholders are good.
-        "m1_max_steps": 16000, "m2_max_steps": 16000,
+        # These are placeholder values and need to be updated.
+        "m1_max_steps": 1600, "m2_max_steps": 16000,
     },
-    "home_position": {
-        "x": 10.0, "y": 5.0
+    "homing_settings": {
+        # The number of steps for M1 to back off endstop 2.
+        "joint_backoff_steps": 20,
+        # A relative move from teh final homed position to a safe park spot.
+        "park_move_relative_m1": 0,
+        "park_move_relative_m2": 50
+    },
+        "operational_limits_degrees": {
+        "m1_min": 0.0,
+        "m1_max": 160.0,
+        "m2_min": 90.0,
+        "m2_max": 180.0
     },
     "pump_offsets": {
         "p1": {"dx": 0.5, "dy": 0.0}, "p2": {"dx": 0.0, "dy": 0.5},
@@ -110,6 +121,10 @@ machine.add_command("dispense_at", handlers.handle_dispense_at, {
 machine.add_command("steps", handlers.handle_steps, {
     "description": "Moves motors by a relative number of steps. FOR TESTING ONLY.",
     "args": ["m1: int", "m2: int"]
+})
+machine.add_command("angles", handlers.handle_angles, {
+    "description": "Moves motors to absolute angles (theta1, theta2) within safe limits.",
+    "args": ["theta1: float", "theta2: float"]
 })
 
 # 5. Add dynamic flags (values that will change during operation)
