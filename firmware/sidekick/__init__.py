@@ -6,7 +6,7 @@ from shared_lib.messages import Message
 from communicate.circuitpython_postman import CircuitPythonPostman
 
 # Import resources from our common firmware library
-from firmware.common.common_states import GenericError
+from firmware.common.common_states import GenericErrorWithButton
 from firmware.common.command_library import register_common_commands
 
 # Import the device-specific parts we will write
@@ -86,6 +86,7 @@ machine.config = SIDEKICK_CONFIG
 postman = CircuitPythonPostman(params={"protocol": "serial_cp"})
 postman.open_channel()
 machine.postman = postman
+reset_pin = machine.config['pins']['user_button']
 
 # 3. Add all the states the machine can be in
 machine.add_state(states.Initialize())
@@ -95,7 +96,7 @@ machine.add_state(states.Idle())
 machine.add_state(states.Homing())
 machine.add_state(states.Moving())
 machine.add_state(states.Dispensing())
-machine.add_state(GenericError())
+machine.add_state(GenericErrorWithButton(reset_pin=reset_pin, reset_state_name='Idle'))
 
 # 4. Define the machine's command interface
 register_common_commands(machine) # Adds 'ping' and 'help'
