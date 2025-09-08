@@ -186,7 +186,6 @@ class Homing(State):
             final_homed_m2 = machine.flags['current_m2_steps']
             relative_park_m1 = machine.config['homing_settings']['park_move_relative_m1']
             relative_park_m2 = machine.config['homing_settings']['park_move_relative_m2']
-
             target_m1_steps = final_homed_m1 + relative_park_m1
             target_m2_steps = final_homed_m2 + relative_park_m2
 
@@ -223,8 +222,10 @@ class Moving(State):
         # 1. Read start and target positions from the machine's flags
         start_m1 = machine.flags['current_m1_steps']
         start_m2 = machine.flags['current_m2_steps']
+        machine.log.debug(f"current: {machine.flags['current_m1_steps']}, {machine.flags['current_m2_steps']}")
         self.target_m1 = machine.flags['target_m1_steps']
         self.target_m2 = machine.flags['target_m2_steps']
+        machine.log.debug(f"target: {machine.flags['target_m1_steps']}, {machine.flags['target_m2_steps']}")
         
         machine.log.info(f"Moving from ({start_m1}, {start_m2}) to ({self.target_m1}, {self.target_m2}).")
 
@@ -236,8 +237,9 @@ class Moving(State):
         self.steps_left_m2 = abs(delta_m2)
         
         # Set motor direction pins (True/False may need to be adjusted for your wiring)
-        machine.hardware['motor1_dir'].value = True if delta_m1 > 0 else False
-        machine.hardware['motor2_dir'].value = True if delta_m2 > 0 else False
+        machine.hardware['motor1_dir'].value = False if delta_m1 > 0 else True
+        # Is this stepper backwards?
+        machine.hardware['motor2_dir'].value = False if delta_m2 > 0 else True
 
         # 3. Enable the motors
         machine.hardware['motor1_enable'].value = False

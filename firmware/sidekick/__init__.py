@@ -45,9 +45,10 @@ SIDEKICK_CONFIG = {
     "homing_settings": {
         # The number of steps for M1 to back off endstop 2.
         "joint_backoff_steps": 20,
-        # A relative move from teh final homed position to a safe park spot.
+        # A relative move from the final homed position to a safe park spot.
+        # TODO: make this an absolute position
         "park_move_relative_m1": 0,
-        "park_move_relative_m2": 100
+        "park_move_relative_m2": -100
     },
         "operational_limits_degrees": {
         "m1_min": 0.0,
