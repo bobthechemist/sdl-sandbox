@@ -12,8 +12,7 @@ from firmware.common.command_library import register_common_commands
 # Import the device-specific parts we will write
 from . import states
 from . import handlers
-# In a real implementation, you would have a kinematics library. We'll stub this for now.
-# import kinematicsfunctions as kf
+
 
 # ============================================================================
 # SIDEKICK INSTRUMENT CONFIGURATION
@@ -30,7 +29,7 @@ SIDEKICK_CONFIG = {
         "pump1": board.GP27, "pump2": board.GP26, "pump3": board.GP22, "pump4": board.GP21,
     },
     "motor_settings": {
-        "step_angle_degrees": 0.9, "microsteps": 8, "max_speed_sps": 100,
+        "step_angle_degrees": 0.9, "microsteps": 8, "max_speed_sps": 150,
     },
     "pump_timings": {
         "aspirate_time": 0.1, "dispense_time": 0.1, "increment_ul": 10.0,
@@ -40,15 +39,14 @@ SIDEKICK_CONFIG = {
     },
     "safe_limits": {
         # These are placeholder values and need to be updated.
-        "m1_max_steps": 1600, "m2_max_steps": 16000,
+        "m1_max_steps": 1600, "m2_max_steps": 1600,
     },
     "homing_settings": {
         # The number of steps for M1 to back off endstop 2.
         "joint_backoff_steps": 20,
-        # A relative move from the final homed position to a safe park spot.
-        # TODO: make this an absolute position
-        "park_move_relative_m1": 0,
-        "park_move_relative_m2": -100
+        # Set the position of the arm after homing
+        "park_move_x": 10.0, # cm
+        "park_move_y": 5.0, # cm
     },
         "operational_limits_degrees": {
         "m1_min": 0.0,

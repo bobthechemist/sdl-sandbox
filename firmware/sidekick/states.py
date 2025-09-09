@@ -5,6 +5,7 @@ import digitalio
 from shared_lib.statemachine import State
 from shared_lib.messages import Message
 from firmware.common.common_states import listen_for_instructions
+from . import kinematics
 
 class Initialize(State):
     @property
@@ -62,14 +63,9 @@ class Idle(State):
                 self._telemetry_callback(machine)
             self._next_telemetry_time = time.monotonic() + self._telemetry_interval
 
-# [EXPERIMENTAL - For Testing Independent Axis Homing]
-
-# firmware/sidekick/states.py
-
 class Homing(State):
     """
-    Corrected homing procedure that properly sets absolute step counts at
-    endstops and accurately calculates the final position after back-off.
+    Homing procedure
     """
     @property
     def name(self): return 'Homing'
@@ -178,26 +174,36 @@ class Homing(State):
 
         # --- Final Phase: Prepare for Safe Move (Logic is the same) ---
         elif self._homing_stage == 'PREPARE_SAFE_MOVE':
-            # This logic is correct and does not need to change
-            machine.log.info("Physical homing successful. Moving to park position.")
+            machine.log.info("Physical homing successful. Calculating park position move.")
             machine.flags['is_homed'] = True
             
-            final_homed_m1 = machine.flags['current_m1_steps']
-            final_homed_m2 = machine.flags['current_m2_steps']
-            relative_park_m1 = machine.config['homing_settings']['park_move_relative_m1']
-            relative_park_m2 = machine.config['homing_settings']['park_move_relative_m2']
-            target_m1_steps = final_homed_m1 + relative_park_m1
-            target_m2_steps = final_homed_m2 + relative_park_m2
+            # Read the absolute park coordinates from the config
+            park_x = machine.config['homing_settings']['park_move_x']
+            park_y = machine.config['homing_settings']['park_move_y']
+            
+            # Use inverse kinematics to find the angles for the park position
+            target_angles = kinematics.inverse_kinematics(machine, park_x, park_y)
+            
+            if target_angles is None:
+                # This should not happen if the park position is well-chosen, but it's a critical safety check.
+                machine.flags['error_message'] = f"FATAL: Park position ({park_x}, {park_y}) is unreachable."
+                machine.go_to_state('Error')
+                return
 
-            machine.log.info(f"Current pos: ({final_homed_m1}, {final_homed_m2}). Target park pos: ({target_m1_steps}, {target_m2_steps}).")
+            theta1, theta2 = target_angles
+            target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
 
+            machine.log.info(f"Target park pos: (x={park_x}, y={park_y}) -> (m1={target_m1_steps}, m2={target_m2_steps}) steps.")
+
+            # Set the flags for the 'Moving' state
             machine.flags['target_m1_steps'] = target_m1_steps
             machine.flags['target_m2_steps'] = target_m2_steps
             machine.flags['on_move_complete'] = 'Idle'
 
+            # Send success message to host *before* starting the move
             response = Message.create_message(
                 subsystem_name=machine.name, status="SUCCESS",
-                payload={"detail": "Homing and parking successful."}
+                payload={"detail": "Homing successful. Moving to park position."}
             )
             machine.postman.send(response.serialize())
             machine.go_to_state('Moving')
