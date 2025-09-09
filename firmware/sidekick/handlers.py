@@ -1,8 +1,7 @@
 # firmware/sidekick/handlers.py
 # type: ignore
 from shared_lib.messages import Message
-# In a real implementation, a kinematics library would live in shared_lib or firmware/common
-# import kinematicsfunctions as kf
+from . import kinematics
 
 # --- Utility Functions for Handlers ---
 def send_problem(machine, error_msg):
@@ -85,22 +84,50 @@ def handle_home(machine, payload):
     machine.go_to_state('Homing')
 
 def handle_move_to(machine, payload):
-    if not check_homed(machine): return
-    
-    # Placeholder for coordinate validation and conversion
-    # target_steps = kf.inverse_kinematics(payload['x'], payload['y'])
-    # if not kf.is_within_limits(target_steps):
-    #     send_problem(machine, "Target coordinates are out of safe travel limits.")
-    #     return
-    
-    # For now, we will assume target steps are provided directly for testing
-    target_m1 = payload.get('m1_steps', 0)
-    target_m2 = payload.get('m2_steps', 0)
+    """
+    Handles the high-level 'move_to' command. It uses inverse kinematics
+    to convert Cartesian coordinates into motor steps.
+    """
+    # 1. Guard Condition: Check if homed
+    if not check_homed(machine):
+        return
 
-    machine.log.info(f"Move_to command accepted. Target: ({target_m1}, {target_m2}) steps.")
-    machine.flags['target_m1_steps'] = target_m1
-    machine.flags['target_m2_steps'] = target_m2
-    machine.flags['on_move_complete'] = 'Idle' # Default exit for a simple move
+    # 2. Extract and Validate Input Arguments
+    args = payload.get("args", {})
+    target_x = args.get("x")
+    target_y = args.get("y")
+
+    if target_x is None or target_y is None:
+        send_problem(machine, "Missing 'x' or 'y' in command arguments.")
+        return
+
+    try:
+        target_x = float(target_x)
+        target_y = float(target_y)
+    except ValueError:
+        send_problem(machine, "Invalid coordinate format; 'x' and 'y' must be numbers.")
+        return
+
+    # 3. Perform Inverse Kinematics
+    machine.log.info(f"IK request for (x={target_x}, y={target_y})...")
+    target_angles = kinematics.inverse_kinematics(machine, target_x, target_y)
+
+    # 4. Check for IK Failure
+    if target_angles is None:
+        # The IK function already logged the specific error.
+        send_problem(machine, "Inverse kinematics failed. Target may be unreachable or out of safe limits.")
+        return
+    
+    theta1, theta2 = target_angles
+
+    # 5. Convert Validated Angles to Steps
+    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
+    machine.log.info(f"IK success. Target: ({theta1:.2f}, {theta2:.2f}) degrees -> ({target_m1_steps}, {target_m2_steps}) steps.")
+
+    # 6. Set Flags and Execute Move
+    machine.flags['target_m1_steps'] = target_m1_steps
+    machine.flags['target_m2_steps'] = target_m2_steps
+    machine.flags['on_move_complete'] = 'Idle'
     machine.go_to_state('Moving')
 
 def handle_move_rel(machine, payload):

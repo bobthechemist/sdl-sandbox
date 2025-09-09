@@ -30,7 +30,7 @@ SIDEKICK_CONFIG = {
         "pump1": board.GP27, "pump2": board.GP26, "pump3": board.GP22, "pump4": board.GP21,
     },
     "motor_settings": {
-        "step_angle_degrees": 0.9, "microsteps": 8, "max_speed_sps": 200,
+        "step_angle_degrees": 0.9, "microsteps": 8, "max_speed_sps": 100,
     },
     "pump_timings": {
         "aspirate_time": 0.1, "dispense_time": 0.1, "increment_ul": 10.0,
@@ -106,7 +106,7 @@ machine.add_command("home", handlers.handle_home, {
 })
 machine.add_command("move_to", handlers.handle_move_to, {
     "description": "Moves the arm's center point to an absolute (x, y) coordinate.",
-    "args": ["x: float", "y: float"]
+    "args": ["x: float (cm)", "y: float (cm)"]
 })
 machine.add_command("move_rel", handlers.handle_move_rel, {
     "description": "Moves the arm relative to its current position by (dx, dy).",
