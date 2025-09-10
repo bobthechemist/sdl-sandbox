@@ -88,3 +88,4 @@ After answering the questions and eating a piece of fruit, I copy pasted the thr
 
 Once the deployment issues were taken care of, the colorimeter started reporting telemetry data and responded to the read_all command.
 
+I'm pleasantly surprised that the basic operation works fine. I think the template needs to provide some additional detail to the AI about how payloads, functions, and arguments are to be formatted, but since I haven't given that topic sufficient thought, it is no surprise that the AI provides different approaches.
