@@ -1,6 +1,6 @@
 #type: ignore
 import json
-
+import time
 
 class Message():
     """
@@ -9,7 +9,7 @@ class Message():
 
     VALID_STATUS = {"DEBUG", "TELEMETRY", "INFO", "INSTRUCTION", "SUCCESS", "PROBLEM", "WARNING", "DATA_RESPONSE"}
 
-    def __init__(self, subsystem_name=None, status=None, meta=None, payload=None):
+    def __init__(self, subsystem_name=None, status=None, meta=None, payload=None, timestamp=None):
         """Initializes a Message object."""
         self._subsystem_name = subsystem_name
         # Validate that the status provided to the method is valid
@@ -22,7 +22,16 @@ class Message():
             raise TypeError("meta must be a dictionary")
         else:
             self._meta = meta
-        self._payload = payload
+        if timestamp is None:
+            self._timestamp = time.time()
+        else:
+            self._timestamp = timestamp
+        if payload is None:
+            self._payload = {}
+        elif not isinstance(payload, dict):
+            raise TypeError("payload must be a dictionary")
+        else:
+            self._payload = payload
 
     def to_dict(self):
         """Returns a dictionary representation of the message."""
@@ -30,7 +39,8 @@ class Message():
             "subsystem_name": self.subsystem_name,
             "status": self.status,
             "meta": self.meta,
-            "payload": self.payload
+            "payload": self.payload,
+            "timestamp": self.timestamp
         }
 
     def serialize(self):
@@ -49,14 +59,15 @@ class Message():
             status = data.get("status")
             meta = data.get("meta", {})
             payload = data.get("payload")
-
+            timestamp = data.get("timestamp")
             # The validation for status is handled by the __init__ method,
             # so we just pass the values along.
             return cls(
                 subsystem_name=subsystem_name,
                 status=status,
                 meta=meta,
-                payload=payload
+                payload=payload,
+                timestamp=timestamp
             )
         except json.JSONDecodeError:
             raise ValueError("Invalid JSON string")
@@ -72,14 +83,6 @@ class Message():
     @property
     def status(self):
         return self._status
-
-    # Remove the setter
-    # @status.setter
-    # def status(self, value):
-    #     #Validate that we can set it if its a valid status
-    #     if value is not None and value not in Message.VALID_STATUS:
-    #         raise ValueError("Invalid Status Level")
-    #     self._status = value
 
     @property
     def meta(self):
@@ -97,7 +100,13 @@ class Message():
 
     @payload.setter
     def payload(self, value):
+        if not isinstance(payload, dict):
+            raise TypeError("payload must be a dictionary")
         self._payload = value
+
+    @property
+    def timestamp(self):
+        return self._timestamp
 
     @classmethod
     def create_message(cls, subsystem_name=None, status=None, meta=None, payload=None):

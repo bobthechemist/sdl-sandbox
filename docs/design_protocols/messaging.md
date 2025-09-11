@@ -15,20 +15,28 @@ All messages, regardless of direction or purpose, MUST be serialized JSON object
 
 | Key              | Type    | Description                                                                 |
 | ---------------- | ------- | --------------------------------------------------------------------------- |
-| `timestamp_ms`   | Integer | The sender's timestamp of message creation (Unix milliseconds).               |
+| `timestamp`   | Integer | The sender's timestamp of message creation  in seconds time.time().               |
 | `subsystem_name` | String  | The name of the subsystem sending the message (e.g., "HOST", "RoboticArm-Sidekick"). |
 | `status`         | String  | The status of the message. MUST be one of the types defined in Section 3. |
+| `meta`           | Object  | Reserved JSON object |
 | `payload`        | Object  | A JSON object containing the message's specific content. See Section 4.   |
 
 **Example of a base message:**
 ```json
 {
-  "timestamp_ms": 1678890000000,
+  "timestamp": 1678890000000,
   "subsystem_name": "HOST",
   "status": "INSTRUCTION",
   "payload": { ... }
 }
 ```
+
+### Commentary
+
+- To my surprise, time.time() reports the correct time even on a uC that doesn't have a RTC. It is clearly getting the correct time from somewhere, likely the serial interface. I have not found suitable documentation to understand how reliable this feature is.
+- time.time() in CPv9 is reporting in seconds. It's possible that knowing when a message was created with better than 1 s precision may be necessary, we start here and innovate when needed.
+- timezones are not respected and a decision needs to be made on how to address this issue. Plan that these issues will be resolved, but do not rely on accurate timestamps in this version.
+- Thonny seems to be the culprit and is updating the time on the uC.
 
 ## 3. Message Status Definitions
 
