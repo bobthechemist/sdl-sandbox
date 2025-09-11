@@ -7,7 +7,7 @@ class Message():
     Represents a message with subsystem name, status, metadata, and payload.
     """
 
-    VALID_STATUS = {"DEBUG", "TELEMETRY", "INFO", "INSTRUCTION", "SUCCESS", "PROBLEM", "WARNING"}
+    VALID_STATUS = {"DEBUG", "TELEMETRY", "INFO", "INSTRUCTION", "SUCCESS", "PROBLEM", "WARNING", "DATA_RESPONSE"}
 
     def __init__(self, subsystem_name=None, status=None, meta=None, payload=None):
         """Initializes a Message object."""
