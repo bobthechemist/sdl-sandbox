@@ -59,7 +59,7 @@ def handle_set_time(machine, payload):
         # 1. Safely get the arguments from the payload
         args = payload.get("args", {})
         epoch_seconds = args.get("epoch_seconds")
-        tz_offset = machine.config["timezone"] # This is a hack, needs updating
+        tz_offset = machine.config.get("timezone",14400) # This is a hack, needs updating
 
         #TODO: Figure out how to grab this information from the timestamp, which is presently not accessible to handlers
         if epoch_seconds is None or not isinstance(epoch_seconds, (int, float)):

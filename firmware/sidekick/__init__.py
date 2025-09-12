@@ -29,7 +29,7 @@ SIDEKICK_CONFIG = {
         "pump1": board.GP27, "pump2": board.GP26, "pump3": board.GP22, "pump4": board.GP21,
     },
     "motor_settings": {
-        "step_angle_degrees": 0.9, "microsteps": 8, "max_speed_sps": 150,
+        "step_angle_degrees": 0.9, "microsteps": 8, "max_speed_sps": 200,
     },
     "pump_timings": {
         "aspirate_time": 0.1, "dispense_time": 0.1, "increment_ul": 10.0,

@@ -103,11 +103,11 @@ def deploy(args):
     print(f"{C.INFO}[+] Processing root files...{C.END}")
     
     # Customize boot.py
-    boot_template = (PROJECT_ROOT / 'firmware' / 'common' / 'boot.py').read_text()
-    boot_content = boot_template.replace('_VID_PLACEHOLDER_', str(vid))
-    boot_content = boot_content.replace('_PID_PLACEHOLDER_', str(pid))
-    (dest_drive / 'boot.py').write_text(boot_content)
-    print(f"  - Wrote customized boot.py (VID={vid}, PID={pid})")
+    # boot_template = (PROJECT_ROOT / 'firmware' / 'common' / 'boot.py').read_text()
+    # boot_content = boot_template.replace('_VID_PLACEHOLDER_', str(vid))
+    # boot_content = boot_content.replace('_PID_PLACEHOLDER_', str(pid))
+    # (dest_drive / 'boot.py').write_text(boot_content)
+    # print(f"  - Wrote customized boot.py (VID={vid}, PID={pid})")
     
     # Customize code.py
     code_template = (PROJECT_ROOT / 'firmware' / 'common' / 'code.py').read_text()

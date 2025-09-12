@@ -126,8 +126,9 @@ def handle_set_gain(machine, payload):
 def handle_led(machine, payload):
     """Handles the 'led' command to turn the illumination LED on or off."""
     try:
-        # Per your request, we expect a JSON boolean (true/false).
-        state = payload.get("args", [])[0]
+        
+        state = payload.get("args", {})['state']
+
         if not isinstance(state, bool):
             raise ValueError("Argument must be a true/false boolean.")
 
