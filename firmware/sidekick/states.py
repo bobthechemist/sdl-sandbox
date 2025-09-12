@@ -299,6 +299,14 @@ class Moving(State):
             machine.flags['on_move_complete'] = None # Clear the flag for the next command
             
             machine.log.info(f"Move complete. Transitioning to '{next_state}'.")
+            
+           # Send success message to host *before* leaving state
+            response = Message.create_message(
+                subsystem_name=machine.name, status="SUCCESS",
+                payload={"detail": "Move successful"}
+            )
+            machine.postman.send(response.serialize())
+
             machine.go_to_state(next_state)
 
     def exit(self, machine):
