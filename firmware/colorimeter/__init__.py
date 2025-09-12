@@ -83,7 +83,7 @@ register_common_commands(machine)  # Adds 'ping' and 'help'
 
 machine.add_command("read", handlers.handle_read, {
     "description": "Returns the reading for a single specified color channel.",
-    "args": ["channel: str (e.g., 'violet', 'blue', 'nir')"]
+    "args": ["channel: str (e.g., 'violet')"]
 })
 machine.add_command("read_all", handlers.handle_read_all, {
     "description": "Returns an object containing readings from all color channels.",
@@ -95,11 +95,11 @@ machine.add_command("read_gain", handlers.handle_read_gain, {
 })
 machine.add_command("set_gain", handlers.handle_set_gain, {
     "description": "Sets the sensor gain. Must be one of the allowed values.",
-    "args": ["gain: float (0.5, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512)"]
+    "args": ["gain: float"]
 })
 machine.add_command("led", handlers.handle_led, {
     "description": "Turns the onboard illumination LED on or off.",
-    "args": ["state: bool (true/false)"]
+    "args": ["state: bool"]
 })
 machine.add_command("led_intensity", handlers.handle_led_intensity, {
     "description": "Adjusts the LED illumination intensity.",
