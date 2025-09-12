@@ -8,6 +8,10 @@ from firmware.common.common_states import GenericIdle
 from firmware.common.command_library import register_common_commands
 from .handlers import handle_blink
 
+FAKE_CONFIG = {
+    "timezone": 14400, # Hack to handle timestamp issues
+}
+
 def send_fake_device_telemetry(machine):
     """Callback function to generate and send the 'fake' device's telemetry."""
     machine.log.debug("Sending telemetry.")
@@ -22,7 +26,8 @@ def send_fake_device_telemetry(machine):
 # 1. Create the state machine instance
 machine = StateMachine(init_state='Initialize', name='FAKE')
 
-# 2. Attach the Postman
+# 2. Attach Configuration and the Postman
+machine.config = FAKE_CONFIG
 postman = CircuitPythonPostpostman = CircuitPythonPostman(params={"protocol": "serial_cp"})
 postman.open_channel()
 machine.postman = postman
@@ -37,7 +42,11 @@ machine.add_state(states.Error())
 register_common_commands(machine)
 machine.add_command("blink", handle_blink, {
     "description": "Blinks the onboard LED.",
-    "args": ["count (integer, default: 1)"]
+    "args": [
+        "count (integer, default: 3)", 
+        "on_time (float, default: 0.4)", 
+        "off_time (float, default: 0.1)"
+        ]
 })
 
 # 5. Add flags
@@ -45,4 +54,4 @@ machine.add_flag('blink_count', 0)
 machine.add_flag('blink_on_time',0.4)
 machine.add_flag('blink_off_time',0.1)
 machine.add_flag('error_message', '')
-machine.add_flag('telemetry_interval', 5.0)
+machine.add_flag('telemetry_interval', 60.0)

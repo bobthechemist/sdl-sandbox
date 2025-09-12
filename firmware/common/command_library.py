@@ -1,6 +1,7 @@
 # shared_lib/command_library.py
 #type: ignore
 from shared_lib.messages import Message
+import time
 
 # Helper function, not a class, to register common commands.
 def register_common_commands(machine):
@@ -58,9 +59,12 @@ def handle_set_time(machine, payload):
         # 1. Safely get the arguments from the payload
         args = payload.get("args", {})
         epoch_seconds = args.get("epoch_seconds")
+        tz_offset = machine.config["timezone"] # This is a hack, needs updating
 
+        #TODO: Figure out how to grab this information from the timestamp, which is presently not accessible to handlers
         if epoch_seconds is None or not isinstance(epoch_seconds, (int, float)):
-            raise ValueError("'epoch_seconds' not found or is not a number in payload args.")
+            machine.log.info("Incorrect or missing argument in set_time.")
+
 
         # 2. Import rtc and perform the logic
         import rtc  # Local import is memory efficient
@@ -69,10 +73,11 @@ def handle_set_time(machine, payload):
         the_rtc = rtc.RTC()
         
         # Convert epoch seconds to a time.struct_time, which the RTC requires
-        new_time = time.localtime(int(epoch_seconds))
+        new_time = time.localtime(int(epoch_seconds - tz_offset))
         
         # Set the RTC datetime
         the_rtc.datetime = new_time
+        
 
         # 3. Log the success and create a success response message
         # You can format the time nicely for the log
@@ -100,4 +105,4 @@ def handle_set_time(machine, payload):
             }
         )
         
-    return response
+    machine.postman.send(response.serialize())

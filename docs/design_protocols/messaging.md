@@ -37,6 +37,7 @@ All messages, regardless of direction or purpose, MUST be serialized JSON object
 - time.time() in CPv9 is reporting in seconds. It's possible that knowing when a message was created with better than 1 s precision may be necessary, we start here and innovate when needed.
 - timezones are not respected and a decision needs to be made on how to address this issue. Plan that these issues will be resolved, but do not rely on accurate timestamps in this version.
 - Thonny seems to be the culprit and is updating the time on the uC.
+- When it comes time to fix this issue, the rtc [library can help ](https://docs.circuitpython.org/en/latest/shared-bindings/rtc/index.html)
 
 ## 3. Message Status Definitions
 

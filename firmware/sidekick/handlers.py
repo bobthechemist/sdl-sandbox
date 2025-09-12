@@ -94,12 +94,9 @@ def handle_move_to(machine, payload):
 
     # 2. Extract and Validate Input Arguments
     args = payload.get("args", {})
-    # Hack because I have not standardized function calling and arguments
-    # TODO: fix this hack
-    target_x = args[0]
-    target_y = args[1]
-    #target_x = args.get("x")
-    #target_y = args.get("y")
+
+    target_x = args.get("x")
+    target_y = args.get("y")
 
     if target_x is None or target_y is None:
         send_problem(machine, "Missing 'x' or 'y' in command arguments.")
