@@ -15,7 +15,7 @@ All messages, regardless of direction or purpose, MUST be serialized JSON object
 
 | Key              | Type    | Description                                                                 |
 | ---------------- | ------- | --------------------------------------------------------------------------- |
-| `timestamp`   | Integer | The sender's timestamp of message creation  in seconds time.time().               |
+| `timestamp`   | Integer | The sender's timestamp of message creation in seconds time.time().               |
 | `subsystem_name` | String  | The name of the subsystem sending the message (e.g., "HOST", "RoboticArm-Sidekick"). |
 | `status`         | String  | The status of the message. MUST be one of the types defined in Section 3. |
 | `meta`           | Object  | Reserved JSON object |
@@ -30,14 +30,6 @@ All messages, regardless of direction or purpose, MUST be serialized JSON object
   "payload": { ... }
 }
 ```
-
-### Commentary
-
-- To my surprise, time.time() reports the correct time even on a uC that doesn't have a RTC. It is clearly getting the correct time from somewhere, likely the serial interface. I have not found suitable documentation to understand how reliable this feature is.
-- time.time() in CPv9 is reporting in seconds. It's possible that knowing when a message was created with better than 1 s precision may be necessary, we start here and innovate when needed.
-- timezones are not respected and a decision needs to be made on how to address this issue. Plan that these issues will be resolved, but do not rely on accurate timestamps in this version.
-- Thonny seems to be the culprit and is updating the time on the uC.
-- When it comes time to fix this issue, the rtc [library can help ](https://docs.circuitpython.org/en/latest/shared-bindings/rtc/index.html)
 
 ## 3. Message Status Definitions
 
@@ -86,12 +78,13 @@ Used to command a device.
 
 ### 4.2. Data Payload (`status: "DATA_RESPONSE"` or `"TELEMETRY"`)
 
+**NOTE** Requirements for metadata may be overkill. 
+
 Used for all messages that contain structured, machine-readable data. The payload MUST contain two top-level keys: `metadata` and `data`.
 
 *   **`metadata`** (Object): An object describing the data.
     *   `data_type` (String): A unique, descriptive name for the type of data (e.g., "spectrum", "xy_coordinates", "image_base64").
-    *   `device_origin` (String): The name of the specific device or component that generated the data.
-    *   `timestamp_us` (Integer): The high-precision Unix microsecond timestamp of *data acquisition*.
+    *   `timestamp` (Integer, Optional): Appropriate timestamp for **data acquisition** (messaging already has a timestamp).
     *   `units` (Object, Optional): A key-value map defining the units of the data fields (e.g., `{"wavelength": "nm", "intensity": "counts"}`).
     *   `source_instruction_id` (String, Optional): A unique identifier that can be used to correlate a `DATA_RESPONSE` with its originating `INSTRUCTION`.
 
@@ -102,8 +95,7 @@ Used for all messages that contain structured, machine-readable data. The payloa
 {
   "metadata": {
     "data_type": "spectrum",
-    "device_origin": "EndEffector-Spectrometer",
-    "timestamp_us": 1678890000123456,
+    "timestamp": 1678890000123456,
     "units": {
       "wavelength": "nm",
       "intensity": "counts"
@@ -125,14 +117,14 @@ Host commands an LED to blink.
 **Host -> Device (`INSTRUCTION`)**
 ```json
 {
-  "timestamp_ms": 1678890100000,
+  "timestamp": 1678890100000,
   "subsystem_name": "HOST",
   "status": "INSTRUCTION",
   "payload": {
     "func": "blink",
     "args": {
       "count": 3,
-      "interval_ms": 200
+      "on_time": 1
     }
   }
 }
@@ -141,7 +133,7 @@ Host commands an LED to blink.
 **Device -> Host (`SUCCESS`)**
 ```json
 {
-  "timestamp_ms": 1678890100800,
+  "timestamp": 1678890100800,
   "subsystem_name": "Generic-MCU",
   "status": "SUCCESS",
   "payload": {
@@ -157,7 +149,7 @@ Host commands a spectrometer to perform a measurement.
 **Host -> Device (`INSTRUCTION`)**
 ```json
 {
-  "timestamp_ms": 1678890200000,
+  "timestamp": 1678890200000,
   "subsystem_name": "HOST",
   "status": "INSTRUCTION",
   "payload": {
@@ -172,14 +164,13 @@ Host commands a spectrometer to perform a measurement.
 **Device -> Host (`DATA_RESPONSE`)**
 ```json
 {
-  "timestamp_ms": 1678890200150,
+  "timestamp": 1678890200150,
   "subsystem_name": "EndEffector-Spectrometer",
   "status": "DATA_RESPONSE",
   "payload": {
     "metadata": {
       "data_type": "spectrum",
-      "device_origin": "EndEffector-Spectrometer",
-      "timestamp_us": 1678890200123456,
+      "timestamp": 1678890200123456,
       "units": {"wavelength": "nm", "intensity": "counts"}
     },
     "data": {
@@ -197,14 +188,13 @@ Device periodically sends its internal temperature.
 **Device -> Host (`TELEMETRY`)**
 ```json
 {
-  "timestamp_ms": 1678890300000,
+  "timestamp": 1678890300000,
   "subsystem_name": "RoboticArm-Sidekick",
   "status": "TELEMETRY",
   "payload": {
     "metadata": {
       "data_type": "temperature",
-      "device_origin": "MCU_Core_Sensor",
-      "timestamp_us": 1678890300000000,
+      "timestamp": 1678890300000000,
       "units": {"temp": "celsius"}
     },
     "data": {
