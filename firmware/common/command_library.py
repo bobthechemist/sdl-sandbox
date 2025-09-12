@@ -22,7 +22,7 @@ def register_common_commands(machine):
     })
     machine.add_command("set_time", handle_set_time, {
         "description": "Sets the time of the microcontroller.",
-        "args": ["epoch_seconds: time.time()"]
+        "args": ["epoch_seconds: int"]
     })
 
 # --- Handler functions are now standalone ---
@@ -73,7 +73,7 @@ def handle_set_time(machine, payload):
         the_rtc = rtc.RTC()
         
         # Convert epoch seconds to a time.struct_time, which the RTC requires
-        new_time = time.localtime(int(epoch_seconds - tz_offset))
+        new_time = time.localtime(epoch_seconds - tz_offset)
         
         # Set the RTC datetime
         the_rtc.datetime = new_time

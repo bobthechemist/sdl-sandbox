@@ -9,6 +9,7 @@ from ..firmware_db import get_device_name
 from communicate.host_utilities import find_data_comports
 from communicate.serial_postman import SerialPostman
 from shared_lib.messages import Message
+import re
 
 class LogLevel:
     INFO = "INFO"
@@ -123,7 +124,8 @@ class SimpleHostGUI:
         ttk.Label(cmd_frame, text="Arguments:").grid(row=1, column=0, padx=(0,5), pady=5, sticky="w")
         self.args_entry = ttk.Entry(cmd_frame)
         self.args_entry.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
-        self.args_entry.insert(0, '3')
+        # Updated placeholder to show the new key:value format
+        self.args_entry.insert(0, 'count:3, delay:250')
         
         # Send Button
         self.send_btn = ttk.Button(cmd_frame, text="Send", command=self.send_command, state=tk.DISABLED)
@@ -227,6 +229,7 @@ class SimpleHostGUI:
             self.status_bar.config(text=f"Status: Connected to {self.device_combo.get()}")
             self.log_message(f"Successfully connected to {port}.")
             self._send_help_command()
+            self._set_remote_time()
         except Exception as e:
             self.log_message(f"Failed to connect: {e}", level=LogLevel.ERROR)
             if self.postman:
@@ -277,26 +280,39 @@ class SimpleHostGUI:
             return
 
         args_str = self.args_entry.get().strip()
-        args_list = []
+        args_dict = {}
 
-        # Parse arguments string into a list
+        # Parse arguments string into a dictionary
         if args_str:
             try:
-                # Wrap the string in brackets to make it a valid JSON array
-                json_array_str = f"[{args_str}]"
-                args_list = json.loads(json_array_str)
-            except json.JSONDecodeError:
-                self.log_message(f"Invalid arguments format: '{args_str}'. Please use comma-separated JSON values (e.g., 100, \"hello\", true).", level=LogLevel.ERROR)
+                # Add quotes around unquoted keys to make the string valid JSON.
+                # This regex finds identifiers followed by a colon.
+                json_compatible_args = re.sub(r'([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'"\1":', args_str)
+                full_json_str = f"{{{json_compatible_args}}}"
+                args_dict = json.loads(full_json_str)
+            except json.JSONDecodeError as e:
+                self.log_message(
+                    f"Invalid arguments format. Use comma-separated 'key:value' pairs. "
+                    f"Values must be valid JSON (e.g., count:5, message:\"hello\"). Error: {e}",
+                    level=LogLevel.ERROR
+                )
                 return
         
-        # Construct the payload and send
-        payload_dict = {"func": func_name, "args": args_list}
+        # Construct the payload with the arguments dictionary and send
+        payload_dict = {"func": func_name, "args": args_dict}
         self._send_message(payload_dict)
+        
+
 
     def _send_help_command(self):
         self.log_message("Requesting command list from device...")
         help_payload = {"func": "help", "args": []}
         self._send_message(help_payload)
+
+    def _set_remote_time(self):
+        self.log_message("Setting the microcontrollers time...")
+        time_payload = {"func": "set_time", "args":{"epoch_seconds":int(time.time())}}
+        self._send_message(time_payload)
 
     def _send_message(self, payload_dict):
         try:
