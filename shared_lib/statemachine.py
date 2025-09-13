@@ -48,7 +48,7 @@ class StateMachine:
         Stops the state machine.
     """
 
-    def __init__(self, init_state='Initialize', name=None):
+    def __init__(self, name, config, version="0.0.0", init_state='Initialize', status_callback=None):
         """
         Constructs all the necessary attributes for the state machine object.
 
@@ -57,6 +57,14 @@ class StateMachine:
         init_state : str, optional
             The initial state of the state machine (default is 'Initialize').
         """
+
+        # Read only properties
+        self._name = name
+        self._version = version
+        self._config = config
+        self._init_state = init_state
+
+        # Mutable properties
         self.state = None
         self.states = {}
         self.flags = {} 
@@ -64,14 +72,33 @@ class StateMachine:
         self.supported_commands = {}
         self.running = False
         self.is_microcontroller = check_if_microcontroller()
-        self.init_state = init_state
-        self.name = name
+
+        # Populate status info
+         self.build_status_info = status_callback if status_callback is not None else lambda m: {}
+
         # Each state machine has an inbox
         self.inbox = LinearMessageBuffer()
         # TODO: Create a custom handler or other solution to address that adafruit_logging doesn't have basicConfig
         if not self.is_microcontroller:
             logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(name)s] %(levelname)s : %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         self.log = logging.getLogger(self.name)
+
+    # Read only properites
+    @property
+    def name(self):
+        return self._name
+    
+    @property
+    def version(self):
+        return self._version
+    
+    @property
+    def config(self):
+        return self._config
+    
+    @property
+    def init_state(self):
+        return self._init_state
 
     def add_command(self, name: str, handler, doc: dict):
         """Adds a command handler and its documentation to the machine."""
@@ -177,7 +204,7 @@ class StateMachine:
         """
         self.running = True
         if state_name is None:
-            self.go_to_state(self.init_state)
+            self.go_to_state(self._init_state)
         else:
             self.go_to_state(state_name)
 

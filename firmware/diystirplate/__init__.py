@@ -8,6 +8,10 @@ from firmware.common.common_states import GenericIdle, GenericError
 from firmware.common.command_library import register_common_commands
 from .handlers import *
 
+__version__ = "1.0.0"
+
+DIYSTIRPLATE_CONFIG = {} # No config information
+
 # Comments beginning with --> are notes for when this file is being used as a template
 
 # Functions that the machine needs to be aware of upon instantiation
@@ -29,6 +33,8 @@ machine = StateMachine(init_state='Initialize', name='STIRPLATE')
 # 2. Create and attach the communication channel (Postman)
 # This postman will handle the USB CDC data connection.
 # --> nothing to change here.
+machine.config = DIYSTIRPLATE_CONFIG
+machine.config['firmware_version'] = __version__
 postman = CircuitPythonPostman(params={"protocol": "serial_cp"})
 postman.open_channel()
 machine.postman = postman
@@ -54,3 +60,4 @@ machine.add_command("off", handle_off, {
 # 4. Add flags that states might use. This pre-defines them for clarity.
 # --> update this list with any flags or variables that are machine-wide
 machine.add_flag('error_message', '')
+machine.add_flag('status_info', {})

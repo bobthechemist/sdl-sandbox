@@ -13,6 +13,8 @@ from firmware.common.command_library import register_common_commands
 from . import states
 from . import handlers
 
+__version__ = "1.0.0"
+
 # ============================================================================
 # COLORIMETER INSTRUMENT CONFIGURATION
 # ============================================================================
@@ -67,6 +69,7 @@ machine = StateMachine(init_state='Initialize', name='COLORIMETER')
 
 # 2. Attach the configuration and communication channel (Postman)
 machine.config = COLORIMETER_CONFIG
+machine.config['firmware_version'] = __version__
 postman = CircuitPythonPostman(params={"protocol": "serial_cp"})
 postman.open_channel()
 machine.postman = postman
@@ -109,3 +112,4 @@ machine.add_command("led_intensity", handlers.handle_led_intensity, {
 # 5. Add machine-wide flags (dynamic variables)
 machine.add_flag('error_message', '')
 machine.add_flag('telemetry_interval', 60.0)  # Send telemetry every 10 seconds
+machine.add_flag('status_info', {})

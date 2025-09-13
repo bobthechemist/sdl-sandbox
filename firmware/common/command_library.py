@@ -24,6 +24,10 @@ def register_common_commands(machine):
         "description": "Sets the time of the microcontroller.",
         "args": ["epoch_seconds: int"]
     })
+    machine.add_command("get_info", handle_get_info, {
+        "description": "Retrieves status information.",
+        "args": []
+    })
 
 # --- Handler functions are now standalone ---
 def handle_help(machine, payload):
@@ -105,4 +109,45 @@ def handle_set_time(machine, payload):
             }
         )
         
+    machine.postman.send(response.serialize())
+
+def handle_get_info(machine, payload):
+    """
+    Handles the 'get_info' command. It assembles a standardized status
+    report by accessing core machine attributes and calling the machine's 
+    registered status_callback function to get instrument-specific data.
+    """
+    try:
+        # 1. Assemble the payload from the standard, guaranteed attributes.
+        info_payload = {
+            "firmware_name": machine.name,
+            "firmware_version": machine.version,
+            "current_state": machine.state.name,
+            
+            # 2. Call the machine's registered callback function to compute
+            #    the instrument-specific status dictionary in real-time.
+            "status_info": machine.build_status_info(machine)
+        }
+        
+        # 3. Create the SUCCESS message with the assembled payload.
+        response = Message.create_message(
+            subsystem_name=machine.name,
+            status="SUCCESS",
+            payload=info_payload
+        )
+        
+    except Exception as e:
+        # 4. If any part of the process fails, log the error and send
+        #    a structured PROBLEM message back to the host.
+        machine.log.error(f"Failed to assemble info packet for get_info command: {e}")
+        response = Message.create_message(
+            subsystem_name=machine.name,
+            status="PROBLEM",
+            payload={
+                "code": "E500_INFO_FAILED", 
+                "message": f"Could not retrieve device info. Internal error: {e}"
+            }
+        )
+        
+    # 5. Send the prepared message (either SUCCESS or PROBLEM) to the host.
     machine.postman.send(response.serialize())

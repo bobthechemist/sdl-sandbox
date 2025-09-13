@@ -8,6 +8,9 @@ from firmware.common.common_states import GenericIdle
 from firmware.common.command_library import register_common_commands
 from .handlers import handle_blink
 
+__version__ = "1.0.0"
+
+
 FAKE_CONFIG = {
     "timezone": 14400, # Hack to handle timestamp issues
 }
@@ -28,6 +31,7 @@ machine = StateMachine(init_state='Initialize', name='FAKE')
 
 # 2. Attach Configuration and the Postman
 machine.config = FAKE_CONFIG
+machine.config['firmware_version'] = __version__
 postman = CircuitPythonPostpostman = CircuitPythonPostman(params={"protocol": "serial_cp"})
 postman.open_channel()
 machine.postman = postman
@@ -55,3 +59,4 @@ machine.add_flag('blink_on_time',0.4)
 machine.add_flag('blink_off_time',0.1)
 machine.add_flag('error_message', '')
 machine.add_flag('telemetry_interval', 60.0)
+machine.add_flag('status_info', {})
