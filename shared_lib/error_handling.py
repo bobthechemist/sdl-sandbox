@@ -14,6 +14,7 @@ def send_problem(machine, error_msg):
     machine.postman.send(response.serialize())
 
 # A decorator for wrapping try/except around logic
+# Custom information can be added by setting the err_msg variable in the function
 def try_wrapper(func):
 
     def wrapper(*args, **kwargs):
@@ -21,6 +22,7 @@ def try_wrapper(func):
             return func(*args, **kwargs)
         except Exception as e:
             machine = args[0] if args else kwargs.get('machine')
-            send_problem(machine, f"The function {func.__name__} raised an error: {e}")
+            extra = getattr(func, "err_msg","nothing new")
+            send_problem(machine, f"The function {func.__name__} raised an error: {e}.")
     #wrapper.__name__ = func.__name__
     return wrapper

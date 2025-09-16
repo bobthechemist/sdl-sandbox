@@ -58,7 +58,6 @@ def handle_read(machine, payload):
 @try_wrapper
 def handle_read_all(machine, payload):
     """Handles the 'read_all' command, returning all channel values."""
-    x = 1/0 # intentional error
     all_readings = machine.sensor.all_channels
     machine.log.info(f"Read all channels: {all_readings}")
     response = Message.create_message(
@@ -83,6 +82,7 @@ def handle_read_gain(machine, payload):
     except Exception as e:
         send_problem(machine, f"Error reading gain: {e}")
 
+@try_wrapper
 def handle_set(machine, payload):
     """Sets relevant parameters."""
     args = payload.get("args", {})
@@ -108,29 +108,29 @@ def handle_set(machine, payload):
 
 #TODO: Simplify these handlers so that there is one set command which accepts different arguments
 #  such as led (true/false), gain(VALID_GAINS) and intensity (0-10)
-def handle_set_gain(machine, payload):
-    """Handles the 'set_gain' command with validation."""
-    try:
-        new_gain = float(payload.get("args", {})["gain"])
+# def handle_set_gain(machine, payload):
+#     """Handles the 'set_gain' command with validation."""
+#     try:
+#         new_gain = float(payload.get("args", {})["gain"])
 
-        if new_gain not in VALID_GAINS:
-            send_problem(machine, f"Invalid gain value {new_gain}. Valid gains are: {VALID_GAINS}")
-            return
+#         if new_gain not in VALID_GAINS:
+#             send_problem(machine, f"Invalid gain value {new_gain}. Valid gains are: {VALID_GAINS}")
+#             return
 
-        machine.sensor.gain = new_gain
-        machine.log.info(f"Sensor gain set to {new_gain}x")
+#         machine.sensor.gain = new_gain
+#         machine.log.info(f"Sensor gain set to {new_gain}x")
 
-        response = Message.create_message(
-            subsystem_name=machine.name,
-            status="SUCCESS",
-            payload={"gain_set_to": new_gain}
-        )
-        machine.postman.send(response.serialize())
+#         response = Message.create_message(
+#             subsystem_name=machine.name,
+#             status="SUCCESS",
+#             payload={"gain_set_to": new_gain}
+#         )
+#         machine.postman.send(response.serialize())
 
-    except (IndexError, ValueError):
-        send_problem(machine, "Invalid or missing argument for 'set_gain'. Please provide a valid number.")
-    except Exception as e:
-        send_problem(machine, f"Error setting gain: {e}")
+#     except (IndexError, ValueError):
+#         send_problem(machine, "Invalid or missing argument for 'set_gain'. Please provide a valid number.")
+#     except Exception as e:
+#         send_problem(machine, f"Error setting gain: {e}")
 
 def handle_led(machine, payload):
     """Handles the 'led' command to turn the illumination LED on or off."""

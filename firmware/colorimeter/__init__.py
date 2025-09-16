@@ -110,7 +110,7 @@ machine.add_command("read_gain", handlers.handle_read_gain, {
     "description": "Reads the current sensor gain setting.",
     "args": []
 })
-machine.add_command("set", handlers.handle_set_gain, {
+machine.add_command("set", handlers.handle_set, {
     "description": "Sets parameters (LED on/off, gain, LED intensity)",
     "args": ["gain: float", "led: boolean", "intensity: inteter [1-10]"]
 })
