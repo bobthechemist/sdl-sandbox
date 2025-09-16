@@ -2,20 +2,7 @@
 # This file contains the handler functions for the colorimeter's custom commands.
 # type: ignore
 from shared_lib.messages import Message
-
-# ============================================================================
-# HELPER FUNCTIONS AND DATA
-# ============================================================================
-
-def send_problem(machine, error_msg):
-    """A helper function to create and send a standardized PROBLEM message."""
-    machine.log.error(error_msg)
-    response = Message.create_message(
-        subsystem_name=machine.name,
-        status="PROBLEM",
-        payload={"error": error_msg}
-    )
-    machine.postman.send(response.serialize())
+from shared_lib.error_handling import send_problem, try_wrapper
 
 # This dictionary maps the user-friendly channel names you specified
 # to the actual attribute names on the adafruit_as7341 sensor object.
@@ -68,19 +55,18 @@ def handle_read(machine, payload):
     except Exception as e:
         send_problem(machine, f"Error during read: {e}")
 
+@try_wrapper
 def handle_read_all(machine, payload):
     """Handles the 'read_all' command, returning all channel values."""
-    try:
-        all_readings = machine.sensor.all_channels
-        machine.log.info(f"Read all channels: {all_readings}")
-        response = Message.create_message(
-            subsystem_name=machine.name,
-            status="DATA_RESPONSE",
-            payload={"all":all_readings}
-        )
-        machine.postman.send(response.serialize())
-    except Exception as e:
-        send_problem(machine, f"Error during read_all: {e}")
+    x = 1/0 # intentional error
+    all_readings = machine.sensor.all_channels
+    machine.log.info(f"Read all channels: {all_readings}")
+    response = Message.create_message(
+        subsystem_name=machine.name,
+        status="DATA_RESPONSE",
+        payload={"all":all_readings}
+    )
+    machine.postman.send(response.serialize())
 
 
 def handle_read_gain(machine, payload):
@@ -96,6 +82,29 @@ def handle_read_gain(machine, payload):
         machine.postman.send(response.serialize())
     except Exception as e:
         send_problem(machine, f"Error reading gain: {e}")
+
+def handle_set(machine, payload):
+    """Sets relevant parameters."""
+    args = payload.get("args", {})
+    if "gain" in args:
+        new_gain = float(args.get("gain", -1))
+        if new_gain not in VALID_GAINS:
+            send_problem(machine, f"Invalid gain value {new_gain}. Valid gains are: {VALID_GAINS}.")
+        else:
+            machine.sensor.gain = new_gain
+            machine.log.info(f"Sensor gain set to {new_gain}.")
+
+            response = Message.create_message(
+                subsystem_name==machine.name,
+                status="SUCCESS",
+                payload={
+                    "gain_set_to": new_gain,
+                    "response": f"Gain set to {new_gain}."
+                }    
+            )
+            machine.postman.send(response.serialize())
+    if "led" in args:
+        pass
 
 #TODO: Simplify these handlers so that there is one set command which accepts different arguments
 #  such as led (true/false), gain(VALID_GAINS) and intensity (0-10)

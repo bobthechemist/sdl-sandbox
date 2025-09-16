@@ -13,14 +13,13 @@ from firmware.common.command_library import register_common_commands
 from . import states
 from . import handlers
 
-__version__ = "1.0.0"
-
 # ============================================================================
-# COLORIMETER INSTRUMENT CONFIGURATION
+# 1. INSTRUMENT CONFIGURATION
 # ============================================================================
-# This dictionary holds all static configuration for the instrument.
-# It separates hardware definitions from the logic in states and handlers.
-COLORIMETER_CONFIG = {
+SUBSYSTEM_NAME = "COLORIMETER"
+SUBSYSTEM_VERSION = "1.0.0"
+SUBSYSTEM_INIT_STATE = "Initialize"
+SUBSYSTEM_CONFIG = {
     "pins": {
         # The AS7341 sensor uses the board's default I2C pins.
         # They are listed here for clarity but are not directly used in the
@@ -35,11 +34,11 @@ COLORIMETER_CONFIG = {
 }
 
 # ============================================================================
-# TELEMETRY CALLBACK
+# 2. ASSEMBLY SECTION
 # ============================================================================
-# This function is passed to the GenericIdle state. It defines what data
-# this specific instrument should send back to the host periodically.
-def send_colorimeter_telemetry(machine):
+
+# This callback defines the device's specific telemetry data.
+def send_telemetry(machine):
     """Callback function to generate and send the colorimeter's telemetry."""
     try:
         # Per your request, telemetry includes both LED status and current.
@@ -60,28 +59,43 @@ def send_colorimeter_telemetry(machine):
     except Exception as e:
         machine.log.error(f"Failed to send telemetry: {e}")
 
+def build_status(machine):
+    """
+    This function is called by the generic get_info command.
+    It builds the instrument-specific status dictionary in real-time.
+    """
+    return {
+        # Public Key:  Reads from the internal flag at the moment of the request.
+        "is_led_on": machine.sensor.led
+        # Add other public-facing status values here in the future
+        # "gripper_state": machine.flags.get('gripper_is_open', False)
+    }
+
 # ============================================================================
 # MACHINE ASSEMBLY
 # ============================================================================
 
 # 1. Create the state machine instance
-machine = StateMachine(init_state='Initialize', name='COLORIMETER')
+machine = StateMachine(
+    name=SUBSYSTEM_NAME,
+    version=SUBSYSTEM_VERSION,
+    config=SUBSYSTEM_CONFIG,
+    init_state=SUBSYSTEM_INIT_STATE,
+    status_callback=build_status
+)
 
-# 2. Attach the configuration and communication channel (Postman)
-machine.config = COLORIMETER_CONFIG
-machine.config['firmware_version'] = __version__
+# --- Attach Communication Channel ---
 postman = CircuitPythonPostman(params={"protocol": "serial_cp"})
 postman.open_channel()
 machine.postman = postman
 
-# 3. Add all the states the machine can be in
+# --- Add States ---
 machine.add_state(states.Initialize())
-machine.add_state(GenericIdle(telemetry_callback=send_colorimeter_telemetry))
+machine.add_state(GenericIdle(telemetry_callback=send_telemetry))
 machine.add_state(states.Collecting())  # Placeholder state, not currently reachable
 machine.add_state(GenericError())
 
-# 4. Define the machine's command interface by mapping command strings
-#    to their handler functions and providing documentation.
+# --- Define Command Interface ---
 register_common_commands(machine)  # Adds 'ping' and 'help'
 
 machine.add_command("read", handlers.handle_read, {
@@ -96,20 +110,12 @@ machine.add_command("read_gain", handlers.handle_read_gain, {
     "description": "Reads the current sensor gain setting.",
     "args": []
 })
-machine.add_command("set_gain", handlers.handle_set_gain, {
-    "description": "Sets the sensor gain. Must be one of the allowed values.",
-    "args": ["gain: float"]
+machine.add_command("set", handlers.handle_set_gain, {
+    "description": "Sets parameters (LED on/off, gain, LED intensity)",
+    "args": ["gain: float", "led: boolean", "intensity: inteter [1-10]"]
 })
-machine.add_command("led", handlers.handle_led, {
-    "description": "Turns the onboard illumination LED on or off.",
-    "args": ["state: bool"]
-})
-machine.add_command("led_intensity", handlers.handle_led_intensity, {
-    "description": "Adjusts the LED illumination intensity.",
-    "args": ["current: int (1-10)"]
-})
+
 
 # 5. Add machine-wide flags (dynamic variables)
 machine.add_flag('error_message', '')
 machine.add_flag('telemetry_interval', 60.0)  # Send telemetry every 10 seconds
-machine.add_flag('status_info', {})

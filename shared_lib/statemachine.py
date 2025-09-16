@@ -74,7 +74,7 @@ class StateMachine:
         self.is_microcontroller = check_if_microcontroller()
 
         # Populate status info
-         self.build_status_info = status_callback if status_callback is not None else lambda m: {}
+        self.build_status_info = status_callback if status_callback is not None else lambda m: {}
 
         # Each state machine has an inbox
         self.inbox = LinearMessageBuffer()
