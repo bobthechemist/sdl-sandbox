@@ -98,9 +98,9 @@ machine.add_state(GenericError())
 # --- Define Command Interface ---
 register_common_commands(machine)  # Adds 'ping' and 'help'
 
-machine.add_command("read", handlers.handle_read, {
-    "description": "Returns the reading for a single specified color channel.",
-    "args": ["channel: str (e.g., 'violet')"]
+machine.add_command("read", handlers.handle_read_all, {
+    "description": "Returns an object containing readings from all color channels.",
+    "args": []
 })
 machine.add_command("read_all", handlers.handle_read_all, {
     "description": "Returns an object containing readings from all color channels.",
