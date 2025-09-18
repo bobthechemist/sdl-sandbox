@@ -86,7 +86,14 @@ class Message():
 
     @property
     def meta(self):
-        return self._meta
+        # we are ignoring any meta in envelope until this is implemented
+        # Should append self._meta to the dict below.
+        fake_meta = {
+            "id": "fake UUID",
+            "seq": -1,
+            "origin": "fake UUID"
+        }
+        return fake_meta
 
     @meta.setter
     def meta(self, value):

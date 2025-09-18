@@ -35,8 +35,13 @@ def handle_help(machine, payload):
     machine.log.info("Help command received. Sending capabilities.")
     response = Message.create_message(
         subsystem_name=machine.name,
-        status="SUCCESS",
-        payload=machine.supported_commands # Get it directly from the machine
+        status="DATA_RESPONSE",
+        payload={
+            "metadata": {
+                "data_type": "dict"
+            },
+            "data": machine.supported_commands # Get it directly from the machine
+        }
     )
     machine.postman.send(response.serialize())
 
@@ -46,7 +51,7 @@ def handle_ping(machine, payload):
     response = Message.create_message(
         subsystem_name=machine.name,
         status="SUCCESS",
-        payload={"response": "pong"}
+        payload={"message": "pong"}
     )
     machine.postman.send(response.serialize())
 
@@ -89,11 +94,10 @@ def handle_set_time(machine, payload):
         machine.log.info(f"Local time set to: {formatted_time}")
         
         response = Message.create_message(
-            subsystem_name=machine.name, # Corrected: Use '=' for assignment
+            subsystem_name=machine.name, 
             status="SUCCESS",
             payload={
-                "response": "Local time has been updated.",
-                "time_set_to_epoch": epoch_seconds
+                "message": f"Local time has been updated to {epoch_seconds}."
             }
         )
 
@@ -104,8 +108,8 @@ def handle_set_time(machine, payload):
             subsystem_name=machine.name,
             status="PROBLEM",
             payload={
-                "error": "Failed to set local time.",
-                "details": str(e)
+                "message": "Failed to set local time.",
+                "exception": str(e)
             }
         )
         
@@ -120,19 +124,22 @@ def handle_get_info(machine, payload):
     try:
         # 1. Assemble the payload from the standard, guaranteed attributes.
         info_payload = {
-            "firmware_name": machine.name,
-            "firmware_version": machine.version,
-            "current_state": machine.state.name,
+            "metadata":{
+                "firmware_name": machine.name,
+                "firmware_version": machine.version,
+                "current_state": machine.state.name,
+                "data_type": "dict"
+            },
             
             # 2. Call the machine's registered callback function to compute
             #    the instrument-specific status dictionary in real-time.
-            "status_info": machine.build_status_info(machine)
+            "data": machine.build_status_info(machine)
         }
         
         # 3. Create the SUCCESS message with the assembled payload.
         response = Message.create_message(
             subsystem_name=machine.name,
-            status="SUCCESS",
+            status="DATA_RESPONSE",
             payload=info_payload
         )
         
@@ -144,8 +151,8 @@ def handle_get_info(machine, payload):
             subsystem_name=machine.name,
             status="PROBLEM",
             payload={
-                "code": "E500_INFO_FAILED", 
-                "message": f"Could not retrieve device info. Internal error: {e}"
+                "message": "Could not retrieve device info."
+                "exception": str(e)
             }
         )
         

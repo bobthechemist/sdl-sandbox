@@ -51,8 +51,10 @@ def send_telemetry(machine):
             subsystem_name=machine.name,
             status="TELEMETRY",
             payload={
-                "led_is_on": led_on,
-                "led_intensity_ma": led_current
+                "data":{
+                    "led_is_on": led_on,
+                    "led_intensity_ma": led_current
+                }
             }
         )
         machine.postman.send(telemetry_message.serialize())
