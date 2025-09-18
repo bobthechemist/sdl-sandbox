@@ -13,13 +13,19 @@ The primary goals of this protocol are:
 
 All messages, regardless of direction or purpose, MUST be serialized JSON objects adhering to the following structure:
 
-| Key              | Type    | Description                                                                 |
-| ---------------- | ------- | --------------------------------------------------------------------------- |
-| `timestamp`   | Integer | The sender's timestamp of message creation in seconds time.time().               |
-| `subsystem_name` | String  | The name of the subsystem sending the message (e.g., "HOST", "RoboticArm-Sidekick"). |
-| `status`         | String  | The status of the message. MUST be one of the types defined in Section 3. |
-| `meta`           | Object  | Reserved JSON object |
-| `payload`        | Object  | A JSON object containing the message's specific content. See Section 4.   |
+| Key              | Type    | Description                                                                          |
+| ---------------- | ------- | ------------------------------------------------------------------------------------ |
+| `timestamp`      | Integer | The sender's timestamp of message creation in seconds time.time().                   |
+| `subsystem_name` | String  | The name of the subsystem sending the message (e.g., "HOST", "SIDEKICK"). |
+| `status`         | String  | The status of the message. MUST be one of the types defined in Section 3.            |
+| `meta`           | Object  | A JSON object (currently optional) containing message metadata (see below)                                                                 |
+| `payload`        | Object  | A JSON object containing the message's specific content. See Section 4.              |
+
+### Additional key details
+
+- The `timestamp` key assumes that when a host connects to a device, it issues an INSTRUCTION to set the device time (`handle_set_time`) under the assumption that the device does not have an RTC. 
+- The `meta` key is in flux, which is why it is currently optional. Recommended keys (id, seq, origin) are designed to assist in high volume communication scenarios or if message integrity is a concern.
+
 
 **Example of a base message:**
 ```json
@@ -27,6 +33,7 @@ All messages, regardless of direction or purpose, MUST be serialized JSON object
   "timestamp": 1678890000000,
   "subsystem_name": "HOST",
   "status": "INSTRUCTION",
+  "meta": {"id":"<uuid>", "seq": 11, "origin":"<uuid of origin>" },
   "payload": { ... }
 }
 ```
@@ -42,9 +49,12 @@ The `status` field is the primary indicator of a message's purpose.
 | **`PROBLEM`**     | Device -> Host   | To indicate that an `INSTRUCTION` failed or an error occurred.                     |
 | **`DATA_RESPONSE`** | Device -> Host   | To send **solicited data** in direct response to an `INSTRUCTION`.                  |
 | **`TELEMETRY`**   | Device -> Host   | To send **unsolicited data**, such as periodic sensor readings or status updates. |
-| **`WARNING`**     | Device <-> Host  | For non-critical issues or alerts.                                               |
+| **`WARNING`**     | Device <-> Host  | For non-critical issues or alerts.                                                |
 | **`INFO`**        | Device <-> Host  | For human-readable, informational text (e.g., boot messages, state changes).      |
 | **`DEBUG`**       | Device <-> Host  | For verbose debugging information not intended for production use.                |
+
+
+The values for `status` have been selected to identify various communication modes. An INSTRUCTION will require the device to submit a SUCCESS or PROBLEM response. Both TELEMETRY, WARNING, and INFO are unsolicited and do not require acknowledgement. DATA_RESPONSE requires a trigger from an INSTRUCTION and implies that the payload structure will be context-dependent. DEBUG is also an unsolicited message that should not be used in production.
 
 ## 4. Payload Schema Specifications
 
@@ -107,6 +117,8 @@ Used for all messages that contain structured, machine-readable data. The payloa
   }
 }
 ```
+
+`meta.origin` must be present in DATA_RESPONSE, SUCCESS, and PROBLEM messages to reference the id of their originating INSTRUCTION. It is omitted on TELEMETRY, WARNING, INFO, and DEBUG. 
 
 ## 5. Standard Call and Response Examples
 
@@ -200,6 +212,36 @@ Device periodically sends its internal temperature.
     "data": {
       "temp": 42.5
     }
+  }
+}
+```
+
+### 5.4. Scenario 4: PROBLEM and WARNING messages
+
+An instruction provided an argument that had an invalid value, so a PROBLEM message would reference the INSTRUCTION message and provide a helpful response.
+
+```json
+{
+  "timestamp": 1647947882750,
+  "subsystem_name": "Colorimeter",
+  "status": "PROBLEM",
+  "meta": {"origin": "<uuid of INSTRUCTION>", "id":"f99ffc50-8d2b-4176-8199-3661527a188c", "seq":808},
+  "payload": {
+    "message": "Invalid gain value. Select gain from 1, 2, 4, or 8.",
+    "exception": "<optional error details>"
+  }
+}
+```
+
+WARNING messages are unsolicited and would therefore not contain `meta.origin`
+
+```json
+{
+  "timestamp": 1647583764750,
+  "subsystem_name": "DIY Stirplate",
+  "status": "WARNING",
+  "payload": {
+    "message": "Elevated temperature detected on stirplate."
   }
 }
 ```
