@@ -100,16 +100,12 @@ machine.add_state(GenericError())
 # --- Define Command Interface ---
 register_common_commands(machine)  # Adds 'ping' and 'help'
 
-machine.add_command("read", handlers.handle_read_all, {
+machine.add_command("read", handlers.handle_read, {
     "description": "Returns an object containing readings from all color channels.",
     "args": []
 })
-machine.add_command("read_all", handlers.handle_read_all, {
-    "description": "Returns an object containing readings from all color channels.",
-    "args": []
-})
-machine.add_command("read_gain", handlers.handle_read_gain, {
-    "description": "Reads the current sensor gain setting.",
+machine.add_command("get", handlers.handle_get, {
+    "description": "gets the current parameter dictionary",
     "args": []
 })
 machine.add_command("set", handlers.handle_set, {

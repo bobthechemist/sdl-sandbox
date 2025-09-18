@@ -3,6 +3,7 @@
 # type: ignore
 from shared_lib.messages import Message
 from shared_lib.error_handling import send_problem, try_wrapper
+import time
 
 # This dictionary maps the user-friendly channel names you specified
 # to the actual attribute names on the adafruit_as7341 sensor object.
@@ -27,61 +28,45 @@ VALID_GAINS = [0.5, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 # COMMAND HANDLERS
 # ============================================================================
 
-def handle_read(machine, payload):
-    """Handles the 'read' command for a single color channel."""
-    try:
-        # Extract the channel name from the command's arguments
-        # TODO: Fix according to messaging protocol, args is a dict
-        channel_name = payload.get("args", [])[0].lower()
-        sensor_attribute = CHANNEL_MAP.get(channel_name)
-
-        if sensor_attribute is None:
-            send_problem(machine, f"Invalid channel '{channel_name}'. Valid channels are: {list(CHANNEL_MAP.keys())}")
-            return
-
-        # Use getattr() to dynamically access the sensor property
-        value = getattr(machine.sensor, sensor_attribute)
-        machine.log.info(f"Read {channel_name}: {value}")
-
-        response = Message.create_message(
-            subsystem_name=machine.name,
-            status="SUCCESS",
-            payload={"channel": channel_name, "value": value}
-        )
-        machine.postman.send(response.serialize())
-
-    except IndexError:
-        send_problem(machine, "Missing argument for 'read' command. Please specify a channel.")
-    except Exception as e:
-        send_problem(machine, f"Error during read: {e}")
-
 @try_wrapper
-def handle_read_all(machine, payload):
+def handle_read(machine, payload):
     """Handles the 'read_all' command, returning all channel values."""
     all_readings = machine.sensor.all_channels
     machine.log.info(f"Read all channels: {all_readings}")
     response = Message.create_message(
         subsystem_name=machine.name,
         status="DATA_RESPONSE",
-        payload={"all":all_readings}
+        payload={
+            "metadata":{
+                "data_type": "unknown"
+            },
+            "data":all_readings
+        }
     )
     machine.postman.send(response.serialize())
 
 
-def handle_read_gain(machine, payload):
-    """Handles the 'read_gain' command."""
-    try:
-        current_gain = machine.sensor.gain
-        machine.log.info(f"Current gain is {current_gain}x")
-        response = Message.create_message(
-            subsystem_name=machine.name,
-            status="SUCCESS",
-            payload={"gain": current_gain}
-        )
-        machine.postman.send(response.serialize())
-    except Exception as e:
-        send_problem(machine, f"Error reading gain: {e}")
-
+def handle_get(machine, payload):
+    """Handles the 'get' command."""
+    # Populate data with gain, led status and led_intensity
+    data = {}
+    data["gain"] = machine.sensor.gain
+    data["led_status"] = machine.sensor.led
+    data["led_intensity"] = machine.sensor.led_current
+    payload = {
+        "meta":{
+            "data_type":"dict",
+            "timestamp":time.time(),
+        },
+        "data":data
+    }
+    response = Message(
+        subsystem_name=machine.name,
+        status = "DATA_RESPONSE",
+        payload = payload
+    )
+    machine.postman.send(response.serialize())
+ 
 @try_wrapper
 def handle_set(machine, payload):
     """Sets relevant parameters."""
@@ -104,7 +89,7 @@ def handle_set(machine, payload):
             )
             machine.postman.send(response.serialize())
     if "led" in args:
-        pass
+        machine.sensor.led = args["led"]
 
 #TODO: Simplify these handlers so that there is one set command which accepts different arguments
 #  such as led (true/false), gain(VALID_GAINS) and intensity (0-10)

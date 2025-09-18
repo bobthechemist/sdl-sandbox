@@ -151,7 +151,7 @@ def handle_get_info(machine, payload):
             subsystem_name=machine.name,
             status="PROBLEM",
             payload={
-                "message": "Could not retrieve device info."
+                "message": "Could not retrieve device info.",
                 "exception": str(e)
             }
         )
