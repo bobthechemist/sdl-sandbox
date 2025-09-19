@@ -31,6 +31,8 @@ SUBSYSTEM_CONFIG = {
     "default_gain": 8,
     # Default current for the onboard LED source (mA).
     "default_intensity": 4,
+    "min_intensity": 1,
+    "max_intensity": 10,
 }
 
 # ============================================================================

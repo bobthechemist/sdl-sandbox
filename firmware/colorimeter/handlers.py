@@ -101,6 +101,31 @@ def handle_set(machine, payload):
             }
         )
         machine.postman.send(response.serialize())
+    if "intensity" in args:
+        intensity = args["intensity"]
+        min = machine.config["min_intensity"]
+        max = machine.config["max_intensity"]
+
+        if isinstance(intensity, int) and min <= intensity <= max:
+            machine.sensor.intensity = intensity
+            response = Message(
+                subsystem_name = machine.name,
+                status = "SUCCESS",
+                payload={
+                    "message": f"The colorimeter LED intensity is now {machine.sensor.intensity}."
+                }
+            )
+        else:
+            machine.log.error("Invalid LED intensity received")
+            response = Message(
+                subsystem_name = machine.name,
+                status = "PROBLEM",
+                payload = {
+                    "message": f"A valid intensity is an integer between {min} and {max}. Leaving intensity at {machine.sensor.intensity}"
+                }
+            )
+        machine.postman.send(response.serialize())
+
 
 
 
