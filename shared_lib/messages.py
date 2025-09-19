@@ -124,3 +124,24 @@ class Message():
     def get_valid_status(cls):
         return cls.VALID_STATUS
 
+# Make it easy to send properly formatted messages (at least for problem and success at the moment)
+
+def send_problem(machine, msg):
+    """A helper function to create and send a standardized PROBLEM message."""
+    machine.log.error(msg)
+    response = Message.create_message(
+        subsystem_name=machine.name,
+        status="PROBLEM",
+        payload={"message": msg}
+    )
+    machine.postman.send(response.serialize())
+
+def send_success(machine, msg):
+    """A helper function to create and send a standardize SUCCESS message."""
+    machine.log.info(msg)
+    response = Message(
+        subsystem_name=machine.name,
+        status="SUCCESS",
+        payload = {"message": msg}
+    )
+    machine.postman.send(response.serialize())

@@ -58,15 +58,13 @@ class SimpleHostGUI:
             LogLevel.RECV_TELEMETRY: {"foreground": "grey"},
         }
 
-    # --- MODIFIED: Reordered frames and adjusted row expansion ---
     def _create_widgets(self):
         self.root.columnconfigure(0, weight=1)
-        # The log frame is now at row 3
         self.root.rowconfigure(3, weight=1) 
 
         self._create_connection_frame()
         self._create_command_info_frame()
-        self._create_command_frame() # Moved up
+        self._create_command_frame()
         self._create_log_frame()
         self._create_status_bar()
 
@@ -108,30 +106,24 @@ class SimpleHostGUI:
         self.command_tree.grid(row=0, column=0, sticky="nsew")
         scrollbar.grid(row=0, column=1, sticky="ns")
 
-    # --- MODIFIED: This entire method is redesigned ---
     def _create_command_frame(self):
         cmd_frame = ttk.LabelFrame(self.root, text="Send Command")
         cmd_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
-        cmd_frame.columnconfigure(1, weight=1) # Arg entry should expand
+        cmd_frame.columnconfigure(1, weight=1)
 
-        # Function Entry
         ttk.Label(cmd_frame, text="Function:").grid(row=0, column=0, padx=(0,5), pady=5, sticky="w")
         self.func_entry = ttk.Entry(cmd_frame)
         self.func_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
-        self.func_entry.insert(0, 'blink')
+        self.func_entry.insert(0, 'help')
 
-        # Arguments Entry
         ttk.Label(cmd_frame, text="Arguments:").grid(row=1, column=0, padx=(0,5), pady=5, sticky="w")
         self.args_entry = ttk.Entry(cmd_frame)
         self.args_entry.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
-        # Updated placeholder to show the new key:value format
-        self.args_entry.insert(0, 'count:3, delay:250')
+        self.args_entry.insert(0, '')
         
-        # Send Button
         self.send_btn = ttk.Button(cmd_frame, text="Send", command=self.send_command, state=tk.DISABLED)
         self.send_btn.grid(row=0, column=2, rowspan=2, padx=5, pady=5, sticky="ns")
 
-    # --- MODIFIED: Grid row updated ---
     def _create_log_frame(self):
         log_frame = ttk.LabelFrame(self.root, text="Incoming Messages")
         log_frame.grid(row=3, column=0, sticky="nsew", padx=10, pady=5)
@@ -146,12 +138,10 @@ class SimpleHostGUI:
         
         for tag_name, config in self.log_text_tags.items(): self.log_text.tag_config(tag_name, **config)
 
-    # --- MODIFIED: Grid row updated ---
     def _create_status_bar(self):
         self.status_bar = ttk.Label(self.root, text="Status: Disconnected", relief=tk.SUNKEN, anchor=tk.W, padding=5)
         self.status_bar.grid(row=4, column=0, sticky="ew")
 
-    # ... log_message, clear_log, and scanning methods are unchanged ...
     def log_message(self, text, level=LogLevel.INFO):
         def _do_log():
             timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
@@ -228,6 +218,8 @@ class SimpleHostGUI:
             self.scan_btn.config(state=tk.DISABLED)
             self.status_bar.config(text=f"Status: Connected to {self.device_combo.get()}")
             self.log_message(f"Successfully connected to {port}.")
+            # Send initial commands to get device info
+            self._send_get_info_command()
             self._send_help_command()
             self._set_remote_time()
         except Exception as e:
@@ -236,8 +228,13 @@ class SimpleHostGUI:
                 self.postman.close_channel()
             self.postman = None
     
-    # ... message receiver loop is unchanged ...
+    # ============================================================================
+    # REVISED METHOD
+    # ============================================================================
     def _message_receiver_loop(self):
+        """
+        Worker thread loop to continuously listen for messages from the device.
+        """
         while not self.stop_thread.is_set():
             if self.postman and self.postman.is_open:
                 try:
@@ -248,18 +245,29 @@ class SimpleHostGUI:
                             msg_dict = msg.to_dict()
                             status = msg_dict.get('status', '').upper()
                             payload = msg_dict.get('payload', {})
-                            is_command_list = False
-                            if status == "SUCCESS" and isinstance(payload, dict) and payload:
-                                first_value = next(iter(payload.values()))
-                                if isinstance(first_value, dict) and 'description' in first_value:
-                                    is_command_list = True
-                            if is_command_list:
-                                self.root.after(0, self._populate_command_info, payload)
+
+                            # --- NEW LOGIC TO DETECT COMMAND LIST ---
+                            # Check if this is a response to the 'help' command,
+                            # which now uses the standard DATA_RESPONSE format.
+                            if status == 'DATA_RESPONSE':
+                                data_content = payload.get('data', {})
+                                # Heuristic: Is the content a dictionary where values are also
+                                # dicts with a 'description' key? This identifies a command list.
+                                if (isinstance(data_content, dict) and data_content and
+                                    isinstance(next(iter(data_content.values()), None), dict) and
+                                    'description' in next(iter(data_content.values()), {})):
+                                    
+                                    # This is our command list. Populate the UI tree view.
+                                    self.root.after(0, self._populate_command_info, data_content)
+
+                            # General logging for all received messages
                             log_level = LogLevel.RECV
                             if status == "SUCCESS": log_level = LogLevel.RECV_SUCCESS
+                            elif status == "DATA_RESPONSE": log_level = LogLevel.RECV_SUCCESS # Treat DATA_RESPONSE as a success
                             elif status == "PROBLEM": log_level = LogLevel.RECV_PROBLEM
                             elif status == "TELEMETRY": log_level = LogLevel.RECV_TELEMETRY
                             self.log_message(f"Received: {msg_dict}", level=log_level)
+
                         except (json.JSONDecodeError, ValueError):
                             self.log_message(f"Received raw data: {raw_data}", level=LogLevel.RECV)
                 except Exception as e:
@@ -268,7 +276,6 @@ class SimpleHostGUI:
             time.sleep(0.05)
         self.log_message("Message receiver thread stopped.")
 
-    # --- MODIFIED: The main command sending logic is now here ---
     def send_command(self):
         if not self.is_connected:
             self.log_message("Not connected. Cannot send command.", level=LogLevel.ERROR)
@@ -282,10 +289,8 @@ class SimpleHostGUI:
         args_str = self.args_entry.get().strip()
         args_dict = {}
 
-        # Parse arguments string into a dictionary
         if args_str:
             try:
-                # Add quotes around unquoted keys to make the string valid JSON.
                 # This regex finds identifiers followed by a colon.
                 json_compatible_args = re.sub(r'([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'"\1":', args_str)
                 full_json_str = f"{{{json_compatible_args}}}"
@@ -298,19 +303,21 @@ class SimpleHostGUI:
                 )
                 return
         
-        # Construct the payload with the arguments dictionary and send
         payload_dict = {"func": func_name, "args": args_dict}
         self._send_message(payload_dict)
         
-
+    def _send_get_info_command(self):
+        self.log_message("Requesting device info...")
+        info_payload = {"func": "get_info", "args": {}}
+        self._send_message(info_payload)
 
     def _send_help_command(self):
         self.log_message("Requesting command list from device...")
-        help_payload = {"func": "help", "args": []}
+        help_payload = {"func": "help", "args": {}}
         self._send_message(help_payload)
 
     def _set_remote_time(self):
-        self.log_message("Setting the microcontrollers time...")
+        self.log_message("Setting the microcontroller's time...")
         time_payload = {"func": "set_time", "args":{"epoch_seconds":int(time.time())}}
         self._send_message(time_payload)
 
@@ -327,7 +334,6 @@ class SimpleHostGUI:
         except Exception as e:
             self.log_message(f"Failed to send command: {e}", level=LogLevel.ERROR)
 
-    # ... disconnect and other helper methods are unchanged ...
     def disconnect_device(self):
         if not self.is_connected:
             return

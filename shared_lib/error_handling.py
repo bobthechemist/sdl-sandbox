@@ -1,17 +1,9 @@
 # shared_lib/error_handling.py
 # Some helper functions for consistent error handling 
-from shared_lib.messages import Message
+from shared_lib.messages import send_problem
 
 
-def send_problem(machine, error_msg):
-    """A helper function to create and send a standardized PROBLEM message."""
-    machine.log.error(error_msg)
-    response = Message.create_message(
-        subsystem_name=machine.name,
-        status="PROBLEM",
-        payload={"error": error_msg}
-    )
-    machine.postman.send(response.serialize())
+
 
 # A decorator for wrapping try/except around logic
 # Custom information can be added by setting the err_msg variable in the function
