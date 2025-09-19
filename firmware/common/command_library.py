@@ -1,6 +1,6 @@
 # shared_lib/command_library.py
 #type: ignore
-from shared_lib.messages import Message
+from shared_lib.messages import Message, send_problem, send_success
 import time
 
 # Helper function, not a class, to register common commands.
@@ -33,7 +33,7 @@ def register_common_commands(machine):
 def handle_help(machine, payload):
     """Sends the machine's fully assembled list of supported commands."""
     machine.log.info("Help command received. Sending capabilities.")
-    response = Message.create_message(
+    response = Message(
         subsystem_name=machine.name,
         status="DATA_RESPONSE",
         payload={
@@ -47,13 +47,7 @@ def handle_help(machine, payload):
 
 def handle_ping(machine, payload):
     """Responds with a simple 'pong'."""
-    machine.log.info("Ping received. Responding.")
-    response = Message.create_message(
-        subsystem_name=machine.name,
-        status="SUCCESS",
-        payload={"message": "pong"}
-    )
-    machine.postman.send(response.serialize())
+    send_success(machine, "pong")
 
 def handle_set_time(machine, payload):
     """
@@ -91,29 +85,12 @@ def handle_set_time(machine, payload):
         # 3. Log the success and create a success response message
         # You can format the time nicely for the log
         formatted_time = f"{new_time.tm_year}-{new_time.tm_mon:02d}-{new_time.tm_mday:02d} {new_time.tm_hour:02d}:{new_time.tm_min:02d}:{new_time.tm_sec:02d}"
-        machine.log.info(f"Local time set to: {formatted_time}")
-        
-        response = Message.create_message(
-            subsystem_name=machine.name, 
-            status="SUCCESS",
-            payload={
-                "message": f"Local time has been updated to {epoch_seconds}."
-            }
-        )
+        send_success(machine, f"Local time set to: {formatted_time}")
 
     except Exception as e:
         # 4. If anything goes wrong, create a PROBLEM response
-        machine.log.error(f"Failed to set time: {e}")
-        response = Message.create_message(
-            subsystem_name=machine.name,
-            status="PROBLEM",
-            payload={
-                "message": "Failed to set local time.",
-                "exception": str(e)
-            }
-        )
-        
-    machine.postman.send(response.serialize())
+        send_problem(machine, "Failed to set local time", str(e))
+
 
 def handle_get_info(machine, payload):
     """
@@ -142,19 +119,7 @@ def handle_get_info(machine, payload):
             status="DATA_RESPONSE",
             payload=info_payload
         )
-        
+        machine.postman.send(response.serialize())
     except Exception as e:
-        # 4. If any part of the process fails, log the error and send
-        #    a structured PROBLEM message back to the host.
-        machine.log.error(f"Failed to assemble info packet for get_info command: {e}")
-        response = Message.create_message(
-            subsystem_name=machine.name,
-            status="PROBLEM",
-            payload={
-                "message": "Could not retrieve device info.",
-                "exception": str(e)
-            }
-        )
-        
-    # 5. Send the prepared message (either SUCCESS or PROBLEM) to the host.
-    machine.postman.send(response.serialize())
+        send_problem(machine, "Failed to retrieve device info", str(e))
+

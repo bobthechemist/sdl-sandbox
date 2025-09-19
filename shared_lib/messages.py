@@ -126,13 +126,16 @@ class Message():
 
 # Make it easy to send properly formatted messages (at least for problem and success at the moment)
 
-def send_problem(machine, msg):
+def send_problem(machine, msg, error = None):
     """A helper function to create and send a standardized PROBLEM message."""
-    machine.log.error(msg)
+    machine.log.error(f"msg:{msg}, error:{error}")
+    payload = {"message":msg}
+    if error is not None:
+        payload["exception"] = error
     response = Message.create_message(
         subsystem_name=machine.name,
         status="PROBLEM",
-        payload={"message": msg}
+        payload=payload
     )
     machine.postman.send(response.serialize())
 
