@@ -22,7 +22,8 @@ CHANNEL_MAP = {
 }
 
 # The list of valid gain values, as defined by the sensor's library.
-VALID_GAINS = [0.5, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+# Note, AS7341 firmware has a but and the lowest gain (0.5x) requires that we set the gain to 0.
+VALID_GAINS = [0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 
 # ============================================================================
 # COMMAND HANDLERS
@@ -71,8 +72,10 @@ def handle_get(machine, payload):
 def handle_set(machine, payload):
     """Sets relevant parameters."""
     args = payload.get("args", {})
+
     if "gain" in args:
-        new_gain = float(args.get("gain", -1))
+        new_gain = args.get("gain", -1)
+
         if new_gain not in VALID_GAINS:
             send_problem(machine, f"Invalid gain value {new_gain}. Valid gains are: {VALID_GAINS}.")
         else:
@@ -80,16 +83,26 @@ def handle_set(machine, payload):
             machine.log.info(f"Sensor gain set to {new_gain}.")
 
             response = Message.create_message(
-                subsystem_name==machine.name,
+                subsystem_name = machine.name,
                 status="SUCCESS",
                 payload={
-                    "gain_set_to": new_gain,
-                    "response": f"Gain set to {new_gain}."
+                    "message": f"Gain set to {new_gain}."
                 }    
             )
             machine.postman.send(response.serialize())
     if "led" in args:
         machine.sensor.led = args["led"]
+        led_status = "ON" if machine.sensor.led else "OFF"
+        response = Message(
+            subsystem_name = machine.name,
+            status="SUCCESS",
+            payload={
+                "message": f"The colorimeter LED is now {led_status}"
+            }
+        )
+        machine.postman.send(response.serialize())
+
+
 
 #TODO: Simplify these handlers so that there is one set command which accepts different arguments
 #  such as led (true/false), gain(VALID_GAINS) and intensity (0-10)
