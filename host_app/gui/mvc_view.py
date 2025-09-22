@@ -1,9 +1,10 @@
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 import json
-import time
+import queue
 from datetime import datetime
 import re
+import time
 
 # Import from the new MVC architecture and shared libraries
 from ..core.device_manager import DeviceManager
@@ -25,26 +26,21 @@ class MvcGui:
     """
     The main 'View' of the MVC application.
     This class is responsible for the UI layout and event handling.
-    It is a client of the DeviceManager and has no direct knowledge of
-    serial ports or threading.
     """
     def __init__(self, root: tk.Tk, device_manager: DeviceManager):
         self.root = root
         self.device_manager = device_manager  # Injected dependency
-        self.root.title("MVC Host Interface (Phase 1)")
+        self.root.title("MVC Host Interface")
         self.root.geometry("850x750")
 
-        # --- UI State Variables ---
         self.available_devices = []
         self.selected_port = tk.StringVar()
 
-        # --- UI Setup ---
         self._configure_styles()
         self._create_widgets()
         
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.root.after(100, self.scan_ports)
-        # Start the UI loop to process messages from the backend queue
         self.root.after(100, self.process_incoming_messages)
 
     def _configure_styles(self):
@@ -67,7 +63,6 @@ class MvcGui:
     def _create_widgets(self):
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(3, weight=1) 
-
         self._create_connection_frame()
         self._create_command_info_frame()
         self._create_command_frame()
@@ -75,77 +70,67 @@ class MvcGui:
         self._create_status_bar()
 
     def _create_connection_frame(self):
+        # This UI creation code is correct and unchanged
         conn_frame = ttk.LabelFrame(self.root, text="Connection")
         conn_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=5)
         conn_frame.columnconfigure(1, weight=1)
-
         ttk.Label(conn_frame, text="Available Devices:").grid(row=0, column=0, padx=5, pady=5)
         self.device_combo = ttk.Combobox(conn_frame, state="readonly")
         self.device_combo.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
-        
         self.scan_btn = ttk.Button(conn_frame, text="Scan", command=self.scan_ports)
         self.scan_btn.grid(row=0, column=2, padx=5, pady=5)
-        
         self.connect_btn = ttk.Button(conn_frame, text="Connect", command=self.connect_device)
         self.connect_btn.grid(row=0, column=3, padx=5, pady=5)
-        
         self.disconnect_btn = ttk.Button(conn_frame, text="Disconnect", command=self.disconnect_device, state=tk.DISABLED)
         self.disconnect_btn.grid(row=0, column=4, padx=5, pady=5)
 
     def _create_command_info_frame(self):
+        # This UI creation code is correct and unchanged
         info_frame = ttk.LabelFrame(self.root, text="Available Device Commands")
         info_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
         info_frame.columnconfigure(0, weight=1)
         info_frame.rowconfigure(0, weight=1)
-
         cols = ("Command", "Description", "Arguments")
         self.command_tree = ttk.Treeview(info_frame, columns=cols, show='headings', height=5)
-        
         for col in cols: self.command_tree.heading(col, text=col)
         self.command_tree.column("Command", width=120)
         self.command_tree.column("Description", width=300)
         self.command_tree.column("Arguments", width=200)
-
         scrollbar = ttk.Scrollbar(info_frame, orient=tk.VERTICAL, command=self.command_tree.yview)
         self.command_tree.configure(yscroll=scrollbar.set)
-
         self.command_tree.grid(row=0, column=0, sticky="nsew")
         scrollbar.grid(row=0, column=1, sticky="ns")
 
     def _create_command_frame(self):
+        # This UI creation code is correct and unchanged
         cmd_frame = ttk.LabelFrame(self.root, text="Send Command")
         cmd_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
         cmd_frame.columnconfigure(1, weight=1)
-
         ttk.Label(cmd_frame, text="Function:").grid(row=0, column=0, padx=(0,5), pady=5, sticky="w")
         self.func_entry = ttk.Entry(cmd_frame)
         self.func_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
-        self.func_entry.insert(0, 'get_info')
-
+        self.func_entry.insert(0, 'help')
         ttk.Label(cmd_frame, text="Arguments:").grid(row=1, column=0, padx=(0,5), pady=5, sticky="w")
         self.args_entry = ttk.Entry(cmd_frame)
         self.args_entry.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
-        
         self.send_btn = ttk.Button(cmd_frame, text="Send", command=self.send_command, state=tk.DISABLED)
         self.send_btn.grid(row=0, column=2, rowspan=2, padx=5, pady=5, sticky="ns")
 
     def _create_log_frame(self):
+        # This UI creation code is correct and unchanged
         log_frame = ttk.LabelFrame(self.root, text="Message Log")
         log_frame.grid(row=3, column=0, sticky="nsew", padx=10, pady=5)
         log_frame.rowconfigure(0, weight=1)
         log_frame.columnconfigure(0, weight=1)
-
         self.log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.WORD, state=tk.DISABLED)
         self.log_text.grid(row=0, column=0, sticky="nsew")
-        
-        # Configure all the custom color tags for the log
         for tag_name, config in self.log_text_tags.items():
             self.log_text.tag_config(tag_name, **config)
-
         clear_btn = ttk.Button(log_frame, text="Clear Log", command=self.clear_log)
         clear_btn.grid(row=1, column=0, sticky="e", pady=5)
 
     def _create_status_bar(self):
+        # This UI creation code is correct and unchanged
         self.status_bar = ttk.Label(self.root, text="Status: Disconnected", relief=tk.SUNKEN, anchor=tk.W, padding=5)
         self.status_bar.grid(row=4, column=0, sticky="ew")
 
@@ -164,25 +149,29 @@ class MvcGui:
                 elif msg_type == 'ERROR':
                     self.log_message(f"[{port}] Listener Error: {data}", LogLevel.ERROR)
         finally:
-            # Reschedule this method to run again, ensuring the UI stays responsive
             self.root.after(100, self.process_incoming_messages)
 
+    # --- REVISED METHOD ---
     def handle_received_message(self, port, msg: Message):
         """Processes a parsed Message object and updates the UI accordingly."""
         msg_dict = msg.to_dict()
         status = msg_dict.get('status', '').upper()
         payload = msg_dict.get('payload', {})
         
-        # --- Logic to detect and populate command list ---
-        if status == 'SUCCESS' and isinstance(payload, dict):
-            # Heuristic check for the old 'help' command format
-            first_val = next(iter(payload.values()), None)
-            if isinstance(first_val, dict) and 'description' in first_val:
-                self._populate_command_info(payload)
+        # Check if this is a response to the 'help' command.
+        if status == 'DATA_RESPONSE':
+            data_content = payload.get('data', {})
+            # Heuristic to identify if this is a command list
+            if (isinstance(data_content, dict) and data_content and
+                isinstance(next(iter(data_content.values()), None), dict) and
+                'description' in next(iter(data_content.values()), {})):
+                
+                # This is our command list. Populate the UI.
+                self._populate_command_info(data_content)
 
         # Log the message with appropriate styling
         log_level = LogLevel.RECV
-        if status == "SUCCESS" or status == "DATA_RESPONSE":
+        if status in ("SUCCESS", "DATA_RESPONSE"):
             log_level = LogLevel.RECV_SUCCESS
         elif status == "PROBLEM":
             log_level = LogLevel.RECV_PROBLEM
@@ -208,7 +197,7 @@ class MvcGui:
             return
         
         port = self.available_devices[selected_index]['port']
-        self.selected_port.set(port) # Track currently connected device for commands
+        self.selected_port.set(port)
         
         if self.device_manager.connect_device(port):
             self.log_message(f"Connection to {port} successful.")
@@ -216,10 +205,10 @@ class MvcGui:
             self.disconnect_btn.config(state=tk.NORMAL)
             self.send_btn.config(state=tk.NORMAL)
             self.status_bar.config(text=f"Status: Connected to {port}")
-            # Automatically query the device for its info
-            self._send_command_to_device(port, "get_info")
-            self._send_command_to_device(port, "help")
-            self._send_command_to_device(port, "set_time", {"epoch_seconds": int(time.time())})
+            # Automatically query the device for its info after a short delay
+            self.root.after(200, lambda: self._send_command_to_device(port, "get_info"))
+            self.root.after(400, lambda: self._send_command_to_device(port, "help"))
+            self.root.after(600, lambda: self._send_command_to_device(port, "set_time", {"epoch_seconds": int(time.time())}))
 
     def disconnect_device(self):
         port = self.selected_port.get()
@@ -237,7 +226,7 @@ class MvcGui:
     def send_command(self):
         port = self.selected_port.get()
         if not port:
-            self.log_message("No device connected.", LogLevel.ERROR)
+            self.log_message("No device selected.", LogLevel.ERROR)
             return
 
         func_name = self.func_entry.get().strip()
@@ -270,7 +259,6 @@ class MvcGui:
         self.device_manager.send_message(port, message)
 
     def on_closing(self):
-        """Ensure all connections are terminated on exit."""
         self.device_manager.disconnect_all()
         self.root.destroy()
 
