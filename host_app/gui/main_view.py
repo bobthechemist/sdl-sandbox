@@ -203,22 +203,36 @@ class MainView:
             # We use a robust lambda to capture the port variable correctly.
             self.root.after(200, lambda p=port: self._send_command_to_device(p, "get_info"))
             self.root.after(400, lambda p=port: self._send_command_to_device(p, "help"))
-            
+
     def send_command(self):
+        # 1. Get the currently selected device port.
         port = self.selected_device_port
-        if not port: return
+        if not port:
+            self.log_message("No device selected. Cannot send command.", level=LogLevel.ERROR)
+            return
+
+        # 2. Get the function name from the UI.
         func = self.func_entry.get().strip()
+        if not func:
+            self.log_message("Function name cannot be empty.", level=LogLevel.ERROR)
+            return
+            
+        # 3. Get the arguments string and parse it into a dictionary.
         args_str = self.args_entry.get().strip()
         args_dict = {}
         if args_str:
             try:
-                # Add quotes around unquoted keys
+                # This robustly converts a string like 'count:3, on_time:0.5'
+                # into a valid JSON string '{"count":3, "on_time":0.5}'
+                # before parsing. It handles strings, numbers, booleans, etc.
                 json_compatible_args = re.sub(r'([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'"\1":', args_str)
                 full_json_str = f"{{{json_compatible_args}}}"
                 args_dict = json.loads(full_json_str)
-            except json.JSONDecodeError:
-                self.log_message("Invalid arguments format. Use key:value pairs.", level=LogLevel.ERROR)
+            except json.JSONDecodeError as e:
+                self.log_message(f"Invalid arguments format. Use comma-separated key:value pairs (e.g., count:3, msg:\"hi\"). Error: {e}", level=LogLevel.ERROR)
                 return
+
+        # 4. Send the command to the correct device with the parsed arguments.
         self._send_command_to_device(port, func, args_dict)
 
     def _send_command_to_device(self, port, func, args=None):
