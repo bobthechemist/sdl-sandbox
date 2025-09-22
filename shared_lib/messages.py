@@ -107,7 +107,7 @@ class Message():
 
     @payload.setter
     def payload(self, value):
-        if not isinstance(payload, dict):
+        if not isinstance(value, dict):
             raise TypeError("payload must be a dictionary")
         self._payload = value
 

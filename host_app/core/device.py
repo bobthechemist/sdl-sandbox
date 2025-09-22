@@ -1,8 +1,8 @@
-# NO LONGER IMPORTS TKINTER
 from communicate.serial_postman import SerialPostman
 from shared_lib.messages import Message
 from ..firmware_db import get_device_name
 import logging
+import time
 
 log = logging.getLogger(__name__)
 
@@ -35,6 +35,7 @@ class Device:
             params = {"protocol": "serial", "port": self.port, "baudrate": 115200, "timeout": 0.1}
             self.postman = SerialPostman(params)
             self.postman.open_channel()
+            self.postman.channel.reset_input_buffer()
             self.is_connected = True
             self.current_state = "Connected"
             log.info(f"Device model for {self.port} connected successfully.")
@@ -69,18 +70,18 @@ class Device:
             metadata = payload.get('metadata', {})
             data_content = payload.get('data', {})
             
-            # --- Check for 'get_info' response by looking in metadata ---
-            if metadata.get('data_type') == 'device_info' or 'firmware_name' in metadata:
+            # --- Check for 'get_info' response (independent 'if') ---
+            if 'firmware_name' in metadata:
                 self.firmware_name = metadata.get('firmware_name', 'N/A')
                 self.version = metadata.get('firmware_version', 'N/A')
                 self.current_state = metadata.get('current_state', 'N/A')
-                self.status_info = data_content # The specific info is the 'data' part
+                self.status_info = data_content
                 log.info(f"[{self.port}] State updated from get_info: {self.firmware_name} v{self.version}, State: {self.current_state}")
             
-            # --- Check for 'help' response by looking in data_content ---
-            elif (isinstance(data_content, dict) and data_content and
-                  isinstance(next(iter(data_content.values()), None), dict) and
-                  'description' in next(iter(data_content.values()), {})):
+            # --- Check for 'help' response (independent 'if') ---
+            if (isinstance(data_content, dict) and data_content and
+                isinstance(next(iter(data_content.values()), None), dict) and
+                'description' in next(iter(data_content.values()), {})):
                 
                 self.supported_commands = data_content
                 log.info(f"[{self.port}] Updated supported commands list ({len(self.supported_commands)} commands found).")

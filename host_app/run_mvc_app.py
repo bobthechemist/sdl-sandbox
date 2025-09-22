@@ -1,13 +1,12 @@
 import tkinter as tk
 import logging
 from host_app.core.device_manager import DeviceManager
-from host_app.gui.mvc_view import MvcGui
+from host_app.gui.main_view import MainView # <-- IMPORT THE NEW VIEW
 
 def main():
-    # Configure root logger for the application
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s [%(name)-18s] %(levelname)-8s: %(message)s',
+        format='%(asctime)s [%(name)-22s] %(levelname)-8s: %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     
@@ -16,16 +15,18 @@ def main():
 
     # 1. Create the backend DeviceManager instance
     manager = DeviceManager()
+    manager.start() # <-- START THE MANAGER'S BACKGROUND THREADS
 
     # 2. Create the Tkinter root window
     root = tk.Tk()
 
     # 3. Create the GUI View, injecting the manager into it
-    app = MvcGui(root, manager)
+    app = MainView(root, manager)
 
     # 4. Start the Tkinter event loop
     root.mainloop()
     
+    # This will run after the window is closed
     log.info("Application has been closed.")
 
 if __name__ == "__main__":
