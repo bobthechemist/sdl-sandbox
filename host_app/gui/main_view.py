@@ -205,9 +205,41 @@ class MainView:
         # Clear the function entry box and insert the new command name
         self.func_entry.delete(0, tk.END)
         self.func_entry.insert(0, command_name)
+        details = self.command_details.get(command_name)
+        if not details:
+            return
 
-        # Clear the arguments entry as per the request to disable auto-population
+        args_list = details.get('args', [])
+        # Gracefully handle old string-based format by not populating args
+        if not args_list or not isinstance(args_list[0], dict):
+            self.args_entry.delete(0, tk.END)
+            return
+
+        template_parts = []
+        for arg in args_list:
+            arg_name = arg['name']
+            
+            # Use the default value if it exists, otherwise use a placeholder
+            value = arg.get('default')
+            if value is None:
+                # Use a descriptive placeholder
+                value_placeholder = f"<{arg.get('type', 'value')}>"
+            else:
+                value_placeholder = value
+
+            # IMPORTANT: Wrap string types in the required double quotes for the user
+            if arg.get('type') == 'str' and not (isinstance(value_placeholder, str) and value_placeholder.startswith('"')):
+                value_str = f'"{value_placeholder}"'
+            else:
+                value_str = str(value_placeholder)
+
+            template_parts.append(f"{arg_name}:{value_str}")
+        
+        final_template = ", ".join(template_parts)
+
+        # Populate the arguments entry
         self.args_entry.delete(0, tk.END)
+        self.args_entry.insert(0, final_template)
 
     def _update_status_panel(self, device: Device):
         self.dv_firmware_name.set(f"{device.friendly_name} ({device.firmware_name})")
@@ -348,27 +380,34 @@ class MainView:
         
         for name, details in commands_dict.items():
             desc = details.get('description', 'N/A')
-            
             args_list = details.get('args', [])
-            if not args_list:
-                args_str = "None"
-            else:
-                parts = []
-                # --- START: ROBUST PARSING LOGIC ---
-                for arg in args_list:
-                    # Check if the argument is the NEW dictionary format
-                    if isinstance(arg, dict):
-                        part = f"{arg.get('name', '?')} ({arg.get('type', 'any')}"
-                        if 'default' in arg:
-                            part += f", default={arg['default']}"
-                        part += ")"
-                        parts.append(part)
-                    # Check if the argument is the OLD string format
-                    elif isinstance(arg, str):
-                        parts.append(arg)
-                # --- END: ROBUST PARSING LOGIC ---
-                args_str = ", ".join(parts)
-            
+            args_str = "None" # Default value
+
+            if args_list:
+                # --- START: MODIFIED LOGIC TO DETECT ARGUMENT FORMAT ---
+                first_arg = args_list[0]
+                
+                # Check for the NEW, correct dictionary-based format
+                if isinstance(first_arg, dict):
+                    parts = []
+                    for arg in args_list:
+                        if isinstance(arg, dict):
+                            part = f"{arg.get('name', '?')} ({arg.get('type', 'any')}"
+                            if 'default' in arg:
+                                part += f", default={arg['default']}"
+                            part += ")"
+                            parts.append(part)
+                    args_str = ", ".join(parts)
+                
+                # Check for the OLD, deprecated string-based format
+                elif isinstance(first_arg, str):
+                    args_str = "[Firmware Update Required]"
+                    self.log_message(
+                        f"Command '{name}' uses a deprecated argument format. Please update the device firmware.",
+                        level=LogLevel.WARNING
+                    )
+                # --- END: MODIFIED LOGIC ---
+
             self.command_tree.insert("", tk.END, values=(name, desc, args_str))
 
     def _clear_command_info(self):
