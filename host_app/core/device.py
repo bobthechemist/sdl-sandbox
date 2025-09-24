@@ -26,6 +26,7 @@ class Device:
         self.is_connected = False
         self.status_info = {}
         self.supported_commands = {}
+        self.last_telemetry = {} # <-- ADDED: To store the most recent telemetry payload
 
     def connect(self):
         """Creates and opens the serial postman for this device."""
@@ -88,6 +89,8 @@ class Device:
 
         elif status == 'TELEMETRY':
             log.debug(f"[{self.port}] Received telemetry: {payload}")
+            # --- MODIFIED: Extract 'data' sub-dictionary if available ---
+            self.last_telemetry = payload.get('data', payload)
             
         elif status == 'PROBLEM':
             log.warning(f"[{self.port}] Received PROBLEM: {payload}")

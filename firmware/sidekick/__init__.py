@@ -69,12 +69,14 @@ SUBSYSTEM_CONFIG = {
 # This callback defines the device's specific telemetry data.
 def send_telemetry(machine):
     """Generates and sends telemetry message."""
-    telemetry_message = Message.create_message(
+    telemetry_message = Message(
         subsystem_name=machine.name,
         status="TELEMETRY",
         payload={
-            "m1_steps": machine.flags.get('current_m1_steps'),
-            "m2_steps": machine.flags.get('current_m2_steps')
+            "data": {
+                "m1_steps": machine.flags.get('current_m1_steps'),
+                "m2_steps": machine.flags.get('current_m2_steps')
+            }
         }
     )
     machine.postman.send(telemetry_message.serialize())

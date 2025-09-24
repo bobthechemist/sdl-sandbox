@@ -38,8 +38,7 @@ class MainView:
         # --- Tkinter Display Variables ---
         self.dv_firmware_name = tk.StringVar(value="N/A")
         self.dv_version = tk.StringVar(value="N/A")
-        self.dv_state = tk.StringVar(value="Disconnected")
-        self.dv_is_homed = tk.StringVar(value="N/A")
+        self.dv_last_telemetry = tk.StringVar(value="N/A") # <-- MODIFIED: Replaced State and Homed
         self.command_details = {}
         self.log_text_tags = {
             LogLevel.INFO: {"foreground": "black"},
@@ -90,18 +89,19 @@ class MainView:
     def _create_status_panel(self):
         frame = ttk.LabelFrame(self.root, text="Device Status")
         frame.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
+        frame.columnconfigure(1, weight=1) # <-- ADDED: Allow telemetry value to expand
         
+        # --- START: MODIFIED WIDGETS ---
         ttk.Label(frame, text="Firmware:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
         ttk.Label(frame, textvariable=self.dv_firmware_name).grid(row=0, column=1, sticky="w", padx=5, pady=2)
         
         ttk.Label(frame, text="Version:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
         ttk.Label(frame, textvariable=self.dv_version).grid(row=1, column=1, sticky="w", padx=5, pady=2)
 
-        ttk.Label(frame, text="State:").grid(row=0, column=2, sticky="w", padx=20, pady=2)
-        ttk.Label(frame, textvariable=self.dv_state).grid(row=0, column=3, sticky="w", padx=5, pady=2)
-
-        ttk.Label(frame, text="Homed:").grid(row=1, column=2, sticky="w", padx=20, pady=2)
-        ttk.Label(frame, textvariable=self.dv_is_homed).grid(row=1, column=3, sticky="w", padx=5, pady=2)
+        ttk.Label(frame, text="Telemetry:").grid(row=2, column=0, sticky="nw", padx=5, pady=2)
+        telemetry_label = ttk.Label(frame, textvariable=self.dv_last_telemetry, wraplength=700, anchor="w", justify=tk.LEFT)
+        telemetry_label.grid(row=2, column=1, sticky="w", padx=5, pady=2)
+        # --- END: MODIFIED WIDGETS ---
 
     def _create_command_info_frame(self):
         frame = ttk.LabelFrame(self.root, text="Available Commands")
@@ -242,12 +242,11 @@ class MainView:
         self.args_entry.insert(0, final_template)
 
     def _update_status_panel(self, device: Device):
+        # --- START: MODIFIED UPDATE LOGIC ---
         self.dv_firmware_name.set(f"{device.friendly_name} ({device.firmware_name})")
         self.dv_version.set(device.version)
-        self.dv_state.set(device.current_state)
-        is_homed = device.status_info.get('homed', 'N/A')
-        self.dv_is_homed.set(str(is_homed))
-
+        self.dv_last_telemetry.set(str(device.last_telemetry))
+        # --- END: MODIFIED UPDATE LOGIC ---
 
 
     def _scan_and_connect(self):
