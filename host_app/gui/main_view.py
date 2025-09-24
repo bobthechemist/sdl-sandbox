@@ -11,7 +11,15 @@ from ..core.device import Device
 from shared_lib.messages import Message
 
 class LogLevel:
-    INFO, ERROR, WARNING, SENT, RECV, RECV_SUCCESS, RECV_PROBLEM, RECV_TELEMETRY = range(8)
+    """Helper class to define styles and tags for log messages."""
+    INFO = "INFO"
+    ERROR = "ERROR"
+    WARNING = "WARNING"
+    SENT = "SENT"
+    RECV = "RECV"
+    RECV_SUCCESS = "RECV_SUCCESS"
+    RECV_PROBLEM = "RECV_PROBLEM"
+    RECV_TELEMETRY = "RECV_TELEMETRY"
 
 class MainView:
     """The main 'View' of the MVC application. This class is only responsible for the UI."""
@@ -32,7 +40,16 @@ class MainView:
         self.dv_version = tk.StringVar(value="N/A")
         self.dv_state = tk.StringVar(value="Disconnected")
         self.dv_is_homed = tk.StringVar(value="N/A")
-
+        self.log_text_tags = {
+            LogLevel.INFO: {"foreground": "black"},
+            LogLevel.ERROR: {"foreground": "red", "font": "Helvetica 9 bold"},
+            LogLevel.WARNING: {"foreground": "orange"},
+            LogLevel.SENT: {"foreground": "blue"},
+            LogLevel.RECV: {"foreground": "dark slate gray"},
+            LogLevel.RECV_SUCCESS: {"foreground": "green"},
+            LogLevel.RECV_PROBLEM: {"foreground": "red"},
+            LogLevel.RECV_TELEMETRY: {"foreground": "grey"},
+        }
         self._configure_styles()
         self._create_widgets()
         
@@ -116,6 +133,9 @@ class MainView:
         frame.columnconfigure(0, weight=1); frame.rowconfigure(0, weight=1)
         self.log_text = scrolledtext.ScrolledText(frame, wrap=tk.WORD, state=tk.DISABLED)
         self.log_text.grid(row=0, column=0, sticky="nsew")
+        # Configure all the tag styles you defined earlier
+        for tag, config in self.log_text_tags.items():
+            self.log_text.tag_config(tag, **config)
 
     def _create_status_bar(self):
         self.status_bar = ttk.Label(self.root, text="Status: No devices connected.", relief=tk.SUNKEN)
@@ -247,35 +267,50 @@ class MainView:
         self.manager.send_message(port, message)
 
     def _process_log_queue(self):
-        # This is now the single consumer of the message queue.
         while not self.manager.incoming_message_queue.empty():
             try:
                 msg_type, port, data = self.manager.incoming_message_queue.get_nowait()
 
-                # Task 1: Log the message to the UI
+                # --- START: MODIFIED LOGIC ---
                 if msg_type == 'SENT':
                     self.log_message(f"[{port}] Sent: {data.to_dict()}", level=LogLevel.SENT)
-                elif msg_type == 'RECV':
-                    self.log_message(f"[{port}] Recv: {data.to_dict()}", level=LogLevel.RECV)
-                elif msg_type == 'RAW':
-                    self.log_message(f"[{port}] Recv Raw: {data}", level=LogLevel.WARNING)
-                elif msg_type == 'ERROR':
-                    self.log_message(f"[{port}] Listener Error: {data}", level=LogLevel.ERROR)
                 
-                # Task 2: If it's a received message, tell the manager to update the model
-                if msg_type == 'RECV':
+                elif msg_type == 'RECV':
+                    # For received messages, we choose a color based on the message status
+                    msg_dict = data.to_dict()
+                    status = msg_dict.get('status', '').upper()
+                    
+                    log_level = LogLevel.RECV # Default for INFO, DEBUG, etc.
+                    if status in ("SUCCESS", "DATA_RESPONSE"):
+                        log_level = LogLevel.RECV_SUCCESS
+                    elif status == "PROBLEM":
+                        log_level = LogLevel.RECV_PROBLEM
+                    elif status == "TELEMETRY":
+                        log_level = LogLevel.RECV_TELEMETRY
+                    elif status == "WARNING":
+                        log_level = LogLevel.WARNING
+
+                    self.log_message(f"[{port}] Recv: {msg_dict}", level=log_level)
+                    
+                    # Also update the model
                     device = self.manager.devices.get(port)
                     if device:
-                        # This updates the backend data model (firmware version, state, etc.)
                         device.update_from_message(data)
 
+                elif msg_type == 'RAW':
+                    self.log_message(f"[{port}] Recv Raw: {data}", level=LogLevel.WARNING)
+                
+                elif msg_type == 'ERROR':
+                    self.log_message(f"[{port}] Listener Error: {data}", level=LogLevel.ERROR)
+                # --- END: MODIFIED LOGIC ---
+
             except queue.Empty:
-                pass # This is normal, just means the queue is empty
+                pass
 
     def log_message(self, text, level=LogLevel.INFO):
         timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
         self.log_text.config(state=tk.NORMAL)
-        self.log_text.insert(tk.END, f"[{timestamp}] {text}\n")
+        self.log_text.insert(tk.END, f"[{timestamp}] {text}\n", level)
         self.log_text.see(tk.END)
         self.log_text.config(state=tk.DISABLED)
 
