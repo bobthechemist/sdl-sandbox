@@ -20,23 +20,16 @@ class DeviceManager:
         self.stop_events = {}
         self.incoming_message_queue = queue.Queue()
         
-        # New thread to process the queue and update device models
-        self.message_processor_stop_event = threading.Event()
-        self.message_processor_thread = threading.Thread(
-            target=self._process_message_queue, daemon=True
-        )
 
     def start(self):
         """Starts the message processing thread."""
-        self.message_processor_thread.start()
-        log.info("DeviceManager started. Message processor is running.")
+
+        log.info("DeviceManager started")
 
     def stop(self):
         """Stops all threads and disconnects all devices."""
         log.info("DeviceManager stopping...")
-        self.message_processor_stop_event.set()
         self.disconnect_all()
-        self.message_processor_thread.join(timeout=2)
         log.info("DeviceManager stopped.")
 
     def scan_for_devices(self):
@@ -114,20 +107,3 @@ class DeviceManager:
                 self.incoming_message_queue.put(('ERROR', port, str(e)))
                 break
     
-    def _process_message_queue(self):
-        """Worker that processes the central queue and updates device models."""
-        while not self.message_processor_stop_event.is_set():
-            try:
-                msg_type, port, data = self.incoming_message_queue.get(timeout=1)
-                
-                if msg_type == 'RECV':
-                    device = self.devices.get(port)
-                    if device:
-                        device.update_from_message(data)
-                
-                # Other message types (SENT, RAW, ERROR) are for the UI,
-                # so we don't need to do anything with them here.
-                
-                self.incoming_message_queue.task_done()
-            except queue.Empty:
-                continue # This is normal, just means no messages

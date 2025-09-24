@@ -146,7 +146,7 @@ machine.add_command("angles", handlers.handle_angles, {
 
 # --- Add Dynamic Flags
 machine.add_flag('error_message', '')
-machine.add_flag('telemetry_interval', 2.0)
+machine.add_flag('telemetry_interval', 60.0)
 # --- Public flags are available via get_info ---
 machine.add_flag('is_homed', False)
 # --- Positioning flags ---

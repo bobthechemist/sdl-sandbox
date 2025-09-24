@@ -141,11 +141,12 @@ def handle_move_rel(machine, payload):
 def handle_dispense(machine, payload):
     if not check_homed(machine): return
     
-    pump = payload.get('pump')
-    vol = payload.get('vol')
+    args = payload.get('args',{})
+    pump = args.get('pump',None)
+    vol = args.get('vol',None)
     
     if pump not in machine.config['pump_offsets']:
-        send_problem(machine, f"Invalid pump specified: {pump}")
+        send_problem(machine, f"Invalid pump specified: {pump}. Choose from {list(machine.config["pump_offsets"].keys())}")
         return
 
     # Round volume down to the nearest increment

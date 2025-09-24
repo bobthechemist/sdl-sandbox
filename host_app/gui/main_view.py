@@ -168,7 +168,7 @@ class MainView:
         is_homed = device.status_info.get('homed', 'N/A')
         self.dv_is_homed.set(str(is_homed))
 
-# In host_app/gui/main_view.py
+
 
     def _scan_and_connect(self):
         self.log_message("Scanning for all available devices...")
@@ -205,34 +205,40 @@ class MainView:
             self.root.after(400, lambda p=port: self._send_command_to_device(p, "help"))
 
     def send_command(self):
-        # 1. Get the currently selected device port.
         port = self.selected_device_port
         if not port:
             self.log_message("No device selected. Cannot send command.", level=LogLevel.ERROR)
             return
 
-        # 2. Get the function name from the UI.
         func = self.func_entry.get().strip()
         if not func:
             self.log_message("Function name cannot be empty.", level=LogLevel.ERROR)
             return
             
-        # 3. Get the arguments string and parse it into a dictionary.
         args_str = self.args_entry.get().strip()
         args_dict = {}
+
         if args_str:
+            # --- START: MODIFIED PARSING LOGIC ---
+            full_json_str = "" # Define here to be available in the except block
             try:
-                # This robustly converts a string like 'count:3, on_time:0.5'
-                # into a valid JSON string '{"count":3, "on_time":0.5}'
-                # before parsing. It handles strings, numbers, booleans, etc.
+                # The user MUST use double quotes for string values.
+                # Example: pump:"p1", vol:10
                 json_compatible_args = re.sub(r'([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'"\1":', args_str)
                 full_json_str = f"{{{json_compatible_args}}}"
                 args_dict = json.loads(full_json_str)
             except json.JSONDecodeError as e:
-                self.log_message(f"Invalid arguments format. Use comma-separated key:value pairs (e.g., count:3, msg:\"hi\"). Error: {e}", level=LogLevel.ERROR)
+                # --- FIX: Log the generated string that failed to parse ---
+                error_msg = (
+                    f"Invalid arguments format. Use comma-separated key:value pairs. "
+                    f"IMPORTANT: String values MUST be in double quotes (e.g., pump:\"p1\").\n"
+                    f"    - Attempted to parse: {full_json_str}\n"
+                    f"    - Parser error: {e}"
+                )
+                self.log_message(error_msg, level=LogLevel.ERROR)
                 return
+            # --- END: MODIFIED PARSING LOGIC ---
 
-        # 4. Send the command to the correct device with the parsed arguments.
         self._send_command_to_device(port, func, args_dict)
 
     def _send_command_to_device(self, port, func, args=None):
@@ -241,15 +247,30 @@ class MainView:
         self.manager.send_message(port, message)
 
     def _process_log_queue(self):
+        # This is now the single consumer of the message queue.
         while not self.manager.incoming_message_queue.empty():
             try:
                 msg_type, port, data = self.manager.incoming_message_queue.get_nowait()
-                if msg_type == 'SENT': self.log_message(f"[{port}] Sent: {data.to_dict()}")
-                elif msg_type == 'RECV': self.log_message(f"[{port}] Recv: {data.to_dict()}")
-                elif msg_type == 'RAW': self.log_message(f"[{port}] Recv Raw: {data}")
-                elif msg_type == 'ERROR': self.log_message(f"[{port}] Listener Error: {data}", level=LogLevel.ERROR)
+
+                # Task 1: Log the message to the UI
+                if msg_type == 'SENT':
+                    self.log_message(f"[{port}] Sent: {data.to_dict()}", level=LogLevel.SENT)
+                elif msg_type == 'RECV':
+                    self.log_message(f"[{port}] Recv: {data.to_dict()}", level=LogLevel.RECV)
+                elif msg_type == 'RAW':
+                    self.log_message(f"[{port}] Recv Raw: {data}", level=LogLevel.WARNING)
+                elif msg_type == 'ERROR':
+                    self.log_message(f"[{port}] Listener Error: {data}", level=LogLevel.ERROR)
+                
+                # Task 2: If it's a received message, tell the manager to update the model
+                if msg_type == 'RECV':
+                    device = self.manager.devices.get(port)
+                    if device:
+                        # This updates the backend data model (firmware version, state, etc.)
+                        device.update_from_message(data)
+
             except queue.Empty:
-                pass
+                pass # This is normal, just means the queue is empty
 
     def log_message(self, text, level=LogLevel.INFO):
         timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
