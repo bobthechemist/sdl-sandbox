@@ -40,6 +40,7 @@ class MainView:
         self.dv_version = tk.StringVar(value="N/A")
         self.dv_state = tk.StringVar(value="Disconnected")
         self.dv_is_homed = tk.StringVar(value="N/A")
+        self.command_details = {}
         self.log_text_tags = {
             LogLevel.INFO: {"foreground": "black"},
             LogLevel.ERROR: {"foreground": "red", "font": "Helvetica 9 bold"},
@@ -113,6 +114,7 @@ class MainView:
         self.command_tree.column("Description", width=350)
         self.command_tree.column("Arguments", width=300)
         self.command_tree.grid(row=0, column=0, sticky="nsew")
+        self.command_tree.bind("<Double-1>", self._on_command_double_click)
 
     def _create_command_frame(self):
         frame = ttk.LabelFrame(self.root, text="Send Command")
@@ -180,6 +182,59 @@ class MainView:
             self.send_btn.config(state=tk.NORMAL)
             self.root.after(100, lambda: self._send_command_to_device(port, "get_info"))
             self.root.after(200, lambda: self._send_command_to_device(port, "help"))
+
+    def _on_command_double_click(self, event):
+        """
+        Handles the double-click event on the command Treeview.
+        Populates the function entry box with the selected command.
+        """
+        # Identify the unique ID of the row that was clicked on
+        item_id = self.command_tree.identify_row(event.y)
+        
+        # If the click was not on an actual item, do nothing
+        if not item_id:
+            return
+
+        # Get the dictionary of data for the clicked row
+        item_data = self.command_tree.item(item_id)
+        
+        # The 'values' key holds a list of the cell contents for that row.
+        # The first item in that list (index 0) is the command name.
+        command_name = item_data['values'][0]
+
+        # Clear the function entry box and insert the new command name
+        self.func_entry.delete(0, tk.END)
+        self.func_entry.insert(0, command_name)
+        details = self.command_details.get(command_name)
+        if not details:
+            return
+
+        args_list = details.get('args', [])
+        template_parts = []
+        for arg in args_list:
+            arg_name = arg['name']
+            
+            # Use the default value if it exists, otherwise use a placeholder
+            value = arg.get('default')
+            if value is None:
+                # Use a descriptive placeholder
+                value_placeholder = f"<{arg.get('type', 'value')}>"
+            else:
+                value_placeholder = value
+
+            # IMPORTANT: Wrap string types in the required double quotes for the user
+            if arg.get('type') == 'str' and not (isinstance(value_placeholder, str) and value_placeholder.startswith('"')):
+                value_str = f'"{value_placeholder}"'
+            else:
+                value_str = str(value_placeholder)
+
+            template_parts.append(f"{arg_name}:{value_str}")
+        
+        final_template = ", ".join(template_parts)
+
+        # Populate the arguments entry
+        self.args_entry.delete(0, tk.END)
+        self.args_entry.insert(0, final_template)
 
     def _update_status_panel(self, device: Device):
         self.dv_firmware_name.set(f"{device.friendly_name} ({device.firmware_name})")
@@ -316,10 +371,32 @@ class MainView:
 
     def _populate_command_info(self, commands_dict):
         self._clear_command_info()
+        self.command_details = commands_dict
+        
         for name, details in commands_dict.items():
             desc = details.get('description', 'N/A')
-            args = ", ".join(map(str, details.get('args', []))) or "None"
-            self.command_tree.insert("", tk.END, values=(name, desc, args))
+            
+            args_list = details.get('args', [])
+            if not args_list:
+                args_str = "None"
+            else:
+                parts = []
+                # --- START: ROBUST PARSING LOGIC ---
+                for arg in args_list:
+                    # Check if the argument is the NEW dictionary format
+                    if isinstance(arg, dict):
+                        part = f"{arg.get('name', '?')} ({arg.get('type', 'any')}"
+                        if 'default' in arg:
+                            part += f", default={arg['default']}"
+                        part += ")"
+                        parts.append(part)
+                    # Check if the argument is the OLD string format
+                    elif isinstance(arg, str):
+                        parts.append(arg)
+                # --- END: ROBUST PARSING LOGIC ---
+                args_str = ", ".join(parts)
+            
+            self.command_tree.insert("", tk.END, values=(name, desc, args_str))
 
     def _clear_command_info(self):
         for item in self.command_tree.get_children():

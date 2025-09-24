@@ -22,7 +22,10 @@ def register_common_commands(machine):
     })
     machine.add_command("set_time", handle_set_time, {
         "description": "Sets the time of the microcontroller.",
-        "args": ["epoch_seconds: int"]
+        "args": ["epoch_seconds: int"],
+        "args": [
+            {"name": "epoch_seconds", "type": "int", "description": "output of time.time()"}
+        ]
     })
     machine.add_command("get_info", handle_get_info, {
         "description": "Retrieves status information.",

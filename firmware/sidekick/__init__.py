@@ -121,27 +121,47 @@ machine.add_command("home", handlers.handle_home, {
 })
 machine.add_command("move_to", handlers.handle_move_to, {
     "description": "Moves the arm's center point to an absolute (x, y) coordinate.",
-    "args": ["x: float (cm)", "y: float (cm)"]
+    "args": [
+        {"name": "x", "type": "float", "description": "Target x-coordinate (cm)"},
+        {"name": "y", "type": "float", "description": "Target y-coordinate (cm)"}
+    ]
 })
 machine.add_command("move_rel", handlers.handle_move_rel, {
     "description": "Moves the arm relative to its current position by (dx, dy).",
-    "args": ["dx: float", "dy: float"]
+    "args": [
+        {"name": "dx", "type": "float", "description": "Relative move in x-axis (cm)"},
+        {"name": "dy", "type": "float", "description": "Relative move in y-axis (cm)"}
+    ]
 })
 machine.add_command("dispense", handlers.handle_dispense, {
-    "description": "Dispenses from a pump at the current location (includes offset move).",
-    "args": ["pump: str (e.g., 'p1')", "vol: float"]
+    "description": "Dispenses from a pump at the current location.",
+    "args": [
+        {"name": "pump", "type": "str", "description": "Pump to use (e.g., 'p1')"},
+        {"name": "vol", "type": "float", "description": "Volume to dispense (uL)", "default": 10.0}
+    ]
 })
 machine.add_command("dispense_at", handlers.handle_dispense_at, {
     "description": "Moves a pump to an absolute (x, y) coordinate and then dispenses.",
-    "args": ["pump: str", "vol: float", "x: float", "y: float"]
+    "args": [
+        {"name": "pump", "type": "str", "description": "Pump to use (e.g., 'p1')"},
+        {"name": "vol", "type": "float", "description": "Volume to dispense (uL)", "default": 10.0},
+        {"name": "x", "type": "float", "description": "Target x-coordinate (cm)"},
+        {"name": "y", "type": "float", "description": "Target y-coordinate (cm)"}
+    ]
 })
 machine.add_command("steps", handlers.handle_steps, {
     "description": "Moves motors by a relative number of steps. FOR TESTING ONLY.",
-    "args": ["m1: int", "m2: int"]
+    "args": [
+        {"name": "m1", "type": "int", "description": "Relative steps for motor 1"},
+        {"name": "m2", "type": "int", "description": "Relative steps for motor 2"}
+    ]
 })
 machine.add_command("angles", handlers.handle_angles, {
     "description": "Moves motors to absolute angles (theta1, theta2) within safe limits.",
-    "args": ["theta1: float", "theta2: float"]
+    "args": [
+        {"name": "theta1", "type": "float", "description": "Absolute angle for motor 1 (degrees)"},
+        {"name": "theta2", "type": "float", "description": "Absolute angle for motor 2 (degrees)"}
+    ]
 })
 
 # --- Add Dynamic Flags
