@@ -205,36 +205,9 @@ class MainView:
         # Clear the function entry box and insert the new command name
         self.func_entry.delete(0, tk.END)
         self.func_entry.insert(0, command_name)
-        details = self.command_details.get(command_name)
-        if not details:
-            return
 
-        args_list = details.get('args', [])
-        template_parts = []
-        for arg in args_list:
-            arg_name = arg['name']
-            
-            # Use the default value if it exists, otherwise use a placeholder
-            value = arg.get('default')
-            if value is None:
-                # Use a descriptive placeholder
-                value_placeholder = f"<{arg.get('type', 'value')}>"
-            else:
-                value_placeholder = value
-
-            # IMPORTANT: Wrap string types in the required double quotes for the user
-            if arg.get('type') == 'str' and not (isinstance(value_placeholder, str) and value_placeholder.startswith('"')):
-                value_str = f'"{value_placeholder}"'
-            else:
-                value_str = str(value_placeholder)
-
-            template_parts.append(f"{arg_name}:{value_str}")
-        
-        final_template = ", ".join(template_parts)
-
-        # Populate the arguments entry
+        # Clear the arguments entry as per the request to disable auto-population
         self.args_entry.delete(0, tk.END)
-        self.args_entry.insert(0, final_template)
 
     def _update_status_panel(self, device: Device):
         self.dv_firmware_name.set(f"{device.friendly_name} ({device.firmware_name})")
