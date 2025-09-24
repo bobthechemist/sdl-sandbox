@@ -310,12 +310,7 @@ class Moving(State):
             machine.go_to_state(next_state)
 
     def exit(self, machine):
-        """
-        Called once on exit. Ensures motors are disabled to save power.
-        """
         super().exit(machine)
-        machine.hardware['motor1_enable'].value = True
-        machine.hardware['motor2_enable'].value = True
 
 class Dispensing(State):
     @property
