@@ -3,6 +3,7 @@ import json
 import csv
 from communicate.serial_postman import SerialPostman
 from shared_lib.messages import Message
+import numpy as np
 
 # Import utilities from the host application part of the stack
 from communicate.host_utilities import find_data_comports
@@ -97,10 +98,17 @@ def main():
         if not home_response or home_response.status != 'SUCCESS':
             raise RuntimeError("Sidekick failed to home.")
         print("  - Setup complete.")
-        
+
+        move_payload = {"func": "move_to", "args":{"x":10,"y":-6}}
+        move_response = send_command_and_wait(sidekick_postman,"Sidekick",move_payload, timeout=60)
+        if not move_response or move_response.status != 'SUCCESS':
+            print(f"  - WARNING: Failed to move to y={y_pos}. Skipping measurement.")
+            
+
+        time.sleep(5)
         # 4. Prepare for Scan
         print("\n[Step 4] Turning on colorimeter LED...")
-        led_on_payload = {"func": "led", "args": {"state": True}}
+        led_on_payload = {"func": "set", "args": {"led": True}}
         led_on_response = send_command_and_wait(colorimeter_postman, "Colorimeter", led_on_payload)
         if not led_on_response or led_on_response.status != 'SUCCESS':
             raise RuntimeError("Failed to turn on colorimeter LED.")
@@ -109,26 +117,29 @@ def main():
         time.sleep(1)
 
         # 5. Execute Scanning Loop
-        print("\n[Step 5] Starting Y-axis scan from -2 to 5...")
-        x_pos = 10.0
+        print("\n[Step 5] Starting Y-axis scan from -6 to 2...")
+        x_pos = 9.0
         channel_names = ["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red"]
 
-        for y_pos in range(-2, 6):
+        for y_pos in np.arange(-6, 2, 1.6):
             print(f"\n--- Processing position (x={x_pos}, y={y_pos}) ---")
             
             move_payload = {"func": "move_to", "args": {"x": x_pos, "y": float(y_pos)}}
             move_response = send_command_and_wait(sidekick_postman, "Sidekick", move_payload, timeout=60)
+            time.sleep(1)
             if not move_response or move_response.status != 'SUCCESS':
                 print(f"  - WARNING: Failed to move to y={y_pos}. Skipping measurement.")
                 continue
             
-            print(f"  - Move complete. Taking measurement.")
+            print(f"➡️  - Move complete. Taking measurement.")
 
-            read_payload = {"func": "read_all", "args": {}}
+            read_payload = {"func": "read", "args": {}}
             read_response = send_command_and_wait(colorimeter_postman, "Colorimeter", read_payload, valid_statuses=("DATA_RESPONSE", "PROBLEM"))
-            
+            time.sleep(1)
             if read_response and read_response.status == 'DATA_RESPONSE':
-                intensity_list = read_response.payload.get('all', [])
+                
+
+                intensity_list = read_response.payload.get('data',{})
                 
                 print(f"  - Measurement successful: {intensity_list}")
                 
@@ -136,8 +147,8 @@ def main():
                 
                 row_data = {
                     'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
-                    'x_position': x_pos,
-                    'y_position': y_pos
+                    'x_position': round(x_pos,3),
+                    'y_position': round(y_pos,3)
                 }
                 row_data.update(measurement_dict)
                 results_data.append(row_data)
