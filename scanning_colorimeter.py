@@ -9,7 +9,7 @@ import numpy as np
 from communicate.host_utilities import find_data_comports
 from host_app.firmware_db import FIRMWARE_DATABASE
 
-def send_command_and_wait(postman: SerialPostman, device_name: str, command_payload: dict, valid_statuses: tuple = ("SUCCESS", "PROBLEM"), timeout: int = 25):
+def send_command_and_wait(postman: SerialPostman, device_name: str, command_payload: dict, valid_statuses: tuple = ("SUCCESS", "PROBLEM"), timeout: int = 5):
     """
     Sends a command to a device and waits for a specific response status.
     """
@@ -97,14 +97,14 @@ def main():
         home_response = send_command_and_wait(sidekick_postman, "Sidekick", home_payload, timeout=60)
         if not home_response or home_response.status != 'SUCCESS':
             raise RuntimeError("Sidekick failed to home.")
-        print("  - Setup complete.")
-
-        move_payload = {"func": "move_to", "args":{"x":10,"y":-6}}
+        print("❤️  - should not be moving")
+        # States need a "ready" command. Perhaps we need a only execute on IDLE?
+        move_payload = {"func": "move_to", "args":{"x":9.5,"y":-4}}
         move_response = send_command_and_wait(sidekick_postman,"Sidekick",move_payload, timeout=60)
         if not move_response or move_response.status != 'SUCCESS':
             print(f"  - WARNING: Failed to move to y={y_pos}. Skipping measurement.")
             
-
+        sys.exit()
         time.sleep(5)
         # 4. Prepare for Scan
         print("\n[Step 4] Turning on colorimeter LED...")
@@ -117,16 +117,16 @@ def main():
         time.sleep(1)
 
         # 5. Execute Scanning Loop
-        print("\n[Step 5] Starting Y-axis scan from -6 to 2...")
-        x_pos = 9.0
+        print("\n[Step 5] Starting Y-axis scan from -4 to 4.5...")
+        x_pos = 9.5
         channel_names = ["violet", "indigo", "blue", "cyan", "green", "yellow", "orange", "red"]
 
-        for y_pos in np.arange(-6, 2, 1.6):
+        for y_pos in np.random.permutation(np.arange(-4, 4, 1)):
             print(f"\n--- Processing position (x={x_pos}, y={y_pos}) ---")
             
             move_payload = {"func": "move_to", "args": {"x": x_pos, "y": float(y_pos)}}
             move_response = send_command_and_wait(sidekick_postman, "Sidekick", move_payload, timeout=60)
-            time.sleep(1)
+            time.sleep(.25)
             if not move_response or move_response.status != 'SUCCESS':
                 print(f"  - WARNING: Failed to move to y={y_pos}. Skipping measurement.")
                 continue
@@ -157,7 +157,7 @@ def main():
         
         # 6. Post-Scan Cleanup
         print("\n[Step 6] Scan complete. Turning off colorimeter LED...")
-        led_off_payload = {"func": "led", "args": {"state": False}}
+        led_off_payload = {"func": "set", "args": {"led": False}}
         send_command_and_wait(colorimeter_postman, "Colorimeter", led_off_payload)
         
     except Exception as e:
