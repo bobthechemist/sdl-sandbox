@@ -1,6 +1,6 @@
 # firmware/common/common_states.py
 # This file contains generic, reusable states for any device.
-#type: ignore
+# type: ignore
 import time
 import digitalio
 from shared_lib.statemachine import State
@@ -38,8 +38,10 @@ class GenericIdle(State):
         super().__init__()
         self._telemetry_callback = telemetry_callback
 
-    def enter(self, machine):
-        super().enter(machine)
+    # <<< FIX IS HERE: Method signature updated to accept 'context'.
+    def enter(self, machine, context=None):
+        # <<< FIX IS HERE: Pass arguments to super().
+        super().enter(machine, context)
         self._telemetry_interval = machine.flags.get('telemetry_interval', 5.0)
         self._next_telemetry_time = time.monotonic() + self._telemetry_interval
 
@@ -62,8 +64,10 @@ class GenericError(State):
     def name(self):
         return 'Error'
     
-    def enter(self, machine):
-        super().enter(machine)
+    # <<< FIX IS HERE: Method signature updated to accept 'context'.
+    def enter(self, machine, context=None):
+        # <<< FIX IS HERE: Pass arguments to super().
+        super().enter(machine, context)
         error_msg = machine.flags.get('error_message', "Unknown error.")
         machine.log.critical(f"ENTERING ERROR STATE: {error_msg}")
         # Turn LED on solid to indicate a persistent error
@@ -100,13 +104,14 @@ class GenericErrorWithButton(State):
         self._reset_state_name = reset_state_name
         self._reset_button = None # This will hold the DigitalInOut object
 
-    def enter(self, machine):
-        super().enter(machine)
+    # <<< FIX IS HERE: Method signature updated to accept 'context'.
+    def enter(self, machine, context=None):
+        # <<< FIX IS HERE: Pass arguments to super().
+        super().enter(machine, context)
         error_msg = machine.flags.get('error_message', "Unknown error.")
         machine.log.critical(f"ENTERING ERROR STATE: {error_msg}")
 
-        # --- NEW: Hardware Setup ---
-        # If a reset pin was provided during initialization, set it up.
+        # --- Hardware Setup ---
         if self._reset_pin_config:
             try:
                 self._reset_button = digitalio.DigitalInOut(self._reset_pin_config)
@@ -114,42 +119,28 @@ class GenericErrorWithButton(State):
                 self._reset_button.pull = digitalio.Pull.UP
                 machine.log.info(f"Error recovery button initialized on pin {str(self._reset_pin_config)}.")
             except Exception as e:
-                # If the pin is invalid, log it but don't crash. The error state
-                # will just become permanent, which is a safe fallback.
                 machine.log.error(f"Could not initialize reset button: {e}")
                 self._reset_button = None
 
-        # This flag is for debouncing the button.
         self._button_is_pressed = False
         
-        # Turn LED on solid to indicate a persistent error, if an LED exists
         if hasattr(machine, 'led'):
             machine.led.value = True
 
     def update(self, machine):
         """
         If a reset button is configured, this method checks for a press.
-        Otherwise, it does nothing, requiring a power cycle to exit.
         """
-        # --- NEW: Button Checking Logic ---
-        # Only run this logic if the reset button was successfully initialized.
         if self._reset_button:
-            # Button is active-low (value is False when pressed)
             button_value_is_low = not self._reset_button.value
 
-            # Trigger on the "falling edge" (the moment it's pressed)
             if button_value_is_low and not self._button_is_pressed:
                 self._button_is_pressed = True
-                
-                machine.log.warning(f"Reset button pressed. Acknowledging error and attempting to recover to '{self._reset_state_name}' state.")
-                
-                machine.flags['error_message'] = '' # Clear the error
+                machine.log.warning(f"Reset button pressed. Recovering to '{self._reset_state_name}' state.")
+                machine.flags['error_message'] = ''
                 machine.go_to_state(self._reset_state_name)
             
-            # Reset the debounce flag when the button is released
             elif not button_value_is_low:
                 self._button_is_pressed = False
         
-        # If no button is configured, the machine will just stay in this state.
-        # A small sleep prevents this loop from consuming all CPU.
         time.sleep(0.1)

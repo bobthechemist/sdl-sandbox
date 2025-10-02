@@ -1,105 +1,138 @@
 # firmware/colorimeter/handlers.py
-# This file contains the handler functions for the colorimeter's custom commands.
+# REFACTORED: This file updates all message payloads to comply with messaging.md
+# and introduces a 'measure' command to demonstrate the StateSequencer.
 # type: ignore
 from shared_lib.messages import Message, send_problem, send_success
 from shared_lib.error_handling import try_wrapper
-import time
 
-# This dictionary maps the user-friendly channel names you specified
-# to the actual attribute names on the adafruit_as7341 sensor object.
-# This makes the `handle_read` function clean and easy to maintain.
-CHANNEL_MAP = {
-    "violet": "channel_415nm",
-    "indigo": "channel_445nm",
-    "blue": "channel_480nm",
-    "cyan": "channel_515nm",
-    "green": "channel_555nm",
-    "yellow": "channel_590nm",
-    "orange": "channel_630nm",
-    "red": "channel_680nm",
-    "clear": "channel_clear",
-    "nir": "channel_nir"
-}
+# This dictionary maps the user-friendly channel names to the actual
+# attribute names on the adafruit_as7341 sensor object.
+CHANNEL_NAMES = [
+    "violet", "indigo", "blue", "cyan", "green",
+    "yellow", "orange", "red", "clear", "nir"
+]
 
 # The list of valid gain values, as defined by the sensor's library.
-# Note, AS7341 firmware has a but and the lowest gain (0.5x) requires that we set the gain to 0.
-VALID_GAINS = [0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+# The AS7341 library uses a gain index from 0-10, which corresponds to these values.
+VALID_GAINS = [0.5, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 
 # ============================================================================
-# COMMAND HANDLERS
+# COMMAND HANDLERS (REFACTORED)
 # ============================================================================
 
 @try_wrapper
-def handle_read(machine, payload):
-    """Handles the 'read' command, returning all channel values."""
-    all_readings = machine.sensor.all_channels
-    machine.log.info(f"Read all channels: {all_readings}")
-    response = Message(
+def handle_read_all(machine, payload):
+    """
+    Handles the 'read_all' command.
+    REFACTORED: Returns a DATA_RESPONSE with a structured payload.
+    """
+    readings_tuple = machine.sensor.all_channels
+    
+    # Create a more descriptive dictionary for the data payload
+    readings_dict = dict(zip(CHANNEL_NAMES, readings_tuple))
+    machine.log.info(f"Read all channels: {readings_dict}")
+    
+    response = Message.create_message(
         subsystem_name=machine.name,
         status="DATA_RESPONSE",
         payload={
-            "metadata":{
-                "data_type": "unknown"
+            "metadata": {
+                "data_type": "color_spectrum",
+                "units": "counts"
             },
-            "data":all_readings
+            "data": readings_dict
         }
     )
     machine.postman.send(response.serialize())
 
-
-def handle_get(machine, payload):
-    """Handles the 'get' command."""
-    # Populate data with gain, led status and intensity
-    data = {}
-    data["gain"] = machine.sensor.gain
-    data["led"] = machine.sensor.led
-    data["intensity"] = machine.sensor.led_current
-    payload = {
-        "meta":{
-            "data_type":"dict",
-            "timestamp":time.time(),
-        },
-        "data":data
+@try_wrapper
+def handle_get_settings(machine, payload):
+    """
+    Handles the 'get_settings' command.
+    REFACTORED: Returns a DATA_RESPONSE with a structured payload.
+    """
+    settings_data = {
+        "gain": machine.sensor.gain,
+        "led_is_on": machine.sensor.led,
+        "intensity_ma": machine.sensor.led_current
     }
-    response = Message(
+    
+    response = Message.create_message(
         subsystem_name=machine.name,
-        status = "DATA_RESPONSE",
-        payload = payload
+        status="DATA_RESPONSE",
+        payload={
+            "metadata": { "data_type": "sensor_settings" },
+            "data": settings_data
+        }
     )
     machine.postman.send(response.serialize())
  
 @try_wrapper
-def handle_set(machine, payload):
-    """Sets relevant parameters."""
+def handle_set_settings(machine, payload):
+    """
+    Handles the 'set_settings' command. Can set multiple parameters at once.
+    BUG FIX: Correctly sets 'led_current' instead of 'intensity'.
+    """
     args = payload.get("args", {})
-    responded = False
-    if "gain" in args:
-        new_gain = args.get("gain", -1)
+    if not isinstance(args, dict) or not args:
+        send_problem(machine, "Invalid or empty 'args' object provided.")
+        return
 
-        if new_gain not in VALID_GAINS:
-            send_problem(machine, f"Invalid gain value {new_gain}. Valid gains are: {VALID_GAINS}.")
+    # Keep track of which parameters were successfully set
+    settings_applied = []
+
+    if "gain" in args:
+        new_gain = args["gain"]
+        if new_gain in VALID_GAINS:
+            # The library uses an index for gain, so we find it.
+            machine.sensor.gain = VALID_GAINS.index(new_gain)
+            settings_applied.append(f"gain={new_gain}x")
         else:
-            machine.sensor.gain = new_gain
-            send_success(machine, f"Sensor gain set to {new_gain}")
-        responded = True
+            send_problem(machine, f"Invalid gain value {new_gain}. Valid gains are: {VALID_GAINS}.")
+            return # Stop processing on invalid input
 
     if "led" in args:
-        machine.sensor.led = args["led"]
-        led_status = "ON" if machine.sensor.led else "OFF"
-        send_success(machine, f"The colorimeter LED is now {led_status}")
-        responded = True
+        led_state = args["led"]
+        if isinstance(led_state, bool):
+            machine.sensor.led = led_state
+            settings_applied.append(f"led={'ON' if led_state else 'OFF'}")
+        else:
+            send_problem(machine, "Invalid 'led' value; must be a boolean (true/false).")
+            return
+
     if "intensity" in args:
         intensity = args["intensity"]
-        min = machine.config["min_intensity"]
-        max = machine.config["max_intensity"]
-
-        if isinstance(intensity, int) and min <= intensity <= max:
-            machine.sensor.intensity = intensity
-            send_success(machine, f"The colorimeter LED intensity is now {machine.sensor.intensity}.")
+        min_i = machine.config["min_intensity"]
+        max_i = machine.config["max_intensity"]
+        if isinstance(intensity, int) and min_i <= intensity <= max_i:
+            # BUG FIX: The attribute is `led_current`, not `intensity`.
+            machine.sensor.led_current = intensity
+            settings_applied.append(f"intensity={intensity}mA")
         else:
-            machine.log.error("Invalid LED intensity received")
-            send_problem(machine, f"A valid intensity is an integer between {min} and {max}. Leaving intensity at {machine.sensor.intensity}")
-        responded = True
-    if not responded:
-        # We didn't find any valid paremeters to set, so assume there was a problem in the message
-        send_problem(machine, f"Something was wrong with your request, perhaps a typo? {args}")
+            send_problem(machine, f"Invalid 'intensity'; must be an integer between {min_i} and {max_i}.")
+            return
+
+    if settings_applied:
+        send_success(machine, f"Settings applied: {', '.join(settings_applied)}.")
+    else:
+        send_problem(machine, f"No valid parameters found in request: {args}")
+
+# ============================================================================
+# NEW COMMAND HANDLER FOR STATE SEQUENCER
+# ============================================================================
+def handle_measure(machine, payload):
+    """
+    Initiates a non-blocking, multi-step measurement sequence.
+    This demonstrates the use of the StateSequencer for complex tasks.
+    """
+    # Define the sequence of states and their labels.
+    sequence = [
+        {"state": "TurnOnLED", "label": "Powering illuminator"},
+        {"state": "ReadSensor", "label": "Acquiring data"},
+        {"state": "TurnOffLED", "label": "Finalizing and reporting"}
+    ]
+    
+    machine.log.info("Starting measurement sequence...")
+    # The sequencer will take control, executing each state in order.
+    # The state machine will automatically return to 'Idle' when the sequence is complete.
+    machine.sequencer.start(sequence)

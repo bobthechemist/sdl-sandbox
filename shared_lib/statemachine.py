@@ -1,3 +1,4 @@
+# shared_lib/statemachine.py
 #type: ignore
 """
 Classes to treat the software-driven laboratory subsystems as state machines
@@ -155,7 +156,7 @@ class StateMachine:
         """
         self.flags[flag] = init_value
 
-    def go_to_state(self, state_name, context = None):
+    def go_to_state(self, state_name, context=None):
         """
         Transitions the state machine to the specified state.
         """
@@ -163,10 +164,13 @@ class StateMachine:
             raise Exception('State machine must be running to do this.')
         if self.state:
             self.state.exit(self)
-        self.state = self.states[state_name]
-        # TODO: More exhaustive error handling - now just doing Context
+        
+        self.state = self.states.get(state_name)
+        if not self.state:
+            raise ValueError(f"Attempted to transition to an unknown state: '{state_name}'")
+            
         try:
-            self.state.enter(self, context or {})
+            self.state.enter(self, context=context)
         except ContextError as e:
             self.log.error(f"Aborting sequence. Reason: {e}.")
             if self.sequencer.is_active:
@@ -224,7 +228,7 @@ class State:
         self.required_context = []
         self.task_complete = False
 
-    def _validate_context(self, machine):
+    def _validate_context(self, machine, context):
         """
         A private helper called by enter() to ensure the state has what it needs
         """
@@ -240,14 +244,15 @@ class State:
         """
         return ''
 
-    def enter(self, machine, context: dict = None):
+    # <<< FIX IS HERE: Signature updated.
+    def enter(self, machine, context=None):
         """
         Actions to perform when entering the state.
         """
         self.entered_at = monotonic()
-        self._validate_context(machine)
-        self.task_complete = False
         self.local_context = context or {}
+        self._validate_context(machine, self.local_context)
+        self.task_complete = False
         machine.log.info(f'{machine.name} entered {self.name} with context={self.local_context}.')
 
     def exit(self, machine):
@@ -260,10 +265,9 @@ class State:
         """
         Handles advancement logic. Should be called at the end of a state's update function
         """
-        # TODO: Consider timeout logic - check elapsed time and boot out of update if needed.
         if self.task_complete:
-            machine.sequencer.update()
-        pass
+            # Let the sequencer know this state's task is done.
+            machine.sequencer.advance()
 
 class StateMachineOrchestrator:
     """
@@ -366,10 +370,9 @@ class StateSequencer:
             send_problem(self.machine, "Cannot start an empty sequence.")
             return
         
-        
         self.machine.log.info(f"Starting sequence: {sequence_list} -> persistent ='{persistent}'")
         self._is_active = True
-        self.queue = sequence_list
+        self.queue = sequence_list[:] # Make a copy
         self._persistent = persistent
         self.context = initial_context if initial_context is not None else {}
         self.advance()
@@ -378,54 +381,53 @@ class StateSequencer:
         """ Gracefully abort an active sequence. """
         send_problem(self.machine, f"Sequence aborted: {reason}")
         self._reset()
-        # An exception might be raised here on some conditions, need to pay attention
-        self.machine.go_to_state('Idle')
+        self.machine.go_to_state(self.machine.idle_state)
 
     def advance(self):
         """
         Signal that the current state has completed its task.
-
         Internal method to run the next step or complete the sequence.
         """
         if not self.is_active:
             self.machine.log.debug("advance() called outside of a sequence. Returning to idle state")
-            self.machine.go_to_state(machine.idle_state)
+            self.machine.go_to_state(self.machine.idle_state)
             return
 
         if not self.queue:
             self._complete()
             return
         
-        next_state = self.queue.pop(0)
+        # <<< FIX IS HERE: Corrected NameError (was using 'step' which was not defined)
+        step = self.queue.pop(0)
         if not isinstance(step, dict) or "state" not in step:
             self.machine.log.error(f"Invalid step format: {step}")
-            self.abort("Invalid sequence stop")
+            self.abort("Invalid sequence step format")
             return
+        
         state_name = step["state"]
         self.current_label = step.get("label")
         step_context = step.get("context", {})
-        label_info = f"({self.current_label})" if self.current_label else ""
-        self.machine.log.info(f"Acvancing to {state_name}{label_info} with context = {step_context}")
-        self.machine.go_to_state(next_state, context=step_context)
+        label_info = f" ({self.current_label})" if self.current_label else ""
+        
+        self.machine.log.info(f"Advancing to {state_name}{label_info} with context = {step_context}")
+        self.machine.go_to_state(state_name, context=step_context)
     
     def _complete(self):
         """
         Handles the completion of a sequence
         """
         self.machine.log.info("Sequence complete.")
-        send_success(self.machine, "Sequence completed successfully") # TODO: context should have a sequence title to make this message more informative
+        send_success(self.machine, "Sequence completed successfully")
         
         was_persistent_sequence = self._persistent
-        
         self._reset()
 
         if not was_persistent_sequence:
-            self.machine.go_to_state('Idle')
+            self.machine.go_to_state(self.machine.idle_state)
     
     def _reset(self):
         """Resets the sequencer to a clean state."""
         self._is_active = False
         self.queue.clear()
         self.context.clear()
-        self._persistent = False 
-
+        self._persistent = False

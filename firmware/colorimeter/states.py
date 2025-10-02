@@ -1,71 +1,102 @@
 # firmware/colorimeter/states.py
-# This file defines the unique behaviors (states) for the colorimeter.
+# REFACTORED: Fixed all 'enter' method signatures to be compatible with the base class.
 # type: ignore
 import board
+import time
 from shared_lib.statemachine import State
-
-# This is the hardware-specific library for the sensor.
-# Per your instructions, we assume this is already on the device's /lib folder.
 import adafruit_as7341
+from .handlers import CHANNEL_NAMES
+from shared_lib.messages import Message
 
 class Initialize(State):
-    """
-    Initializes the I2C bus and the AS7341 sensor. This state is custom
-    because every instrument has a unique hardware setup procedure. On success,
-    it applies default settings from the config and transitions to Idle.
-    """
+    """Initializes the I2C bus and the AS7341 sensor."""
     @property
-    def name(self):
-        return 'Initialize'
+    def name(self): return 'Initialize'
 
-    def enter(self, machine):
-        super().enter(machine)
+    def enter(self, machine, context=None):
+        super().enter(machine, context)
         try:
-            # 1. Create the I2C bus object using the board's default SCL/SDA pins.
             i2c = board.I2C()
-
-            # 2. Create the sensor object and attach it to the machine instance
-            #    so other states and handlers can access it via `machine.sensor`.
             machine.sensor = adafruit_as7341.AS7341(i2c)
             machine.log.info("AS7341 sensor found and initialized.")
 
-            # 3. Apply default settings from the config dictionary.
-            default_gain = machine.config.get("default_gain", 8)
+            default_gain_val = machine.config.get("default_gain", 8)
             default_intensity = machine.config.get("default_intensity", 4)
-
-            machine.sensor.gain = default_gain
+            
+            from .handlers import VALID_GAINS
+            machine.sensor.gain = VALID_GAINS.index(default_gain_val)
             machine.sensor.led_current = default_intensity
-            machine.sensor.led = False # Ensure LED is off at start
+            machine.sensor.led = False
 
-            machine.log.info(f"Default settings applied: Gain={default_gain}, Intensity={default_intensity}mA")
-
-            # 4. Once initialization is successful, transition to the Idle state.
+            machine.log.info(f"Default settings: Gain={default_gain_val}x, Intensity={default_intensity}mA")
             machine.go_to_state('Idle')
-
         except Exception as e:
-            # If the sensor is not found or another error occurs, we must
-            # enter the Error state to halt operation and report the problem.
             machine.flags['error_message'] = f"Failed to initialize AS7341 sensor: {e}"
             machine.log.critical(machine.flags['error_message'])
             machine.go_to_state('Error')
 
-class Collecting(State):
-    """
-    A placeholder state for future data collection routines (e.g., time series).
-    As requested, this state is defined but not currently reachable by any command.
-    If it were entered, it would log a message and immediately return to Idle.
-    """
-    @property
-    def name(self):
-        return 'Collecting'
+# ============================================================================
+# STATES FOR THE 'measure' COMMAND SEQUENCE
+# ============================================================================
 
-    def enter(self, machine):
-        super().enter(machine)
-        machine.log.warning("Entered placeholder 'Collecting' state. Not implemented.")
-        # TODO: Implement data collection logic here in the future.
-        # For now, immediately return to a safe state.
-        machine.go_to_state('Idle')
+class TurnOnLED(State):
+    """Sequencer State: Turns the LED on and waits briefly for it to stabilize."""
+    @property
+    def name(self): return 'TurnOnLED'
+
+    # <<< FIX IS HERE: Method signature now accepts context.
+    def enter(self, machine, context=None):
+        super().enter(machine, context)
+        machine.sensor.led = True
+        time.sleep(0.2)
+        self.task_complete = True # Signal to base class that this state is done.
 
     def update(self, machine):
-        # Since we transition on enter, update should not be called.
-        pass
+        super().update(machine) # Base class handles sequencer advancement now.
+
+class ReadSensor(State):
+    """Sequencer State: Reads the sensor and stores the result in the sequencer's context."""
+    @property
+    def name(self): return 'ReadSensor'
+
+    # <<< FIX IS HERE: Method signature now accepts context.
+    def enter(self, machine, context=None):
+        super().enter(machine, context)
+        machine.sequencer.context['raw_readings'] = machine.sensor.all_channels
+        machine.log.info("Sensor readings acquired.")
+        self.task_complete = True
+
+    def update(self, machine):
+        super().update(machine)
+
+class TurnOffLED(State):
+    """Sequencer State: Turns LED off, formats data, and sends the final response."""
+    @property
+    def name(self): return 'TurnOffLED'
+
+    # <<< FIX IS HERE: Method signature now accepts context.
+    def enter(self, machine, context=None):
+        super().enter(machine, context)
+        machine.sensor.led = False
+        
+        readings_tuple = machine.sequencer.context.get('raw_readings')
+        
+        if readings_tuple:
+            readings_dict = dict(zip(CHANNEL_NAMES, readings_tuple))
+            response = Message.create_message(
+                subsystem_name=machine.name,
+                status="DATA_RESPONSE",
+                payload={
+                    "metadata": { "data_type": "color_spectrum", "units": "counts" },
+                    "data": readings_dict
+                }
+            )
+            machine.postman.send(response.serialize())
+        else:
+            from shared_lib.messages import send_problem
+            send_problem(machine, "Measurement failed: could not retrieve sensor data from context.")
+
+        self.task_complete = True
+
+    def update(self, machine):
+        super().update(machine)

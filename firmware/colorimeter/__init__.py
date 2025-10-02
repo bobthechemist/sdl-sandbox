@@ -17,7 +17,7 @@ from . import handlers
 # 1. INSTRUMENT CONFIGURATION
 # ============================================================================
 SUBSYSTEM_NAME = "COLORIMETER"
-SUBSYSTEM_VERSION = "1.0.0"
+SUBSYSTEM_VERSION = "1.1.0" # Incremented version for new features/protocol
 SUBSYSTEM_INIT_STATE = "Initialize"
 SUBSYSTEM_CONFIG = {
     "pins": {
@@ -39,11 +39,10 @@ SUBSYSTEM_CONFIG = {
 # 2. ASSEMBLY SECTION
 # ============================================================================
 
-# This callback defines the device's specific telemetry data.
+# REFACTORED: This callback now adheres to the messaging.md protocol.
 def send_telemetry(machine):
     """Callback function to generate and send the colorimeter's telemetry."""
     try:
-        # Per your request, telemetry includes both LED status and current.
         led_on = machine.sensor.led
         led_current = machine.sensor.led_current
 
@@ -53,9 +52,12 @@ def send_telemetry(machine):
             subsystem_name=machine.name,
             status="TELEMETRY",
             payload={
-                "data":{
-                    "led_is_on": led_on,
-                    "led_intensity_ma": led_current
+                "metadata": {
+                    "data_type": "led_status"
+                },
+                "data": {
+                    "is_on": led_on,
+                    "intensity_ma": led_current
                 }
             }
         )
@@ -64,22 +66,17 @@ def send_telemetry(machine):
         machine.log.error(f"Failed to send telemetry: {e}")
 
 def build_status(machine):
-    """
-    This function is called by the generic get_info command.
-    It builds the instrument-specific status dictionary in real-time.
-    """
+    """Builds the instrument-specific status dictionary for the get_info command."""
     return {
-        # Public Key:  Reads from the internal flag at the moment of the request.
-        "is_led_on": machine.sensor.led
-        # Add other public-facing status values here in the future
-        # "gripper_state": machine.flags.get('gripper_is_open', False)
+        "is_led_on": machine.sensor.led,
+        "gain": machine.sensor.gain,
+        "intensity_ma": machine.sensor.led_current
     }
 
 # ============================================================================
 # MACHINE ASSEMBLY
 # ============================================================================
 
-# 1. Create the state machine instance
 machine = StateMachine(
     name=SUBSYSTEM_NAME,
     version=SUBSYSTEM_VERSION,
@@ -88,7 +85,6 @@ machine = StateMachine(
     status_callback=build_status
 )
 
-# --- Attach Communication Channel ---
 postman = CircuitPythonPostman(params={"protocol": "serial_cp"})
 postman.open_channel()
 machine.postman = postman
@@ -96,26 +92,37 @@ machine.postman = postman
 # --- Add States ---
 machine.add_state(states.Initialize())
 machine.add_state(GenericIdle(telemetry_callback=send_telemetry))
-machine.add_state(states.Collecting())  # Placeholder state, not currently reachable
 machine.add_state(GenericError())
+# NEW: Add the states required for the sequencer-driven 'measure' command
+machine.add_state(states.TurnOnLED())
+machine.add_state(states.ReadSensor())
+machine.add_state(states.TurnOffLED())
 
-# --- Define Command Interface ---
-register_common_commands(machine)  # Adds 'ping' and 'help'
+# --- Define Command Interface (REFACTORED) ---
+register_common_commands(machine)
 
-machine.add_command("read", handlers.handle_read, {
-    "description": "Returns an object containing readings from all color channels.",
+machine.add_command("read_all", handlers.handle_read_all, {
+    "description": "Immediately reads all 10 color channels and returns the values.",
     "args": []
 })
-machine.add_command("get", handlers.handle_get, {
-    "description": "gets the current parameter dictionary",
+machine.add_command("get_settings", handlers.handle_get_settings, {
+    "description": "Gets the current sensor settings (gain, LED status, intensity).",
     "args": []
 })
-machine.add_command("set", handlers.handle_set, {
-    "description": "Sets parameters (LED on/off, gain, LED intensity)",
-    "args": ["gain: float", "led: boolean", "intensity: inteter [1-10]"]
+machine.add_command("set_settings", handlers.handle_set_settings, {
+    "description": "Sets one or more sensor parameters.",
+    "args": [
+        {"name": "gain", "type": "int", "description": "Sensor gain. See sensor docs for valid values.", "default": None},
+        {"name": "led", "type": "bool", "description": "LED on/off state (true/false).", "default": None},
+        {"name": "intensity", "type": "int", "description": f"LED current [{SUBSYSTEM_CONFIG['min_intensity']}-{SUBSYSTEM_CONFIG['max_intensity']}] mA.", "default": None}
+    ]
+})
+# NEW: Command to demonstrate the StateSequencer
+machine.add_command("measure", handlers.handle_measure, {
+    "description": "Performs a full measurement sequence (LED on, read, LED off).",
+    "args": []
 })
 
-
-# 5. Add machine-wide flags (dynamic variables)
+# --- Add machine-wide flags (dynamic variables) ---
 machine.add_flag('error_message', '')
-machine.add_flag('telemetry_interval', 60.0)  # Send telemetry every 10 seconds
+machine.add_flag('telemetry_interval', 10.0)
