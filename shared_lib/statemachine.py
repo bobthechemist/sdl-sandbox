@@ -6,6 +6,7 @@ Author(s): BoB LeSuer
 """
 from .utility import check_if_microcontroller
 from .message_buffer import LinearMessageBuffer # Keep it simple, although at some point, SM should be able to choose
+from shared_lib.messages import send_problem, send_success
 from time import monotonic
 
 if check_if_microcontroller():
@@ -63,6 +64,7 @@ class StateMachine:
         self._version = version
         self._config = config
         self._init_state = init_state
+        self._idle_state = 'Idle' # TODO: Replace hardcoded Idle statements with this and allow for modification
 
         # Mutable properties
         self.state = None
@@ -72,6 +74,7 @@ class StateMachine:
         self.supported_commands = {}
         self.running = False
         self.is_microcontroller = check_if_microcontroller()
+        self.sequencer = StateSequencer(self)
 
         # Populate status info
         self.build_status_info = status_callback if status_callback is not None else lambda m: {}
@@ -99,6 +102,10 @@ class StateMachine:
     @property
     def init_state(self):
         return self._init_state
+    
+    @property
+    def idle_state(self):
+        return self._idle_state
 
     def add_command(self, name: str, handler, doc: dict):
         """Adds a command handler and its documentation to the machine."""
@@ -121,30 +128,20 @@ class StateMachine:
             
     def _handle_unknown(self, payload):
         """Default handler for any command not found."""
-        from .messages import Message # Local import for CircuitPython memory optimization
         func_name = payload.get("func") if payload else "N/A"
         self.log.error(f"Received an unknown instruction: {func_name}")
-        response = Message.create_message(
-            subsystem_name=self.name,
-            status="PROBLEM",
-            payload={"error": f"Unknown instruction: {func_name}"}
-        )
-        if hasattr(self, 'postman'):
-            self.postman.send(response.serialize())
-
+        send_problem(self, {"message": f"{func_name} is unknown."})
 
     def add_state(self, state):
         """
         Adds a state to the state machine.
-
-        Parameters:
-        -----------
-        state : State
-            The state to be added.
         """
+        if not getattr(state, "name", None):
+            raise ValueError(f"State {state.__class__.__name__} must define a non-empty 'name'.")
+        if state.name in self.states:
+            raise ValueError(f"Duplicate state name: {state.name}")
         self.states[state.name] = state
 
-    # Would eventually want the ability to add flags during state instantiation 
     def add_flag(self, flag, init_value):
         """
         Adds a flag to the state machine.
@@ -158,26 +155,22 @@ class StateMachine:
         """
         self.flags[flag] = init_value
 
-    def go_to_state(self, state_name):
+    def go_to_state(self, state_name, context = None):
         """
         Transitions the state machine to the specified state.
-
-        Parameters:
-        -----------
-        state_name : str
-            The name of the state to transition to.
-
-        Raises:
-        -------
-        Exception:
-            If the state machine is not running.
         """
         if not self.running:
             raise Exception('State machine must be running to do this.')
         if self.state:
             self.state.exit(self)
         self.state = self.states[state_name]
-        self.state.enter(self)
+        # TODO: More exhaustive error handling - now just doing Context
+        try:
+            self.state.enter(self, context or {})
+        except ContextError as e:
+            self.log.error(f"Aborting sequence. Reason: {e}.")
+            if self.sequencer.is_active:
+                self.sequencer.abort(e)
 
     def update(self):
         """
@@ -214,26 +207,13 @@ class StateMachine:
         """
         self.running = False
 
+class ContextError(Exception):
+    """Error for sequencer"""
+    pass
 
 class State:
     """
     A class to represent a state in the state machine.
-
-    Attributes:
-    -----------
-    entered_at : float
-        The time when the state was entered.
-
-    Methods:
-    --------
-    name():
-        Returns the name of the state.
-    enter(machine):
-        Actions to perform when entering the state.
-    exit(machine):
-        Actions to perform when exiting the state.
-    update(machine):
-        Actions to perform when updating the state.
     """
 
     def __init__(self):
@@ -241,52 +221,48 @@ class State:
         Constructs all the necessary attributes for the state object.
         """
         self.entered_at = 0
+        self.required_context = []
+        self.task_complete = False
+
+    def _validate_context(self, machine):
+        """
+        A private helper called by enter() to ensure the state has what it needs
+        """
+        if machine.sequencer.is_active:
+            for key in self.required_context:
+                if key not in machine.sequencer.context:
+                    raise ContextError(f"State '{self.name}' requires '{key}'.")
  
     @property
     def name(self):
         """
         Returns the name of the state.
-
-        Returns:
-        --------
-        str:
-            The name of the state.
         """
         return ''
 
-    def enter(self, machine):
+    def enter(self, machine, context: dict = None):
         """
         Actions to perform when entering the state.
-
-        Parameters:
-        -----------
-        machine : StateMachine
-            The state machine instance.
         """
         self.entered_at = monotonic()
-        machine.log.info(f'{machine.name} entered {self.name}.')
+        self._validate_context(machine)
+        self.task_complete = False
+        self.local_context = context or {}
+        machine.log.info(f'{machine.name} entered {self.name} with context={self.local_context}.')
 
     def exit(self, machine):
         """
         Actions to perform when exiting the state. Override default behavior with custom exit function
-
-        Parameters:
-        -----------
-        machine : StateMachine
-            The state machine instance.
         """
         machine.log.info(f'{machine.name} left {self.name} after {round(monotonic()-self.entered_at,3)} seconds.')
 
     def update(self, machine):
         """
-        Actions to perform when updating the state.
-
-        Parameters:
-        -----------
-        machine : StateMachine
-            The state machine instance.
+        Handles advancement logic. Should be called at the end of a state's update function
         """
-        # Update gets looped regularly, so leave logging to the individual state
+        # TODO: Consider timeout logic - check elapsed time and boot out of update if needed.
+        if self.task_complete:
+            machine.sequencer.update()
         pass
 
 class StateMachineOrchestrator:
@@ -362,3 +338,94 @@ class StateMachineOrchestrator:
         """
         for state_machine in self.state_machines.values():
             state_machine.stop()    
+
+class StateSequencer:
+    """
+    Manages INSTRUCTION-initiated workflows for a StateMachine
+    """
+    def __init__(self, machine):
+        self.machine = machine
+        self.queue = []
+        self.context = {}
+        self._is_active = False
+        self._persistent = False # Default to transient behavior
+
+    @property
+    def is_active(self):
+        return self._is_active
+    
+    def start(self, sequence_list: list, persistent: bool = False, initial_context: dict = None):
+        """
+        Initiates a workflow
+        """
+        if self._is_active:
+            send_problem(self.machine, "Device is busy with another task.")
+            return
+        
+        if not sequence_list:
+            send_problem(self.machine, "Cannot start an empty sequence.")
+            return
+        
+        
+        self.machine.log.info(f"Starting sequence: {sequence_list} -> persistent ='{persistent}'")
+        self._is_active = True
+        self.queue = sequence_list
+        self._persistent = persistent
+        self.context = initial_context if initial_context is not None else {}
+        self.advance()
+    
+    def abort(self, reason: str):
+        """ Gracefully abort an active sequence. """
+        send_problem(self.machine, f"Sequence aborted: {reason}")
+        self._reset()
+        # An exception might be raised here on some conditions, need to pay attention
+        self.machine.go_to_state('Idle')
+
+    def advance(self):
+        """
+        Signal that the current state has completed its task.
+
+        Internal method to run the next step or complete the sequence.
+        """
+        if not self.is_active:
+            self.machine.log.debug("advance() called outside of a sequence. Returning to idle state")
+            self.machine.go_to_state(machine.idle_state)
+            return
+
+        if not self.queue:
+            self._complete()
+            return
+        
+        next_state = self.queue.pop(0)
+        if not isinstance(step, dict) or "state" not in step:
+            self.machine.log.error(f"Invalid step format: {step}")
+            self.abort("Invalid sequence stop")
+            return
+        state_name = step["state"]
+        self.current_label = step.get("label")
+        step_context = step.get("context", {})
+        label_info = f"({self.current_label})" if self.current_label else ""
+        self.machine.log.info(f"Acvancing to {state_name}{label_info} with context = {step_context}")
+        self.machine.go_to_state(next_state, context=step_context)
+    
+    def _complete(self):
+        """
+        Handles the completion of a sequence
+        """
+        self.machine.log.info("Sequence complete.")
+        send_success(self.machine, "Sequence completed successfully") # TODO: context should have a sequence title to make this message more informative
+        
+        was_persistent_sequence = self._persistent
+        
+        self._reset()
+
+        if not was_persistent_sequence:
+            self.machine.go_to_state('Idle')
+    
+    def _reset(self):
+        """Resets the sequencer to a clean state."""
+        self._is_active = False
+        self.queue.clear()
+        self.context.clear()
+        self._persistent = False 
+
