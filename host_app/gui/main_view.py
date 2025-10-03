@@ -188,21 +188,13 @@ class MainView:
         Handles the double-click event on the command Treeview.
         Populates the function entry box with the selected command.
         """
-        # Identify the unique ID of the row that was clicked on
         item_id = self.command_tree.identify_row(event.y)
-        
-        # If the click was not on an actual item, do nothing
         if not item_id:
             return
 
-        # Get the dictionary of data for the clicked row
         item_data = self.command_tree.item(item_id)
-        
-        # The 'values' key holds a list of the cell contents for that row.
-        # The first item in that list (index 0) is the command name.
         command_name = item_data['values'][0]
 
-        # Clear the function entry box and insert the new command name
         self.func_entry.delete(0, tk.END)
         self.func_entry.insert(0, command_name)
         details = self.command_details.get(command_name)
@@ -210,7 +202,6 @@ class MainView:
             return
 
         args_list = details.get('args', [])
-        # Gracefully handle old string-based format by not populating args
         if not args_list or not isinstance(args_list[0], dict):
             self.args_entry.delete(0, tk.END)
             return
@@ -218,16 +209,12 @@ class MainView:
         template_parts = []
         for arg in args_list:
             arg_name = arg['name']
-            
-            # Use the default value if it exists, otherwise use a placeholder
             value = arg.get('default')
             if value is None:
-                # Use a descriptive placeholder
                 value_placeholder = f"<{arg.get('type', 'value')}>"
             else:
                 value_placeholder = value
 
-            # IMPORTANT: Wrap string types in the required double quotes for the user
             if arg.get('type') == 'str' and not (isinstance(value_placeholder, str) and value_placeholder.startswith('"')):
                 value_str = f'"{value_placeholder}"'
             else:
@@ -236,17 +223,13 @@ class MainView:
             template_parts.append(f"{arg_name}:{value_str}")
         
         final_template = ", ".join(template_parts)
-
-        # Populate the arguments entry
         self.args_entry.delete(0, tk.END)
         self.args_entry.insert(0, final_template)
 
     def _update_status_panel(self, device: Device):
-        # --- START: MODIFIED UPDATE LOGIC ---
         self.dv_firmware_name.set(f"{device.friendly_name} ({device.firmware_name})")
         self.dv_version.set(device.version)
         self.dv_last_telemetry.set(str(device.last_telemetry))
-        # --- END: MODIFIED UPDATE LOGIC ---
 
 
     def _scan_and_connect(self):
@@ -260,12 +243,10 @@ class MainView:
         for dev_info in available:
             port, vid, pid = dev_info['port'], dev_info['VID'], dev_info['PID']
             
-            # Only attempt to connect if we are not already managing this port
             if port not in self.manager.devices:
                 self.log_message(f"Found new device on {port}. Attempting to connect...")
                 
                 if self.manager.connect_device(port, vid, pid):
-                    # If connection is successful, add to our list for post-processing
                     newly_connected_ports.append(port)
                 else:
                     self.log_message(f"Failed to connect to {port}.", level=LogLevel.ERROR)
@@ -274,12 +255,8 @@ class MainView:
             self.log_message("Scan complete. No new connections were established.")
             return
 
-        # After connecting, send initial setup commands to each new device
         self.log_message(f"Sending setup commands to {len(newly_connected_ports)} new device(s)...")
         for port in newly_connected_ports:
-            # Use root.after to schedule these commands. This gives the device
-            # time to initialize and prevents the UI from freezing.
-            # We use a robust lambda to capture the port variable correctly.
             self.root.after(200, lambda p=port: self._send_command_to_device(p, "get_info"))
             self.root.after(400, lambda p=port: self._send_command_to_device(p, "help"))
 
@@ -298,16 +275,12 @@ class MainView:
         args_dict = {}
 
         if args_str:
-            # --- START: MODIFIED PARSING LOGIC ---
-            full_json_str = "" # Define here to be available in the except block
+            full_json_str = ""
             try:
-                # The user MUST use double quotes for string values.
-                # Example: pump:"p1", vol:10
                 json_compatible_args = re.sub(r'([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'"\1":', args_str)
                 full_json_str = f"{{{json_compatible_args}}}"
                 args_dict = json.loads(full_json_str)
             except json.JSONDecodeError as e:
-                # --- FIX: Log the generated string that failed to parse ---
                 error_msg = (
                     f"Invalid arguments format. Use comma-separated key:value pairs. "
                     f"IMPORTANT: String values MUST be in double quotes (e.g., pump:\"p1\").\n"
@@ -316,7 +289,6 @@ class MainView:
                 )
                 self.log_message(error_msg, level=LogLevel.ERROR)
                 return
-            # --- END: MODIFIED PARSING LOGIC ---
 
         self._send_command_to_device(port, func, args_dict)
 
@@ -330,12 +302,15 @@ class MainView:
             try:
                 msg_type, port, data = self.manager.incoming_message_queue.get_nowait()
 
-                # --- START: MODIFIED LOGIC ---
                 if msg_type == 'SENT':
-                    self.log_message(f"[{port}] Sent: {data.to_dict()}", level=LogLevel.SENT)
-                
+                    # --- MODIFICATION START ---
+                    # Pretty-print the message dictionary for better readability in the log
+                    msg_dict = data.to_dict()
+                    formatted_msg = json.dumps(msg_dict, indent=4)
+                    self.log_message(f"[{port}] Sent:\n{formatted_msg}", level=LogLevel.SENT)
+                    # --- MODIFICATION END ---
+
                 elif msg_type == 'RECV':
-                    # For received messages, we choose a color based on the message status
                     msg_dict = data.to_dict()
                     status = msg_dict.get('status', '').upper()
                     
@@ -349,9 +324,12 @@ class MainView:
                     elif status == "WARNING":
                         log_level = LogLevel.WARNING
 
-                    self.log_message(f"[{port}] Recv: {msg_dict}", level=log_level)
+                    # --- MODIFICATION START ---
+                    # Pretty-print the received dictionary for better readability
+                    formatted_msg = json.dumps(msg_dict, indent=4)
+                    self.log_message(f"[{port}] Recv:\n{formatted_msg}", level=log_level)
+                    # --- MODIFICATION END ---
                     
-                    # Also update the model
                     device = self.manager.devices.get(port)
                     if device:
                         device.update_from_message(data)
@@ -361,7 +339,6 @@ class MainView:
                 
                 elif msg_type == 'ERROR':
                     self.log_message(f"[{port}] Listener Error: {data}", level=LogLevel.ERROR)
-                # --- END: MODIFIED LOGIC ---
 
             except queue.Empty:
                 pass
@@ -380,13 +357,11 @@ class MainView:
         for name, details in commands_dict.items():
             desc = details.get('description', 'N/A')
             args_list = details.get('args', [])
-            args_str = "None" # Default value
+            args_str = "None" 
 
             if args_list:
-                # --- START: MODIFIED LOGIC TO DETECT ARGUMENT FORMAT ---
                 first_arg = args_list[0]
                 
-                # Check for the NEW, correct dictionary-based format
                 if isinstance(first_arg, dict):
                     parts = []
                     for arg in args_list:
@@ -398,14 +373,12 @@ class MainView:
                             parts.append(part)
                     args_str = ", ".join(parts)
                 
-                # Check for the OLD, deprecated string-based format
                 elif isinstance(first_arg, str):
                     args_str = "[Firmware Update Required]"
                     self.log_message(
                         f"Command '{name}' uses a deprecated argument format. Please update the device firmware.",
                         level=LogLevel.WARNING
                     )
-                # --- END: MODIFIED LOGIC ---
 
             self.command_tree.insert("", tk.END, values=(name, desc, args_str))
 
