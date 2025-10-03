@@ -115,4 +115,6 @@ This section is largely standardized across all instruments.
 
 **(TODO: This section will be expanded with detailed protocols for handler design.)**
 
+TODO: Consider adding "returns": {"data_type", "units", "schema"} to the handler definition.
+
 **Guiding Principle:** Handlers are the **entry point** for external commands. They MUST be non-blocking. Their primary role is to validate incoming arguments, set flags for the state machine to act upon, and trigger state transitions.
