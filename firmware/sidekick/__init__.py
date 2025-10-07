@@ -57,8 +57,8 @@ SUBSYSTEM_CONFIG = {
         "m2_max": 180.0
     },
     "pump_offsets": {
-        "p1": {"dx": 0.5, "dy": 0.0}, "p2": {"dx": 0.0, "dy": 0.5},
-        "p3": {"dx": -0.5, "dy": 0.0}, "p4": {"dx": 0.0, "dy": -0.5},
+        "p1": {"dx": 1.14, "dy": 0.6}, "p2": {"dx": 1.14, "dy": 0.2},
+        "p3": {"dx": 1.14, "dy": -0.2}, "p4": {"dx": 1.14, "dy": -0.6},
     }
 }
 
@@ -165,7 +165,14 @@ machine.add_command("angles", handlers.handle_angles, {
         {"name": "theta2", "type": "float", "description": "Absolute angle for motor 2 (degrees)"}
     ]
 })
-
+machine.add_command("move_tip_to", handlers.handle_move_tip_to, {
+    "description": "Moves a specific pump tip to an absolute (x, y) coordinate, compensating for rotation.",
+    "args": [
+        {"name": "pump", "type": "str", "description": "Pump to use (e.g., 'p1')"},
+        {"name": "x", "type": "float", "description": "Target x-coordinate for the tip (cm)"},
+        {"name": "y", "type": "float", "description": "Target y-coordinate for the tip (cm)"}
+    ]
+})
 # --- Add Dynamic Flags
 machine.add_flag('error_message', '')
 machine.add_flag('telemetry_interval', 60.0)
