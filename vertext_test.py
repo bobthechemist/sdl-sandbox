@@ -1,10 +1,8 @@
-import sys
 import time
 import json
 import re
 
-# <<< FIX IS HERE: Using your actual agent implementation >>>
-import temp.vertext_agent as myagent
+import host_app.vertext_agent as myagent
 
 from communicate.serial_postman import SerialPostman
 from shared_lib.messages import Message
@@ -62,7 +60,7 @@ def main():
     
     postman = None
     try:
-        user_prompt = "what color do you see?"
+        user_prompt = "Is the color green or red?"
         print(f"Human asks: '{user_prompt}'")
 
         # [Step 1] SELECT THE INSTRUMENT
