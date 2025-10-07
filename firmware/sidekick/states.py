@@ -10,8 +10,8 @@ from . import kinematics
 class Initialize(State):
     @property
     def name(self): return 'Initialize'
-    def enter(self, machine):
-        super().enter(machine)
+    def enter(self, machine, context=None):
+        super().enter(machine, context)
         try:
             # Create a dictionary of all hardware objects for easy access
             machine.hardware = {}
@@ -49,8 +49,8 @@ class Idle(State):
     def __init__(self, telemetry_callback=None):
         super().__init__()
         self._telemetry_callback = telemetry_callback
-    def enter(self, machine):
-        super().enter(machine)
+    def enter(self, machine, context=None):
+        super().enter(machine, context)
         self._telemetry_interval = machine.flags.get('telemetry_interval', 5.0)
         self._next_telemetry_time = time.monotonic() + self._telemetry_interval
         machine.hardware['motor1_enable'].value = False 
@@ -70,8 +70,8 @@ class Homing(State):
     @property
     def name(self): return 'Homing'
 
-    def enter(self, machine):
-        super().enter(machine)
+    def enter(self, machine, context=None):
+        super().enter(machine,context)
         machine.log.info("Starting corrected homing routine...")
         machine.flags['is_homed'] = False
 
@@ -219,11 +219,11 @@ class Moving(State):
     @property
     def name(self): return 'Moving'
 
-    def enter(self, machine):
+    def enter(self, machine, context=None):
         """
         Called once on entry. This is where we plan the entire move.
         """
-        super().enter(machine)
+        super().enter(machine,context)
         
         # 1. Read start and target positions from the machine's flags
         start_m1 = machine.flags['current_m1_steps']
@@ -315,8 +315,8 @@ class Moving(State):
 class Dispensing(State):
     @property
     def name(self): return 'Dispensing'
-    def enter(self, machine):
-        super().enter(machine)
+    def enter(self, machine, context=None):
+        super().enter(machine, context)
         self.pump_key = machine.flags.get('dispense_pump')
         self.cycles_left = machine.flags.get('dispense_cycles')
         self.pump_pin = machine.hardware['pumps'][self.pump_key]
