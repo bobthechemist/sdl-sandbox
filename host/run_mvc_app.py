@@ -1,7 +1,7 @@
 import tkinter as tk
 import logging
-from host_app.core.device_manager import DeviceManager
-from host_app.gui.main_view import MainView # <-- IMPORT THE NEW VIEW
+from host.core.device_manager import DeviceManager
+from host.gui.main_view import MainView # <-- IMPORT THE NEW VIEW
 
 def main():
     logging.basicConfig(

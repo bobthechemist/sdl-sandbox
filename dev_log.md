@@ -1,12 +1,15 @@
 # Dev Log
 
-## [2025-10-08] Rename and organice host_app
+## [2025-10-08] Rename and organize host_app
 
 **Context**: The three main structures of the program are messaging (communicate), devices (firmware) and the host (host_app).
 **Issue**: Renaming host_app to host and reorganizing to have utilities, gui, core, etc may be helpful for future proofing
 **Action**: move host_utilities in here, check that all dependencies are updated
-- [ ] Rename host_app to host
-- [ ] Deal with all the crap that appears because of ^^^
+- [X] Rename host_app to host
+- [X] Deal with all the crap that appears because of ^^^
+- [X] test updates
+
+---
 
 ## [2025-10-08] Assumptions should be included in documentation
 
@@ -17,6 +20,8 @@
 - [ ] Write an executive summary for the design protocols with asusumptions
 - [ ] Identify what belongs in a _Getting Started_ section.
 
+---
+
 ## [2025-10-07] Deprecated scanning colorimeter script
 
 **Context**: Reviewing the code base, we see old scripts that use deprecated approaches
@@ -24,6 +29,8 @@
 **Action**: Rewrite this script as a demonstration with current infrastructure
 **Next Steps**
 - [ ] Update `host.md` in the documention upon completion of this task
+
+---
 
 ## [2025-10-07] Host testing with fake device
 

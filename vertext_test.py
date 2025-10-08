@@ -2,12 +2,12 @@ import time
 import json
 import re
 
-import host_app.vertext_agent as myagent
+import host.vertext_agent as myagent
 
 from communicate.serial_postman import SerialPostman
 from shared_lib.messages import Message
-from communicate.host_utilities import find_data_comports
-from host_app.firmware_db import FIRMWARE_DATABASE, get_device_name
+from host.core.discovery import find_data_comports
+from host.firmware_db import FIRMWARE_DATABASE, get_device_name
 
 def get_instrument_list_for_ai():
     """Formats the FIRMWARE_DATABASE into a simple list of names for the AI."""

@@ -1,6 +1,6 @@
 # tests/host_app/test_fake_device.py
 import unittest
-from host_app.devices.fake_device import FakeDevice
+from host.devices.fake_device import FakeDevice
 from shared_lib.messages import Message
 import json
 

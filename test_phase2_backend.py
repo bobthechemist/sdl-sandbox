@@ -1,7 +1,7 @@
 import time
 import logging
-from host_app.core.device_manager import DeviceManager
-from host_app.firmware_db import get_device_name
+from host.core.device_manager import DeviceManager
+from host.firmware_db import get_device_name
 from shared_lib.messages import Message
 
 logging.basicConfig(

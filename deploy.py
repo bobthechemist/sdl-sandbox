@@ -1,7 +1,8 @@
 import argparse
 import sys
 from pathlib import Path
-from communicate.host_utilities import C, associate_drive_to_device
+from host.core.discovery import associate_drive_to_device
+from host.gui.console import C
 import shutil
 import time
 
@@ -11,7 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 try:
-    from host_app.firmware_db import FIRMWARE_DATABASE
+    from host.firmware_db import FIRMWARE_DATABASE
 except ImportError:
     print(f"{C.ERR}FATAL: Could not import FIREWARE_DATABASE{C.END}")
     sys.exit(1)

@@ -2,7 +2,7 @@ import threading
 import queue
 import time
 from .device import Device # <-- IMPORT THE NEW CLASS
-from communicate.host_utilities import find_data_comports
+from host.core.discovery import find_data_comports
 from shared_lib.messages import Message
 import json
 import logging

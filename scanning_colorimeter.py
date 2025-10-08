@@ -6,8 +6,8 @@ from shared_lib.messages import Message
 import numpy as np
 
 # Import utilities from the host application part of the stack
-from communicate.host_utilities import find_data_comports
-from host_app.firmware_db import FIRMWARE_DATABASE
+from host.core.discovery import find_data_comports
+from host.firmware_db import FIRMWARE_DATABASE
 
 def send_command_and_wait(postman: SerialPostman, device_name: str, command_payload: dict, valid_statuses: tuple = ("SUCCESS", "PROBLEM"), timeout: int = 5):
     """
