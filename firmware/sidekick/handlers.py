@@ -294,11 +294,6 @@ def handle_dispense_at(machine, payload):
     # --- 5. Start the Sequencer ---
     machine.sequencer.start(sequence, initial_context=context)
 
-# firmware/sidekick/handlers.py
-# (ensure try_wrapper is imported at the top)
-
-# ... (other handlers) ...
-
 @try_wrapper
 def handle_steps(machine, payload):
     """

@@ -17,7 +17,7 @@ from . import handlers
 # 1. INSTRUMENT CONFIGURATION
 # ============================================================================
 SUBSYSTEM_NAME = "SIDEKICK"
-SUBSYSTEM_VERSION = "1.0.9" # Sequencer not fully implemented
+SUBSYSTEM_VERSION = "1.1.0" 
 SUBSYSTEM_INIT_STATE = "Initialize"
 SUBSYSTEM_CONFIG = {
     "pins": {
