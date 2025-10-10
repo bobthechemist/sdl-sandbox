@@ -302,10 +302,23 @@ class Moving(State):
 class Dispensing(State):
     @property
     def name(self): return 'Dispensing'
+
     def enter(self, machine, context=None):
         super().enter(machine, context)
-        self.pump_key = machine.flags.get('dispense_pump')
-        self.cycles_left = machine.flags.get('dispense_cycles')
+
+        # Read parameters from the sequencer context first, falling back to machine flags
+        # for compatibility if needed. This makes the state work with the new handlers.
+        self.pump_key = machine.sequencer.context.get('dispense_pump', 
+            machine.flags.get('dispense_pump'))
+        self.cycles_left = machine.sequencer.context.get('dispense_cycles', 
+            machine.flags.get('dispense_cycles'))
+
+        # Check that parameters were successfully loaded
+        if self.pump_key is None or self.cycles_left is None:
+            machine.flags['error_message'] = "Dispensing state entered without pump or cycle info."
+            machine.go_to_state('Error')
+            return
+
         self.pump_pin = machine.hardware['pumps'][self.pump_key]
         self.pump_state = 'aspirating'
         self.timings = machine.config['pump_timings']
@@ -316,6 +329,7 @@ class Dispensing(State):
         self._next_toggle_time = time.monotonic() + self.timings['aspirate_time']
 
     def update(self, machine):
+        super().update(machine)
         if time.monotonic() >= self._next_toggle_time:
             if self.pump_state == 'aspirating':
                 self.pump_pin.value = False
@@ -330,10 +344,13 @@ class Dispensing(State):
                 else:
                     # We are finished
                     machine.log.info("Dispense complete.")
-                    response = Message.create_message(
-                        subsystem_name=machine.name,
-                        status="SUCCESS",
-                        payload={"pump": self.pump_key, "cycles": machine.flags.get('dispense_cycles')}
-                    )
-                    machine.postman.send(response.serialize())
-                    machine.go_to_state('Idle')
+                   
+                    # Instead of transitioning directly, we mark the task as complete
+                    # for the sequencer.
+                    self.task_complete = True
+
+    def exit(self, machine):
+        super().exit(machine)
+        # Ensure the pump is off when we leave the state
+        if hasattr(self, 'pump_pin'):
+            self.pump_pin.value = False

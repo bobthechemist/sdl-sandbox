@@ -59,6 +59,7 @@ def handle_angles(machine, payload):
     return
     
 def handle_home(machine, payload):
+    # Monolithic and needs updating, but this method works, so refactoring not a high priority
     machine.log.info("Home command received.")
     machine.go_to_state('Homing')
 
@@ -171,47 +172,136 @@ def handle_move_rel(machine, payload):
     }
     machine.sequencer.start(sequence, initial_context=context)
 
+@try_wrapper
 def handle_dispense(machine, payload):
+    """
+    Dispenses a specified volume from a pump at the current arm location.
+    This command uses the state sequencer to execute the dispense action.
+    """
     if not check_homed(machine): return
     
+    # 1. Extract and Validate Arguments
     args = payload.get('args',{})
-    pump = args.get('pump',None)
-    vol = args.get('vol',None)
+    pump = args.get('pump')
+    vol = args.get('vol')
     
     if pump not in machine.config['pump_offsets']:
-        send_problem(machine, f"Invalid pump specified: {pump}. Choose from {list(machine.config["pump_offsets"].keys())}")
+        valid_pumps = list(machine.config["pump_offsets"].keys())
+        send_problem(machine, f"Invalid pump specified: {pump}. Choose from {valid_pumps}")
         return
 
-    # Round volume down to the nearest increment
+    if vol is None:
+        send_problem(machine, "Missing 'vol' in command arguments.")
+        return
+
+    # 2. Calculate Dispense Cycles
     increment = machine.config['pump_timings']['increment_ul']
     cycles = int(vol // increment)
+
+    # Inform user if the requested volume is being adjusted
     if cycles * increment != vol:
-        machine.log.warning(f"Volume {vol}uL not a multiple of {increment}uL. Dispensing {cycles * increment}uL.")
+        actual_vol = cycles * increment
+        machine.log.warning(f"Volume {vol}uL is not a multiple of {increment}uL. Dispensing {actual_vol}uL.")
 
     if cycles <= 0:
-        send_problem(machine, "Volume is too low to dispense.")
+        send_problem(machine, f"Volume {vol}uL is too low to dispense; must be at least {increment}uL.")
         return
         
-    # This command uses the state sequencer.
-    # For now, we'll just set the flags and transition directly.
-    # A real implementation would calculate an offset move first.
+    # 3. Set Context and Start the Sequencer
     machine.log.info(f"Dispense command accepted for pump {pump}, {cycles} cycles.")
-    machine.flags['dispense_pump'] = pump
-    machine.flags['dispense_cycles'] = cycles
-    machine.go_to_state('Dispensing')
+    
+    sequence = [{"state": "Dispensing"}]
+    context = {
+        "name": "dispense",
+        "dispense_pump": pump,
+        "dispense_cycles": cycles
+    }
+    machine.sequencer.start(sequence, initial_context=context)
 
+
+
+@try_wrapper
 def handle_dispense_at(machine, payload):
+    """
+    Moves a specific pump tip to an absolute (x, y) coordinate, then
+    dispenses a specified volume. This is a multi-step sequence.
+    """
     if not check_homed(machine): return
+
+    # 1. Extract and Validate All Arguments
+    args = payload.get("args", {})
+    x_tip = args.get("x")
+    y_tip = args.get("y")
+    pump_key = args.get("pump")
+    vol = args.get("vol")
+
+    if x_tip is None or y_tip is None or pump_key is None or vol is None:
+        send_problem(machine, "Missing 'x', 'y', 'pump', or 'vol' in command arguments.")
+        return
+
+    pump_offset = machine.config['pump_offsets'].get(pump_key)
+    if pump_offset is None:
+        send_problem(machine, f"Invalid pump key '{pump_key}'.")
+        return
+        
+    # --- 2. Calculate the Move (Logic from handle_move_tip_to) ---
+    dx, dy = pump_offset['dx'], pump_offset['dy']
+
+    # Pass 1: "Guess" the orientation
+    guessed_angles = kinematics.inverse_kinematics(machine, x_tip, y_tip)
+    if guessed_angles is None:
+        send_problem(machine, "Target position is likely unreachable (IK Pass 1 failed).")
+        return
+    _theta1_guess, theta2_guess = guessed_angles
+
+    # Calculate the Corrected Center Target
+    orientation_rad = math.radians(theta2_guess)
+    cos_theta, sin_theta = math.cos(orientation_rad), math.sin(orientation_rad)
+    x_offset_rotated = dx * cos_theta - dy * sin_theta
+    y_offset_rotated = dx * sin_theta + dy * cos_theta
+    x_center_target = x_tip - x_offset_rotated
+    y_center_target = y_tip - y_offset_rotated
+
+    # Pass 2: "Refine" the final solution
+    final_angles = kinematics.inverse_kinematics(machine, x_center_target, y_center_target)
+    if final_angles is None:
+        send_problem(machine, "Target position is unreachable (IK Pass 2 failed).")
+        return
+    final_theta1, final_theta2 = final_angles
+    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, final_theta1, final_theta2)
+
+    # --- 3. Calculate the Dispense (Logic from handle_dispense) ---
+    increment = machine.config['pump_timings']['increment_ul']
+    cycles = int(vol // increment)
+
+    if cycles * increment != vol:
+        actual_vol = cycles * increment
+        machine.log.warning(f"Volume {vol}uL is not a multiple of {increment}uL. Dispensing {actual_vol}uL.")
+
+    if cycles <= 0:
+        send_problem(machine, f"Volume {vol}uL is too low to dispense; must be at least {increment}uL.")
+        return
+        
+    # --- 4. Build the Sequence and Context ---
+    # The context must contain ALL information needed for ALL steps in the sequence.
+    machine.log.info(f"Dispense_at command accepted. Moving tip {pump_key} to ({x_tip}, {y_tip}) then dispensing {cycles} cycles.")
     
-    # This is the most complex handler. It sets up a multi-state sequence.
-    # 1. Validate all parameters
-    # 2. Calculate target motor steps from x, y
-    # 3. Set machine.flags['target..._steps']
-    # 4. Set machine.flags['dispense_pump'] and ['dispense_cycles']
-    # 5. Set the sequencer flag: machine.flags['on_move_complete'] = 'Dispensing'
-    # 6. Go to the first state in the sequence: machine.go_to_state('Moving')
-    
-    send_problem(machine, "dispense_at not yet implemented.")
+    sequence = [
+        {"state": "Moving"},
+        {"state": "Dispensing"}
+    ]
+    context = {
+        "name": "dispense_at",
+        # Parameters for the 'Moving' state
+        "target_m1_steps": target_m1_steps,
+        "target_m2_steps": target_m2_steps,
+        # Parameters for the 'Dispensing' state
+        "dispense_pump": pump_key,
+        "dispense_cycles": cycles
+    }
+
+    # --- 5. Start the Sequencer ---
+    machine.sequencer.start(sequence, initial_context=context)
 
 def handle_steps(machine, payload):
     """
