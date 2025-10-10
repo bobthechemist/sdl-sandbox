@@ -397,7 +397,6 @@ class StateSequencer:
             self._complete()
             return
         
-        # <<< FIX IS HERE: Corrected NameError (was using 'step' which was not defined)
         step = self.queue.pop(0)
         if not isinstance(step, dict) or "state" not in step:
             self.machine.log.error(f"Invalid step format: {step}")
@@ -417,7 +416,8 @@ class StateSequencer:
         Handles the completion of a sequence
         """
         self.machine.log.info("Sequence complete.")
-        send_success(self.machine, "Sequence completed successfully")
+        sequence_name = self.context.get('name','Unnamed')
+        send_success(self.machine, f"Sequence {sequence_name} completed successfully")
         
         was_persistent_sequence = self._persistent
         self._reset()

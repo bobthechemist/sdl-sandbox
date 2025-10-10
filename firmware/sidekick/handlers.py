@@ -1,20 +1,9 @@
 # firmware/sidekick/handlers.py
 # type: ignore
-from shared_lib.messages import Message
+from shared_lib.messages import Message, send_problem, send_success
 from . import kinematics
 import math
 from shared_lib.error_handling import try_wrapper
-
-# --- Utility Functions for Handlers ---
-def send_problem(machine, error_msg):
-    """Helper to send a standardized PROBLEM message."""
-    machine.log.error(error_msg)
-    response = Message.create_message(
-        subsystem_name=machine.name,
-        status="PROBLEM",
-        payload={"error": error_msg}
-    )
-    machine.postman.send(response.serialize())
 
 def check_homed(machine):
     """Guard condition to ensure the device is homed."""
@@ -128,10 +117,13 @@ def handle_move_to(machine, payload):
     machine.log.info(f"IK success. Target: ({theta1:.2f}, {theta2:.2f}) degrees -> ({target_m1_steps}, {target_m2_steps}) steps.")
 
     # 6. Set Flags and Execute Move
-    machine.flags['target_m1_steps'] = target_m1_steps
-    machine.flags['target_m2_steps'] = target_m2_steps
-    machine.flags['on_move_complete'] = 'Idle'
-    machine.go_to_state('Moving')
+    sequence = [{"state":"Moving"}]
+    context = {
+        "name":"move_to",
+        "target_m1_steps": target_m1_steps,
+        "target_m2_steps": target_m2_steps
+    }
+    machine.sequencer.start(sequence, initial_context = context)
 
 def handle_move_rel(machine, payload):
     if not check_homed(machine): return

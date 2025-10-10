@@ -228,10 +228,10 @@ class Moving(State):
         # 1. Read start and target positions from the machine's flags
         start_m1 = machine.flags['current_m1_steps']
         start_m2 = machine.flags['current_m2_steps']
-        machine.log.debug(f"current: {machine.flags['current_m1_steps']}, {machine.flags['current_m2_steps']}")
-        self.target_m1 = machine.flags['target_m1_steps']
-        self.target_m2 = machine.flags['target_m2_steps']
-        machine.log.debug(f"target: {machine.flags['target_m1_steps']}, {machine.flags['target_m2_steps']}")
+        self.target_m1 = machine.sequencer.context.get('target_m1_steps',
+            machine.flags.get('target_m1_steps'))
+        self.target_m2 = machine.sequencer.context.get('target_m2_steps',
+            machine.flags.get('target_m2_steps'))
         
         machine.log.info(f"Moving from ({start_m1}, {start_m2}) to ({self.target_m1}, {self.target_m2}).")
 
@@ -294,21 +294,8 @@ class Moving(State):
             machine.flags['current_m1_steps'] = self.target_m1
             machine.flags['current_m2_steps'] = self.target_m2
 
-            # Use the State Sequencer to decide where to go next
-            next_state = machine.flags.get('on_move_complete', 'Idle')
-            machine.flags['on_move_complete'] = None # Clear the flag for the next command
+            self.task_complete = True
             
-            machine.log.info(f"Move complete. Transitioning to '{next_state}'.")
-            
-           # Send success message to host *before* leaving state
-            response = Message.create_message(
-                subsystem_name=machine.name, status="SUCCESS",
-                payload={"detail": "Move successful"}
-            )
-            machine.postman.send(response.serialize())
-
-            machine.go_to_state(next_state)
-
     def exit(self, machine):
         super().exit(machine)
 
