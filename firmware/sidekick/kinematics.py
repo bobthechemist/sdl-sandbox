@@ -123,23 +123,33 @@ def inverse_kinematics(machine, target_x, target_y):
 def forward_kinematics(machine, theta1, theta2):
     """
     Calculates the Cartesian coordinate (x, y) of the arm's center
-    given the motor angles (theta1, theta2). Useful for telemetry.
+    given the motor angles (theta1, theta2).
+
+    This version correctly models the five-bar parallel SCARA linkage
+    by enforcing the geometric constraints derived from the inverse_kinematics function.
     """
     cfg = machine.config['kinematics']
-    L1, L2, L3 = cfg['L1'], cfg['L2'], cfg['L3']
+    L1, L3 = cfg['L1'], cfg['L3']
 
-    p1_x = L1 * math.cos(math.radians(theta1))
-    p1_y = L1 * math.sin(math.radians(theta1))
+    # Convert angles to radians for math functions
+    theta1_rad = math.radians(theta1)
+    theta2_rad = math.radians(theta2)
+
+    # 1. Find the position of the primary elbow joint (p1).
+    p1_x = L1 * math.cos(theta1_rad)
+    p1_y = L1 * math.sin(theta1_rad)
     
-    p2_x = L2 * math.cos(math.radians(theta2))
-    p2_y = L2 * math.sin(math.radians(theta2))
-    
-    p3_x = p1_x + p2_x
-    p3_y = p1_y + p2_y
-    
-    # Vector from origin to p2 is the same angle as the final arm segment
-    # but the segment direction is opposite, so we subtract
-    p4_x = p3_x - L3 * math.cos(math.radians(theta2))
-    p4_y = p3_y - L3 * math.sin(math.radians(theta2))
+    # 2. The core constraint of this linkage is that the vector from p1 to p4
+    #    is parallel to the vector from the origin to p2, but points in the
+    #    opposite direction. Therefore, its angle is theta2 + 180 degrees.
+    #    cos(t + 180) = -cos(t)
+    #    sin(t + 180) = -sin(t)
+    #    So, the vector (p1->p4) can be calculated directly.
+    vec_p1_p4_x = -L3 * math.cos(theta2_rad)
+    vec_p1_p4_y = -L3 * math.sin(theta2_rad)
+
+    # 3. The final position (p4) is the position of p1 plus the vector from p1 to p4.
+    p4_x = p1_x + vec_p1_p4_x
+    p4_y = p1_y + vec_p1_p4_y
     
     return (p4_x, p4_y)
