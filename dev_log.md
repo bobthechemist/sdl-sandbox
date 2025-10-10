@@ -1,5 +1,13 @@
 # Dev Log
 
+## [2025-10-10] Improve GUI experience
+
+**Context**: The MVC app can be improved
+**Issue**: Among other things, the commands are not in alphabetical order
+**Action**: Have the Available commands operation alphabetize the commands
+
+---
+
 ## [2025-10-08] Rename and organize host_app
 
 **Context**: The three main structures of the program are messaging (communicate), devices (firmware) and the host (host_app).

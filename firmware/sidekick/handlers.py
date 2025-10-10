@@ -49,20 +49,13 @@ def degrees_to_steps(machine, theta1, theta2):
 # COMMAND HANDLERS
 # ============================================================================
 
-def handle_angles(machine, payload):
-    """
-    Moves the motors to a specified angular position (theta1, theta2)
-    after validating that the target is within safe operational limits.
-    """
-
-    send_problem(machine, "Function not implemented")
-    return
-    
+@try_wrapper    
 def handle_home(machine, payload):
     # Monolithic and needs updating, but this method works, so refactoring not a high priority
     machine.log.info("Home command received.")
     machine.go_to_state('Homing')
 
+@try_wrapper
 def handle_move_to(machine, payload):
     """
     Handles the high-level 'move_to' command. It uses inverse kinematics
@@ -218,8 +211,6 @@ def handle_dispense(machine, payload):
     }
     machine.sequencer.start(sequence, initial_context=context)
 
-
-
 @try_wrapper
 def handle_dispense_at(machine, payload):
     """
@@ -303,29 +294,46 @@ def handle_dispense_at(machine, payload):
     # --- 5. Start the Sequencer ---
     machine.sequencer.start(sequence, initial_context=context)
 
+# firmware/sidekick/handlers.py
+# (ensure try_wrapper is imported at the top)
+
+# ... (other handlers) ...
+
+@try_wrapper
 def handle_steps(machine, payload):
     """
     Handles the low-level 'steps' command for relative motor movement.
-    This command bypasses the standard homing and safety checks.
+    This command bypasses the standard homing check for diagnostics.
     """
-    m1_rel_steps = payload.get('m1', 0)
-    m2_rel_steps = payload.get('m2', 0)
+    # 1. Extract and Validate Arguments
+    args = payload.get("args", {})
+    m1_rel_steps = args.get("m1", 0)
+    m2_rel_steps = args.get("m2", 0)
 
-    # Calculate the absolute target position from the current position
-    # AI may be thinking absolute positions, so this is modified
-    target_m1 = machine.flags['current_m1_steps'] + m1_rel_steps
-    target_m2 = machine.flags['current_m2_steps'] + m2_rel_steps
-    # target_m1 = m1_rel_steps
-    # target_m2 = m2_rel_steps
+    try:
+        m1_rel_steps = int(m1_rel_steps)
+        m2_rel_steps = int(m2_rel_steps)
+    except (ValueError, TypeError):
+        send_problem(machine, "Invalid step format; 'm1' and 'm2' must be integers.")
+        return
 
-    machine.log.info(f"Steps command accepted. Moving to ({target_m1}, {target_m2}).")
+    # 2. Calculate the absolute target position from the current position
+    current_m1 = machine.flags.get('current_m1_steps', 0)
+    current_m2 = machine.flags.get('current_m2_steps', 0)
     
-    # Set the flags that the 'Moving' state will use
-    machine.flags['target_m1_steps'] = target_m1
-    machine.flags['target_m2_steps'] = target_m2
-    machine.flags['on_move_complete'] = 'Idle' # Tell the sequencer to return to Idle when done
+    target_m1 = current_m1 + m1_rel_steps
+    target_m2 = current_m2 + m2_rel_steps
 
-    machine.go_to_state('Moving')
+    machine.log.info(f"Steps command accepted. Moving relatively by ({m1_rel_steps}, {m2_rel_steps}) to absolute ({target_m1}, {target_m2}).")
+    
+    # 3. Set Context and Start the Sequencer
+    sequence = [{"state": "Moving"}]
+    context = {
+        "name": "steps",
+        "target_m1_steps": target_m1,
+        "target_m2_steps": target_m2
+    }
+    machine.sequencer.start(sequence, initial_context=context)
 
 
 @try_wrapper

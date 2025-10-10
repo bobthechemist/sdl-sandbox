@@ -160,13 +160,6 @@ machine.add_command("steps", handlers.handle_steps, {
         {"name": "m2", "type": "int", "description": "Relative steps for motor 2"}
     ]
 })
-machine.add_command("angles", handlers.handle_angles, {
-    "description": "Moves motors to absolute angles (theta1, theta2) within safe limits.",
-    "args": [
-        {"name": "theta1", "type": "float", "description": "Absolute angle for motor 1 (degrees)"},
-        {"name": "theta2", "type": "float", "description": "Absolute angle for motor 2 (degrees)"}
-    ]
-})
 machine.add_command("move_tip_to", handlers.handle_move_tip_to, {
     "description": "Moves a specific pump tip to an absolute (x, y) coordinate, compensating for rotation.",
     "args": [
