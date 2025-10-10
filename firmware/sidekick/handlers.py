@@ -242,7 +242,12 @@ def handle_steps(machine, payload):
 def handle_move_tip_to(machine, payload):
     """
     Moves the specified tool tip (e.g., a pump nozzle) to an absolute
-    (x, y) coordinate, compensating for end-effector rotation.
+    (x, y) coordinate.
+
+    This is a non-trivial calculation because the tip's offset from the arm's
+    center is rotated by the end-effector. The orientation of the end-effector
+    is determined by the final motor angle, theta2. This creates a circular
+    dependency, which we solve with a two-pass iterative approach.
     """
     if not check_homed(machine): return
 
@@ -264,46 +269,56 @@ def handle_move_tip_to(machine, payload):
     dx = pump_offset['dx']
     dy = pump_offset['dy']
 
-    # 2. --- Pass 1: "Guess" the orientation ---
-    # Solve for the tip position to get an approximate theta2
-    machine.log.info(f"Rotation Move Pass 1: Guessing IK for tip at ({x_tip}, {y_tip})")
+    # --- Pass 1: "Guess" the final orientation ---
+    # We perform an initial inverse kinematics solve for the *tip's* target
+    # position. This is not the correct final answer, but it gives us a
+    # very good estimate of what the final theta2 angle will be.
+    machine.log.info(f"Move Tip Pass 1: Estimating orientation for tip target ({x_tip}, {y_tip}).")
     guessed_angles = kinematics.inverse_kinematics(machine, x_tip, y_tip)
     if guessed_angles is None:
-        send_problem(machine, "Target position is unreachable (Pass 1).")
+        send_problem(machine, "Target position is likely unreachable (IK Pass 1 failed).")
         return
     
     _theta1_guess, theta2_guess = guessed_angles
-    orientation_angle_rad = math.radians(theta2_guess) # Convert to radians for math functions
-    machine.log.info(f"Pass 1 result: Estimated orientation (theta2) = {theta2_guess:.2f} degrees.")
+    machine.log.info(f"Pass 1 result: Estimated orientation angle (theta2) = {theta2_guess:.2f} degrees.")
 
-    # 3. --- Calculate the Corrected Target ---
-    # Use the estimated orientation to find the true target for the arm's center
-    cos_theta = math.cos(orientation_angle_rad)
-    sin_theta = math.sin(orientation_angle_rad)
+    # --- 2. Calculate the Corrected Center Target ---
+    # Now, we use the estimated orientation (theta2_guess) to rotate the
+    # local pump offset vector into the global coordinate frame.
+    orientation_rad = math.radians(theta2_guess)
+    cos_theta = math.cos(orientation_rad)
+    sin_theta = math.sin(orientation_rad)
     
+    # Standard 2D rotation matrix application
     x_offset_rotated = dx * cos_theta - dy * sin_theta
     y_offset_rotated = dx * sin_theta + dy * cos_theta
     
+    # The arm's center must be positioned such that: Center + RotatedOffset = Tip.
+    # Therefore, the target for the center is: Center = Tip - RotatedOffset.
     x_center_target = x_tip - x_offset_rotated
     y_center_target = y_tip - y_offset_rotated
-    machine.log.info(f"Corrected center target is ({x_center_target:.3f}, {y_center_target:.3f})")
+    machine.log.info(f"Corrected center target is ({x_center_target:.3f}, {y_center_target:.3f}).")
 
-    # 4. --- Pass 2: "Refine" the solution ---
-    # Solve the IK for the corrected center target
-    machine.log.info("Rotation Move Pass 2: Solving IK for corrected center target.")
+    # --- Pass 2: "Refine" the final solution ---
+    # We solve the IK again, this time for the corrected center target. This
+    # will yield the final, accurate motor angles.
+    machine.log.info("Move Tip Pass 2: Solving final IK for corrected center target.")
     final_angles = kinematics.inverse_kinematics(machine, x_center_target, y_center_target)
     if final_angles is None:
-        send_problem(machine, "Target position is unreachable (Pass 2). This can happen near kinematic boundaries.")
+        send_problem(machine, "Target position is unreachable (IK Pass 2 failed). This can happen near kinematic boundaries.")
         return
         
     final_theta1, final_theta2 = final_angles
 
-    # 5. --- Execute the Move ---
-    # Convert final angles to steps and go to the Moving state
+    # --- 3. Execute the Move using the Sequencer ---
     target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, final_theta1, final_theta2)
     machine.log.info(f"IK success. Final Target Angles: ({final_theta1:.2f}, {final_theta2:.2f}) -> Steps: ({target_m1_steps}, {target_m2_steps}).")
 
-    machine.flags['target_m1_steps'] = target_m1_steps
-    machine.flags['target_m2_steps'] = target_m2_steps
-    machine.flags['on_move_complete'] = 'Idle'
-    machine.go_to_state('Moving')
+    # Use the sequencer context, NOT machine.flags, for consistency.
+    sequence = [{"state": "Moving"}]
+    context = {
+        "name": "move_tip_to",
+        "target_m1_steps": target_m1_steps,
+        "target_m2_steps": target_m2_steps
+    }
+    machine.sequencer.start(sequence, initial_context=context)

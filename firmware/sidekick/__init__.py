@@ -17,7 +17,7 @@ from . import handlers
 # 1. INSTRUMENT CONFIGURATION
 # ============================================================================
 SUBSYSTEM_NAME = "SIDEKICK"
-SUBSYSTEM_VERSION = "1.0.0"
+SUBSYSTEM_VERSION = "1.0.9" # Sequencer not fully implemented
 SUBSYSTEM_INIT_STATE = "Initialize"
 SUBSYSTEM_CONFIG = {
     "pins": {
@@ -88,7 +88,9 @@ def build_status(machine):
     """
     return {
         # Public Key:  Reads from the internal flag at the moment of the request.
-        "homed": machine.flags.get('is_homed', False)
+        "homed": machine.flags.get('is_homed', False),
+        "m1_steps": machine.flags.get('current_m1_steps'),
+        "m2_steps": machine.flags.get('current_m2_steps')
         # Add other public-facing status values here in the future
         # "gripper_state": machine.flags.get('gripper_is_open', False)
     }
