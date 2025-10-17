@@ -1,5 +1,13 @@
 # Dev Log
 
+## [2025-10-17] Calibration routine for sidekick
+
+**Context**: A standard routine for calibration is needed
+**Issue**: Cannot easily store calibration files on CP, but may not make sense for host to manage this
+**Action**: SWOT some approaches to calibration and implement.
+
+---
+
 ## [2025-10-10] Improve GUI experience
 
 **Context**: The MVC app can be improved

@@ -1,3 +1,18 @@
+# The Automated Laboratory Instrument Framework (ALIF)
+
+This project is a comprehensive software framework for creating a **Self-Driving Laboratory**, an automated system where a host computer controls multiple scientific instruments, each powered by a CircuitPython-compatible microcontroller.
+
+At its core, the framework uses a **host-device architecture**. The host computer runs a central application that sends commands and manages experimental workflows, while each instrument's microcontroller executes firmware to control its specific hardware (motors, pumps, sensors).
+
+Key architectural features include:
+
+*   **State-Machine-Driven Firmware:** Each instrument's firmware is built as a finite state machine, ensuring predictable and robust behavior by preventing conflicting operations.
+*   **JSON-Based Messaging:** All communication between the host and devices occurs over a serial connection using a standardized, human-readable JSON protocol.
+*   **Centralized Device Management:** On the host side, a `DeviceManager` handles the discovery, connection, and communication for all instruments, providing a unified interface for control scripts and user interfaces.
+*   **Model-View-Controller (MVC) Pattern:** The host application is designed with a clear separation of concerns, allowing for flexible user interfaces (like the provided Tkinter GUI) and enabling autonomous control via scripts or AI agents.
+
+The project is designed for extensibility, with clear documentation and design guidelines (`socratic_design_guidelines.md`) to facilitate the rapid integration of new instruments. It also includes tools for deploying firmware and testing, including the ability to interact with "fake" devices for development without physical hardware. Recent development logs indicate ongoing work to refine the host application, improve documentation, and refactor existing instrument scripts to align with the latest architectural patterns.
+
 # Project: Self-Driving Laboratory Framework
 
 This project provides a robust software framework for creating a **Self-Driving Laboratory**—a suite of microcontroller-driven scientific instruments controlled by a host computer. The architecture is designed for scalability, reliability, and ease of development, allowing new instruments to be integrated quickly and efficiently.
