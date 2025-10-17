@@ -37,7 +37,7 @@ SUBSYSTEM_CONFIG = {
         "aspirate_time": 0.1, "dispense_time": 0.1, "increment_ul": 10.0,
     },
     "kinematics": {
-        "L1": 7.0, "L2": 3.0, "L3": 10.0, "Ln": 0.5,
+        "L1": 7.0, "L2": 3.0, "L3": 10.2, "Ln": 0.5,
     },
     "safe_limits": {
         # These are placeholder values and need to be updated.
@@ -59,6 +59,11 @@ SUBSYSTEM_CONFIG = {
     "pump_offsets": {
         "p1": {"dx": 1.14, "dy": 0.6}, "p2": {"dx": 1.14, "dy": 0.2},
         "p3": {"dx": 1.14, "dy": -0.2}, "p4": {"dx": 1.14, "dy": -0.6},
+    },
+    # For aligning dispenser to a 96-well plate configuration
+    "A1_offset": {
+        "dx":7.24,
+        "dy":-5.57
     }
 }
 
@@ -69,13 +74,18 @@ SUBSYSTEM_CONFIG = {
 # This callback defines the device's specific telemetry data.
 def send_telemetry(machine):
     """Generates and sends telemetry message."""
+    m1_steps = machine.flags.get('current_m1_steps', 0)
+    m2_steps = machine.flags.get('current_m2_steps', 0)
+    theta1, theta2 = kinematics.steps_to_degrees(machine, m1_steps, m2_steps)
+    x_pos, y_pos = kinematics.forward_kinematics(machine, theta1, theta2)
+
     telemetry_message = Message(
         subsystem_name=machine.name,
         status="TELEMETRY",
         payload={
             "data": {
-                "m1_steps": machine.flags.get('current_m1_steps'),
-                "m2_steps": machine.flags.get('current_m2_steps')
+                "x(world)": x_pos,
+                "y(world)": y_pos
             }
         }
     )
@@ -84,15 +94,32 @@ def send_telemetry(machine):
 def build_status(machine):
     """
     This function is called by the generic get_info command.
-    It builds the instrument-specific status dictionary in real-time.
+    It builds a comprehensive, instrument-specific status dictionary in real-time.
     """
+    # 1. Get the primary data: current motor steps
+    m1_steps = machine.flags.get('current_m1_steps', 0)
+    m2_steps = machine.flags.get('current_m2_steps', 0)
+
+    # 2. Use kinematics to calculate derived values
+    # These calculations are performed on the device at the moment of the request.
+    theta1, theta2 = kinematics.steps_to_degrees(machine, m1_steps, m2_steps)
+    x_pos, y_pos = kinematics.forward_kinematics(machine, theta1, theta2)
+    
+    # 3. Return the complete, detailed status dictionary
     return {
-        # Public Key:  Reads from the internal flag at the moment of the request.
-        "homed": machine.flags.get('is_homed', False),
-        "m1_steps": machine.flags.get('current_m1_steps'),
-        "m2_steps": machine.flags.get('current_m2_steps')
-        # Add other public-facing status values here in the future
-        # "gripper_state": machine.flags.get('gripper_is_open', False)
+        "is_homed": machine.flags.get('is_homed', False),
+        "raw_motor_steps": {
+            "m1": m1_steps,
+            "m2": m2_steps
+        },
+        "calculated_motor_angles_deg": {
+            "theta1": round(theta1, 2),
+            "theta2": round(theta2, 2)
+        },
+        "device_calculated_cartesian_cm": {
+            "x": round(x_pos, 4),
+            "y": round(y_pos, 4)
+        }
     }
 
 # --- Machine Assembly ---
@@ -166,6 +193,13 @@ machine.add_command("move_tip_to", handlers.handle_move_tip_to, {
         {"name": "pump", "type": "str", "description": "Pump to use (e.g., 'p1')"},
         {"name": "x", "type": "float", "description": "Target x-coordinate for the tip (cm)"},
         {"name": "y", "type": "float", "description": "Target y-coordinate for the tip (cm)"}
+    ]
+})
+machine.add_command("to_well", handlers.handle_to_well, {
+    "description": "Moves to a specified well on a 96-well plate",
+    "args": [
+        {"name": "well", "type": "str", "description": "Target well designation (e.g., 'B6', 'h12')."},
+        {"name": "pump", "type": "str|int", "description": "Optional: pump nozzle to position over the well (e.g., 'p2' or 2). Defaults to end effector center.", "default": "center"}
     ]
 })
 # --- Add Dynamic Flags

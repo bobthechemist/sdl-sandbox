@@ -1,0 +1,48 @@
+{
+    "calibration_date": "2025-10-17T18:50:40.509541Z",
+    "method": "user_guided_3_point_well_plate",
+    "reference_points": [
+        {
+            "motor_coords": [
+                325,
+                927
+            ],
+            "world_coords_cm": [
+                0.9,
+                0.0
+            ]
+        },
+        {
+            "motor_coords": [
+                365,
+                1237
+            ],
+            "world_coords_cm": [
+                5.4,
+                3.6
+            ]
+        },
+        {
+            "motor_coords": [
+                705,
+                1477
+            ],
+            "world_coords_cm": [
+                3.6,
+                9.9
+            ]
+        }
+    ],
+    "transformation_matrix": [
+        [
+            -0.017098121085543243,
+            0.016722338204572473,
+            -9.04471816283925
+        ],
+        [
+            0.01136743215030454,
+            0.010146137787059752,
+            -13.099885177453023
+        ]
+    ]
+}

@@ -6,7 +6,7 @@ FIRMWARE_DATABASE = {
         'products': {
             810: 'Fake Device',
             811: 'DIY Stirplate', 
-            812: 'Sidekick dispenser',
+            812: 'Sidekick',
             813: 'Colorimeter'
         }
     },

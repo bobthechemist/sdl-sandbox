@@ -125,4 +125,4 @@ machine.add_command("measure", handlers.handle_measure, {
 
 # --- Add machine-wide flags (dynamic variables) ---
 machine.add_flag('error_message', '')
-machine.add_flag('telemetry_interval', 10.0)
+machine.add_flag('telemetry_interval', 60.0)
