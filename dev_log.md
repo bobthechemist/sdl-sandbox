@@ -1,6 +1,14 @@
 # Dev Log
 
-## [2025-10-17] Calibration routine for sidekick
+## [2025-10-19] Fix the try wrapper
+
+**Context**: Attempting to use a wrapper to streamline error catching
+**Issues**: Robust error catching seems to require functools, which CircuitPython does not have
+**Action**: Evaluate if we need to abandon this approach
+**Next Steps**:
+- [ ] Try using wrapper._name_ instead of wrapper.__name__ which is read only.
+
+## [2025-10-17] Calibration routine for sidekick _COMPLETE_
 
 **Context**: A standard routine for calibration is needed
 **Issue**: Cannot easily store calibration files on CP, but may not make sense for host to manage this
@@ -16,7 +24,7 @@
 
 ---
 
-## [2025-10-08] Rename and organize host_app
+## [2025-10-08] Rename and organize host_app _COMPLETE_
 
 **Context**: The three main structures of the program are messaging (communicate), devices (firmware) and the host (host_app).
 **Issue**: Renaming host_app to host and reorganizing to have utilities, gui, core, etc may be helpful for future proofing

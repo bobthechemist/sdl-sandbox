@@ -33,9 +33,9 @@ def try_wrapper(func):
             machine = args[0] if args else kwargs.get('machine')
             if machine:
                 # Use the manually saved function name for the error report
-                send_problem(machine, f"The function '{wrapper.__name__}' raised an error: {e}")
+                send_problem(machine, f"The function '{wrapper._name_}' raised an error: {e}")
 
     # --- The Fix for CircuitPython ---
     # Manually copy the name from the original function to the wrapper
-    wrapper.__name__ = func.__name__
+    wrapper._name_ = func.__name__
     return wrapper
