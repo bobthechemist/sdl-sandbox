@@ -7,7 +7,7 @@ from shared_lib.messages import send_problem
 
 # A decorator for wrapping try/except around logic
 # Custom information can be added by setting the err_msg variable in the function
-def try_wrapper_old(func):
+def try_wrapper(func):
 
     def wrapper(*args, **kwargs):
         try:
@@ -19,7 +19,7 @@ def try_wrapper_old(func):
     #wrapper.__name__ = func.__name__
     return wrapper
 
-def try_wrapper(func):
+def try_wrapper_broken(func):
     """
     A decorator for wrapping try/except around device command handlers.
     This version is compatible with CircuitPython (no functools).

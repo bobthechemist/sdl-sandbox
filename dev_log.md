@@ -1,5 +1,6 @@
 # Dev Log
 
+
 ## [2025-10-19] Fix the try wrapper
 
 **Context**: Attempting to use a wrapper to streamline error catching
@@ -13,7 +14,9 @@
 **Context**: A standard routine for calibration is needed
 **Issue**: Cannot easily store calibration files on CP, but may not make sense for host to manage this
 **Action**: SWOT some approaches to calibration and implement.
-
+**Next Steps**:
+- [x] Confirm that the motors' world coordinates do not match to real coordinates. _Going from A1 to H12 wells, the tip is about -30 steps in motor 1 and 10 steps in motor 2 from where it should be.
+- [x] Confirmed that homing needs to be done somewhat frequently.
 ---
 
 ## [2025-10-10] Improve GUI experience

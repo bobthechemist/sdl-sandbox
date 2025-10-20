@@ -37,7 +37,7 @@ SUBSYSTEM_CONFIG = {
         "aspirate_time": 0.1, "dispense_time": 0.1, "increment_ul": 10.0,
     },
     "kinematics": {
-        "L1": 7.0, "L2": 3.0, "L3": 10.2, "Ln": 0.5,
+        "L1": 7.0, "L2": 3.0, "L3": 10, "Ln": 0.5,
     },
     "safe_limits": {
         # These are placeholder values and need to be updated.
@@ -57,8 +57,8 @@ SUBSYSTEM_CONFIG = {
         "m2_max": 180.0
     },
     "pump_offsets": {
-        "p1": {"dx": 1.14, "dy": 0.6}, "p2": {"dx": 1.14, "dy": 0.2},
-        "p3": {"dx": 1.14, "dy": -0.2}, "p4": {"dx": 1.14, "dy": -0.6},
+        "p1": {"dx": -1.09, "dy": 0.6}, "p2": {"dx": -1.09, "dy": 0.2},
+        "p3": {"dx": -1.09, "dy": -0.2}, "p4": {"dx": -1.09, "dy": -0.6},
     },
     # For aligning dispenser to a 96-well plate configuration
     "A1_offset": {
