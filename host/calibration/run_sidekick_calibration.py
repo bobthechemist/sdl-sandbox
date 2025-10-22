@@ -1,15 +1,14 @@
+# host/calibration/run_angle_calibration.py
 import json
 import time
 import os
 import sys
 from datetime import datetime
-import re
 
 try:
     import numpy as np
 except ImportError:
-    print("Error: The 'numpy' library is required for this script.")
-    print("Please install it by running: pip install numpy")
+    print("Error: The 'numpy' library is required. Run: pip install numpy")
     sys.exit(1)
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -19,6 +18,7 @@ from host.core.device_manager import DeviceManager
 from shared_lib.messages import Message
 from host.firmware_db import get_device_name
 
+# (getch and find_sidekick_device helper functions would be included here as before)
 # --- Helper for Cross-Platform Single-Key Input ---
 try:
     import msvcrt
@@ -37,20 +37,7 @@ except ImportError:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
 
-def well_to_coords(well_designation: str, spacing_cm: float = 0.9):
-    """Translates a standard well plate designation into (X, Y) coordinates."""
-    sanitized_well = well_designation.upper().strip()
-    match = re.match(r'^([A-H])([1-9]|1[0-2])$', sanitized_well)
-    if not match:
-        print(f"  -> ERROR: Invalid well designation '{well_designation}'. Must be A-H followed by 1-12.")
-        return None
-    letter_part, number_part = match.group(1), int(match.group(2))
-    x_index = ord(letter_part) - ord('A')
-    y_index = number_part - 1
-    return (x_index * spacing_cm, y_index * spacing_cm)
-
 def find_sidekick_device(manager: DeviceManager):
-    """Scans for devices and returns the info for the first Sidekick found."""
     print("Scanning for connected devices...")
     for dev_info in manager.scan_for_devices():
         friendly_name = get_device_name(dev_info['VID'], dev_info['PID'])
@@ -60,168 +47,149 @@ def find_sidekick_device(manager: DeviceManager):
             return dev_info
     return None
 
-# ==============================================================================
-# REVISED HELPER FUNCTION (was get_current_steps)
-# ==============================================================================
-def get_device_status_info(manager: DeviceManager, port: str):
-    """Sends get_info and waits for the full DATA_RESPONSE payload."""
+def get_device_motor_angles(manager: DeviceManager, port: str):
+    """Sends get_info and waits for the response to extract motor angles."""
     get_info_msg = Message(subsystem_name="HOST_CALIBRATOR", status="INSTRUCTION", payload={"func": "get_info"})
     manager.send_message(port, get_info_msg)
     start_time = time.time()
     while time.time() - start_time < 5:
         try:
             msg_type, msg_port, msg_data = manager.incoming_message_queue.get_nowait()
-            if msg_port == port and msg_data.status == "DATA_RESPONSE" and "device_calculated_cartesian_cm" in msg_data.payload.get('data', {}):
-                return msg_data.payload.get('data')
+            if msg_port == port and msg_data.status == "DATA_RESPONSE":
+                payload_data = msg_data.payload.get('data', {})
+                if 'calculated_motor_angles_deg' in payload_data:
+                    angles = payload_data['calculated_motor_angles_deg']
+                    return (angles.get('theta1'), angles.get('theta2'))
         except Exception:
             time.sleep(0.1)
-    print("\nError: Timed out waiting for get_info response from device.")
+    print("\nError: Timed out waiting for angle response from device.")
     return None
 
-# ==============================================================================
-# REVISED JOG FUNCTION
-# ==============================================================================
-def interactive_jog(manager: DeviceManager, port: str, point_number: int):
-    """Provides a CLI interface for jogging the motors, with a get_info key."""
-    jog_step = 10
-    print("\n" + "="*50)
-    print(f" Interactive Jogging Mode for Reference Point #{point_number}")
-    print("-"*50)
-    print("  [W]/[S]: Nudge M1 | [A]/[D]: Nudge M2 | [G]: Get Status Info")
-    print("\n  Press [Enter] to confirm the position.")
-    print("="*50)
-
+def interactive_jog(manager: DeviceManager, port: str, well: str):
+    """Provides a CLI for jogging the arm in Cartesian space."""
+    # This function remains identical to the previous script
+    step_size = 1.0
+    print("\n" + "="*60)
+    print(f" Interactive Jogging for Well '{well}' (Cartesian Control)")
+    print("-"*60)
+    print("  Use W/A/S/D to jog. [Enter] to confirm.")
+    print("  [T] to toggle Coarse (1cm), Medium (0.1cm), and Fine (0.01cm) steps.")
+    print(f"  Current Step Size: {step_size} cm")
+    print("="*60)
     while True:
         char = getch().lower()
-        
-        # --- Handle Key Presses ---
+        if char == 't':
+            if step_size == 1.0: step_size = 0.1
+            elif step_size == 0.1: step_size = 0.01
+            else: step_size = 1.0
+            print(f"\nSwitched to {step_size} cm step size.")
+            continue
         if char in ('w', 's', 'a', 'd'):
-            payload = {"func": "steps", "args": {}}
-            if char == 'w': payload["args"] = {"m1": jog_step, "m2": 0}
-            elif char == 's': payload["args"] = {"m1": -jog_step, "m2": 0}
-            elif char == 'a': payload["args"] = {"m1": 0, "m2": jog_step}
-            elif char == 'd': payload["args"] = {"m1": 0, "m2": -jog_step}
+            payload = {"func": "move_rel", "args": {}}
+            if char == 'w': payload["args"] = {"dx": 0, "dy": step_size}
+            elif char == 's': payload["args"] = {"dx": 0, "dy": -step_size}
+            elif char == 'a': payload["args"] = {"dx": -step_size, "dy": 0}
+            elif char == 'd': payload["args"] = {"dx": step_size, "dy": 0}
             print(f"Sent: {payload['args']}")
             msg = Message(subsystem_name="HOST_CALIBRATOR", status="INSTRUCTION", payload=payload)
             manager.send_message(port, msg)
-
-        elif char == 'g':
-            print("\nRequesting device status...")
-            status_info = get_device_status_info(manager, port)
-            if status_info:
-                print("-" * 20)
-                # Pretty print the received dictionary
-                print(json.dumps(status_info, indent=2))
-                print("-" * 20)
-            # Re-print the prompt
-            print("\n[W]/[S]: M1 | [A]/[D]: M2 | [G]: Get Info | [Enter]: Confirm")
-
+            time.sleep(0.5)
         elif char == '\r' or char == '\n':
-            print("\nPosition confirmed. Fetching final motor step counts...")
-            final_status = get_device_status_info(manager, port)
-            if final_status:
-                motor_steps = final_status.get('raw_motor_steps', {})
-                m1 = motor_steps.get('m1')
-                m2 = motor_steps.get('m2')
-                if m1 is not None and m2 is not None:
-                    return (m1, m2)
-            print("Error: Could not retrieve final step counts.")
-            return None # Indicate failure
-        
-        # Short delay to prevent spamming the device
-        time.sleep(0.1)
+            print("\nPosition confirmed.")
+            return True
 
-
-def get_world_coords_from_well(point_number: int):
-    """Prompts the user to enter a well designation and converts it to coordinates."""
-    while True:
-        well_str = input(f"Enter the WELL DESIGNATION for Reference Point #{point_number} (e.g., 'A1', 'H12'): ")
-        coords = well_to_coords(well_str)
-        if coords is not None:
-            return coords
-
-def calculate_transformation(points: list):
-    """Calculates the affine transformation matrix."""
+def calculate_angle_correction_matrix(points: list):
+    """Calculates the affine transformation for motor angles."""
     A, B = [], []
     for p in points:
-        m1, m2 = p['motor_coords']
-        x, y = p['world_coords_cm']
-        A.extend([[m1, m2, 1, 0, 0, 0], [0, 0, 0, m1, m2, 1]])
-        B.extend([x, y])
+        t1_pred, t2_pred = p['predicted_angles']
+        t1_actual, t2_actual = p['actual_angles']
+        A.extend([[t1_pred, t2_pred, 1, 0, 0, 0], [0, 0, 0, t1_pred, t2_pred, 1]])
+        B.extend([t1_actual, t2_actual])
+    
     A, B = np.array(A), np.array(B)
     try:
-        solution, _, rank, _ = np.linalg.lstsq(A, B, rcond=None)
-        if rank < 6:
-            print("Warning: The reference points may be collinear, potentially leading to an inaccurate calibration.")
+        solution, _, _, _ = np.linalg.lstsq(A, B, rcond=None)
         return solution.reshape(2, 3).tolist()
     except np.linalg.LinAlgError as e:
         print(f"FATAL: Linear algebra error: {e}")
         return None
 
 def main():
-    """Main script execution."""
-    print("====== Sidekick 3-Point Well Plate Calibration Wizard ======")
-    print("INFO: For best results, choose 3 non-collinear points (e.g., A1, H1, A12).")
-
+    print("====== Sidekick ANGLE-BASED Calibration Wizard ======")
     manager = DeviceManager()
     manager.start()
     
     sidekick_info = find_sidekick_device(manager)
     if not sidekick_info:
-        print("\nFATAL: Could not find a Sidekick device.")
         manager.stop()
         return
 
     port = sidekick_info['port']
     if not manager.connect_device(port, sidekick_info['VID'], sidekick_info['PID']):
-        print(f"\nFATAL: Failed to connect to Sidekick on port {port}.")
         manager.stop()
         return
         
     try:
-        print("\nStep 1: Homing the Sidekick. Please wait...")
+        print("\nStep 1: Homing the Sidekick...")
         manager.send_message(port, Message(subsystem_name="HOST_CALIBRATOR", status="INSTRUCTION", payload={"func": "home"}))
-        time.sleep(15)
+        time.sleep(20)
         print("Homing complete.")
 
         calibration_points = []
-        for i in range(1, 4):
-            motor_coords = interactive_jog(manager, port, i)
-            if motor_coords is None:
-                raise RuntimeError(f"Failed to get motor coordinates for Point #{i}.")
+        reference_wells = ['A1', 'H1', 'H12']
+
+        for well in reference_wells:
+            print(f"\n--- Calibrating Well: {well} ---")
             
-            world_coords = get_world_coords_from_well(i)
+            print(f"Moving pump 1 to predicted location for '{well}'...")
+            to_well_payload = {"func": "to_well", "args": {"well": well, "pump": "p1"}}
+            manager.send_message(port, Message(subsystem_name="HOST_CALIBRATOR", status="INSTRUCTION", payload=to_well_payload))
+            time.sleep(10)
+
+            predicted_angles = get_device_motor_angles(manager, port)
+            if not predicted_angles or None in predicted_angles:
+                raise RuntimeError(f"Failed to get predicted angles for {well}.")
+            print(f"  -> Device Predicted Angles (t1, t2): {predicted_angles}")
+
+            interactive_jog(manager, port, well)
+
+            actual_angles = get_device_motor_angles(manager, port)
+            if not actual_angles or None in actual_angles:
+                raise RuntimeError(f"Failed to get actual angles for {well}.")
+            print(f"  -> User Corrected Angles (t1, t2): {actual_angles}")
             
             point_data = {
-                "motor_coords": motor_coords,
-                "world_coords_cm": world_coords
+                "well_name": well,
+                "predicted_angles": predicted_angles,
+                "actual_angles": actual_angles
             }
             calibration_points.append(point_data)
-            print(f"  -> Stored Point #{i}: motor={motor_coords}, world_well={world_coords}")
     
-        print("\nStep 3: Calculating transformation matrix...")
-        transform_matrix = calculate_transformation(calibration_points)
+        print("\nStep 3: Calculating ANGLE correction matrix...")
+        transform_matrix = calculate_angle_correction_matrix(calibration_points)
         if transform_matrix is None:
-            raise RuntimeError("Failed to calculate transformation matrix.")
+            raise RuntimeError("Matrix calculation failed.")
 
         final_calibration = {
             "calibration_date": datetime.utcnow().isoformat() + "Z",
-            "method": "user_guided_3_point_well_plate",
+            "method": "interactive_3_point_angle_correction",
             "reference_points": calibration_points,
             "transformation_matrix": transform_matrix
         }
 
-        output_filename = "sidekick_calibration.json"
+        output_filename = "sidekick_calibration.json" # Same filename is fine
         with open(output_filename, 'w') as f:
             json.dump(final_calibration, f, indent=4)
 
         print("\n" + "="*50)
-        print(" CALIBRATION COMPLETE!")
-        print(f" Saved calibration data to '{output_filename}'")
+        print(" ANGLE CALIBRATION COMPLETE!")
+        print(f" Saved angle calibration data to '{output_filename}'")
+        print("\n Manually copy this file to the Sidekick's CIRCUITPY drive.")
         print("="*50)
 
     except Exception as e:
-        print(f"\nAn error occurred during the calibration process: {e}")
+        print(f"\nAn error occurred: {e}")
     finally:
         print("\nShutting down device manager...")
         manager.stop()

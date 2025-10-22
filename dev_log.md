@@ -17,6 +17,34 @@
 **Next Steps**:
 - [x] Confirm that the motors' world coordinates do not match to real coordinates. _Going from A1 to H12 wells, the tip is about -30 steps in motor 1 and 10 steps in motor 2 from where it should be.
 - [x] Confirmed that homing needs to be done somewhat frequently.
+- [x] Data for comparing two calibration steps. In the second one, I jogged the motor back and forth many times to see if there is a potential hysteresis issue.
+
+```
+Well: A1
+  Initial Steps -> (m1: 423, m2: 951)
+  Final Steps   -> (m1: 442, m2: 935)
+--------------------
+Well: H1
+  Initial Steps -> (m1: 217, m2: 1185)
+  Final Steps   -> (m1: 215, m2: 1168)
+--------------------
+Well: H12
+  Initial Steps -> (m1: 601, m2: 1529)
+  Final Steps   -> (m1: 575, m2: 1512)
+Well: A1
+  Initial Steps -> (m1: 423, m2: 951)
+  Final Steps   -> (m1: 444, m2: 935)
+--------------------
+Well: H1
+  Initial Steps -> (m1: 217, m2: 1185)
+  Final Steps   -> (m1: 213, m2: 1169)
+--------------------
+Well: H12
+  Initial Steps -> (m1: 601, m2: 1529)
+  Final Steps   -> (m1: 574, m2: 1513)
+--------------------
+```
+
 ---
 
 ## [2025-10-10] Improve GUI experience

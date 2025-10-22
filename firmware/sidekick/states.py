@@ -38,10 +38,50 @@ class Initialize(State):
                 machine.hardware['pumps'][f'p{i}'].direction = digitalio.Direction.OUTPUT
 
             machine.log.info("Sidekick hardware initialized successfully.")
-            machine.go_to_state('Homing') # The first action after init must be to home.
+            
         except Exception as e:
             machine.flags['error_message'] = f"Hardware Initialization failed: {e}"
             machine.go_to_state('Error')
+        
+        
+        # Load calibration data 
+        try:
+            # Check the configuration to see if we should even look for a file.
+            calibration_filename = machine.config.get("calibration_file", None)
+
+            if calibration_filename:
+                # Filename is specified, so we attempt to load it.
+                machine.log.info(f"Attempting to load calibration from '{calibration_filename}'...")
+                import json
+                
+                try:
+                    with open(calibration_filename, "r") as f:
+                        cal_data = json.load(f)
+                        matrix = cal_data["transformation_matrix"]
+                        machine.flags['calibration_matrix'] = matrix
+                        machine.log.info("Successfully loaded custom calibration matrix.")
+                
+                except FileNotFoundError:
+                    # This is normal if the device hasn't been calibrated yet.
+                    machine.log.info("No calibration file found. Using default identity matrix.")
+                    machine.flags['calibration_matrix'] = [[1, 0, 0], [0, 1, 0]]
+                
+                except Exception as e:
+                    # Handle corrupted files or other errors.
+                    machine.log.error(f"Failed to load or parse '{calibration_filename}': {e}. Using default identity matrix.")
+                    machine.flags['calibration_matrix'] = [[1, 0, 0], [0, 1, 0]]
+
+            else:
+                # 3. The config explicitly disables calibration loading.
+                machine.log.info("Calibration is disabled in firmware config. Using default identity matrix.")
+                machine.flags['calibration_matrix'] = [[1, 0, 0], [0, 1, 0]]
+
+        except Exception as e:
+            # A catch-all to ensure the machine always boots.
+            machine.log.critical(f"A critical error occurred during calibration setup: {e}. Using default.")
+            machine.flags['calibration_matrix'] = [[1, 0, 0], [0, 1, 0]]
+
+        machine.go_to_state('Homing') # The first action after init must be to home.
 
 class Idle(State):
     @property

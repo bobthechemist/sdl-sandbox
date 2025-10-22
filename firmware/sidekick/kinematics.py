@@ -26,6 +26,36 @@ def degrees_to_steps(machine, theta1, theta2):
     m2_steps = int((theta2 / 360) * steps_per_rev)
     return m1_steps, m2_steps
 
+def calculate_steps_from_xy(machine, x, y):
+    """
+    Applies the loaded calibration matrix to directly convert
+    world coordinates (x, y) into motor steps (m1, m2).
+    This bypasses the analytical inverse kinematics model.
+
+    Args:
+        machine: The state machine instance to access the calibration matrix.
+        x (float): The target world x-coordinate in cm.
+        y (float): The target world y-coordinate in cm.
+
+    Returns:
+        tuple[int, int]: The calculated target steps for (motor1, motor2).
+    """
+    # Retrieve the matrix from flags. This is loaded by the Initialize state.
+    matrix = machine.flags.get('calibration_matrix')
+    
+    # The matrix is a 2x3 list of lists: [[a, b, c], [d, e, f]]
+    # m1 = a*x + b*y + c
+    # m2 = d*x + e*y + f
+    a, b, c = matrix[0]
+    d, e, f = matrix[1]
+    
+    m1 = (a * x) + (b * y) + c
+    m2 = (d * x) + (e * y) + f
+    
+    # Return as rounded integers, as motor steps cannot be fractional.
+    return (int(round(m1)), int(round(m2)))
+
+
 # ============================================================================
 # CORE KINEMATICS LOGIC (Adapted from kinematicsfunctions.py)
 # ============================================================================
@@ -72,6 +102,21 @@ def inverse_kinematics(machine, target_x, target_y):
     
     Returns a tuple (theta1, theta2) on success, or None on failure.
     """
+
+    # # Apply calibration transformation
+    # corrected_x, corrected_y = apply_calibration_transform(machine, target_x, target_y)
+    
+    # # Log the transformation for debugging, but only if a change occurred.
+    # if abs(target_x - corrected_x) > 0.001 or abs(target_y - corrected_y) > 0.001:
+    #     machine.log.info(f"Calibration applied: ({target_x:.3f}, {target_y:.3f}) -> ({corrected_x:.3f}, {corrected_y:.3f})")
+    # else:
+    #     machine.log.info("Calibration was not needed")
+
+    # # Update the local variables to use the corrected values.
+    # target_x, target_y = corrected_x, corrected_y
+
+    # # -- Calibration complete --
+
     cfg = machine.config['kinematics']
     L1, L2, L3 = cfg['L1'], cfg['L2'], cfg['L3']
     op_limits = machine.config['operational_limits_degrees']
@@ -107,6 +152,19 @@ def inverse_kinematics(machine, target_x, target_y):
         # Calculate theta2 for this conformation
         theta2 = _find_standard_position_angle((p2_x, p2_y))
         
+        # # *** Angle calibration attempt
+        # corrected_theta1, corrected_theta2 = apply_angle_calibration_transform(machine, theta1, theta2)
+        
+        # # Log the change for debugging.
+        # if abs(theta1 - corrected_theta1) > 0.01 or abs(theta2 - corrected_theta2) > 0.01:
+        #     machine.log.info(f"Angle Calib Applied: ({theta1:.2f}, {theta2:.2f}) -> ({corrected_theta1:.2f}, {corrected_theta2:.2f})")
+        # else:
+        #     machine.log.info(f"No Angle calibration needed")
+
+        # # The rest of the checks will now use the corrected angles.
+        # theta1, theta2 = corrected_theta1, corrected_theta2
+        # # *** End angle calibration attempt        
+
         # Safety Check: Is this solution within operational limits?
         if (op_limits['m1_min'] <= theta1 <= op_limits['m1_max'] and
             op_limits['m2_min'] <= theta2 <= op_limits['m2_max']):
