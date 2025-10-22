@@ -43,6 +43,47 @@ Well: H12
   Initial Steps -> (m1: 601, m2: 1529)
   Final Steps   -> (m1: 574, m2: 1513)
 --------------------
+
+(more points using center instead of a pump)
+------------------------------------------------------------
+Well: A1
+  Initial Steps -> (m1: 335, m2: 887)
+  Final Steps   -> (m1: 343, m2: 889)
+--------------------
+Well: A6
+  Initial Steps -> (m1: 712, m2: 1130)
+  Final Steps   -> (m1: 717, m2: 1137)
+--------------------
+Well: A12
+  Initial Steps -> (m1: 987, m2: 1486)
+  Final Steps   -> (m1: 965, m2: 1480)
+--------------------
+Well: D1
+  Initial Steps -> (m1: 276, m2: 1006)
+  Final Steps   -> (m1: 278, m2: 1006)
+--------------------
+Well: D6
+  Initial Steps -> (m1: 563, m2: 1181)
+  Final Steps   -> (m1: 561, m2: 1185)
+--------------------
+Well: D12
+  Initial Steps -> (m1: 778, m2: 1462)
+  Final Steps   -> (m1: 762, m2: 1460)
+--------------------
+Well: H1
+  Initial Steps -> (m1: 131, m2: 1178)
+  Final Steps   -> (m1: 125, m2: 1182)
+--------------------
+Well: H6
+  Initial Steps -> (m1: 363, m2: 1294)
+  Final Steps   -> (m1: 357, m2: 1298)
+--------------------
+Well: H12
+  Initial Steps -> (m1: 518, m2: 1516)
+  Final Steps   -> (m1: 492, m2: 1526)
+--------------------
+
+
 ```
 
 ---

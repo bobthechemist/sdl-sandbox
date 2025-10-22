@@ -2,7 +2,9 @@
 import time
 import os
 import sys
+import json
 from datetime import datetime
+from pathlib import Path
 
 # Add the project root to the Python path to allow importing project modules
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -122,20 +124,22 @@ def main():
     try:
         print("\nStep 1: Homing the Sidekick. This is essential for positioning.")
         manager.send_message(port, Message(subsystem_name="HOST_DIAGNOSTIC", status="INSTRUCTION", payload={"func": "home"}))
-        time.sleep(20) # Ample time for homing and parking
+        time.sleep(10) # Ample time for homing and parking
         print("Homing complete.")
 
         diagnostic_data = []
-        reference_wells = ['A1', 'H1', 'H12']
+        reference_wells = ['A1', 'A6', 'A12', 'D1', 'D6', 'D12', 'H1', 'H6', 'H12']
 
         for well in reference_wells:
             print(f"\n--- Diagnosing Well: {well} ---")
             
             # 1. Move to the device's predicted location for the well
             print(f"Moving pump 1 to the predicted location for well '{well}'...")
-            to_well_payload = {"func": "to_well", "args": {"well": well, "pump": "p1"}}
+            # pump is easier to see, harder to back out the math (I think)
+            #to_well_payload = {"func": "to_well", "args": {"well": well, "pump": "p1"}}
+            to_well_payload = {"func": "to_well", "args": {"well": well}}
             manager.send_message(port, Message(subsystem_name="HOST_DIAGNOSTIC", status="INSTRUCTION", payload=to_well_payload))
-            time.sleep(10) # Wait for the move to complete
+            time.sleep(5) # Wait for the move to complete
 
             # 2. Get the initial motor steps
             initial_steps = get_device_motor_steps(manager, port)
@@ -172,6 +176,27 @@ def main():
             print(f"  Initial Steps -> (m1: {data['initial_m1']}, m2: {data['initial_m2']})")
             print(f"  Final Steps   -> (m1: {data['final_m1']}, m2: {data['final_m2']})")
             print("-" * 20)
+ 
+        # === Save results to JSON file ===
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        save_dir = Path(PROJECT_ROOT) / "calibration_data"
+        save_dir.mkdir(exist_ok=True)
+
+        out_file = save_dir / f"sidekick_calibration_{timestamp}.json"
+
+        payload = {
+            "timestamp": timestamp,
+            "notes": "Motor step diagnostic data for 5-bar calibration",
+            "arm_lengths_nominal_cm": {"L1": 7.0, "L2": 3.0, "L3": 10.0, "Ln": 0.5},
+            "wells_tested": reference_wells,
+            "data": diagnostic_data
+        }
+
+        with open(out_file, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+
+        print(f"\nSaved diagnostic data to:\n  {out_file}")
+        print("You can now run 'calibrate_fivebar.py' using this file.\n")
 
     except Exception as e:
         print(f"\nAn error occurred during the diagnostic process: {e}")

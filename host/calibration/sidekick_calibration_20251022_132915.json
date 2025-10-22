@@ -1,0 +1,86 @@
+{
+  "timestamp": "20251022_132915",
+  "notes": "Motor step diagnostic data for 5-bar calibration",
+  "arm_lengths_nominal_cm": {
+    "L1": 7.0,
+    "L2": 3.0,
+    "L3": 10.0,
+    "Ln": 0.5
+  },
+  "wells_tested": [
+    "A1",
+    "A6",
+    "A12",
+    "D1",
+    "D6",
+    "D12",
+    "H1",
+    "H6",
+    "H12"
+  ],
+  "data": [
+    {
+      "well": "A1",
+      "initial_m1": 335,
+      "initial_m2": 887,
+      "final_m1": 343,
+      "final_m2": 889
+    },
+    {
+      "well": "A6",
+      "initial_m1": 712,
+      "initial_m2": 1130,
+      "final_m1": 717,
+      "final_m2": 1137
+    },
+    {
+      "well": "A12",
+      "initial_m1": 987,
+      "initial_m2": 1486,
+      "final_m1": 965,
+      "final_m2": 1480
+    },
+    {
+      "well": "D1",
+      "initial_m1": 276,
+      "initial_m2": 1006,
+      "final_m1": 278,
+      "final_m2": 1006
+    },
+    {
+      "well": "D6",
+      "initial_m1": 563,
+      "initial_m2": 1181,
+      "final_m1": 561,
+      "final_m2": 1185
+    },
+    {
+      "well": "D12",
+      "initial_m1": 778,
+      "initial_m2": 1462,
+      "final_m1": 762,
+      "final_m2": 1460
+    },
+    {
+      "well": "H1",
+      "initial_m1": 131,
+      "initial_m2": 1178,
+      "final_m1": 125,
+      "final_m2": 1182
+    },
+    {
+      "well": "H6",
+      "initial_m1": 363,
+      "initial_m2": 1294,
+      "final_m1": 357,
+      "final_m2": 1298
+    },
+    {
+      "well": "H12",
+      "initial_m1": 518,
+      "initial_m2": 1516,
+      "final_m1": 492,
+      "final_m2": 1526
+    }
+  ]
+}
