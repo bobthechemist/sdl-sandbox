@@ -63,8 +63,8 @@ SUBSYSTEM_CONFIG = {
         "columns": 12
     },
     "pump_offsets": {
-        "p1": {"dx": -1.09, "dy": 0.6}, "p2": {"dx": -1.09, "dy": 0.2},
-        "p3": {"dx": -1.09, "dy": -0.2}, "p4": {"dx": -1.09, "dy": -0.6},
+        "p1": {"dx": 1.09, "dy": 0.6}, "p2": {"dx": 1.09, "dy": 0.2},
+        "p3": {"dx": 1.09, "dy": -0.2}, "p4": {"dx": 1.09, "dy": -0.6},
     },
     # For aligning dispenser to a 96-well plate configuration
     "A1_offset": {

@@ -474,44 +474,92 @@ def handle_to_well(machine, payload):
     if not check_homed(machine):
         return
 
-    # 1. Check if calibration coefficients are loaded
     if not machine.flags.get('cal_coeffs_m1'):
-        send_problem(machine, "Cannot use to_well; no calibration coefficients loaded.")
+        send_problem(machine, "Cannot use to_well; no calibration loaded.")
         return
 
-    # 2. Extract and Validate Arguments
+    # 1. Extract and Validate Arguments
     args = payload.get("args", {})
     well_designation = args.get("well")
+    pump_arg = args.get("pump") # Can be None, 0, 1, "p1", etc.
+
     if well_designation is None:
         send_problem(machine, "Missing required 'well' argument.")
         return
 
-    # 3. Convert well designation to row/column indices
+    # 2. Parse well designation to grid indices and then to XY coordinates
     parsed_indices = parse_well_designation(machine, well_designation)
     if parsed_indices is None:
         send_problem(machine, f"Invalid 'well' designation: '{well_designation}'.")
         return
     row_idx, col_idx = parsed_indices
 
-    # 4. Convert row/column to (x, y) coordinates
     pitch = machine.config['plate_geometry']['well_pitch_cm']
-    target_x = col_idx * pitch
-    target_y = row_idx * pitch
-    machine.log.info(f"'{well_designation}' -> (row:{row_idx}, col:{col_idx}) -> (x:{target_x:.2f}, y:{target_y:.2f}) cm")
-    
-    # 5. Apply the quadratic model to get motor steps
-    target_steps = _calculate_steps_from_xy_quadratic(machine, target_x, target_y)
-    if target_steps is None:
-        send_problem(machine, "Calculation failed. Check calibration data.")
-        return
+    well_x = col_idx * pitch
+    well_y = row_idx * pitch
+    machine.log.info(f"Targeting well '{well_designation}' at (x:{well_x:.2f}, y:{well_y:.2f}) cm")
 
-    target_m1_steps, target_m2_steps = target_steps
-    machine.log.info(f"Calculated target motor steps: ({target_m1_steps}, {target_m2_steps})")
+    # 3. Determine if this is a center or pump move and get pump offset
+    pump_key = None
+    if pump_arg is not None and pump_arg != 0 and pump_arg != "0":
+        pump_key = f"p{pump_arg}" if isinstance(pump_arg, int) else str(pump_arg).lower()
 
-    # 6. Execute the move using the State Sequencer
+    if pump_key:
+        pump_offset = machine.config['pump_offsets'].get(pump_key)
+        if pump_offset is None:
+            send_problem(machine, f"Invalid pump specified: '{pump_arg}'.")
+            return
+        
+        # --- Pump Offset Logic (Method 1: Guess and Refine) ---
+        machine.log.info(f"Starting 2-pass move for pump '{pump_key}'...")
+
+        # Pass 1: "Guess" the motor steps by targeting the well with the arm's center.
+        guess_steps = _calculate_steps_from_xy_quadratic(machine, well_x, well_y)
+        if guess_steps is None:
+            send_problem(machine, "Initial position calculation failed (Pass 1).")
+            return
+        
+        # Use the guess to approximate the final orientation angle (theta2)
+        _m1_guess, m2_guess = guess_steps
+        _theta1_approx, theta2_approx = kinematics.steps_to_degrees(machine, 0, m2_guess)
+        machine.log.info(f"  -> Pass 1: Approx. orientation (theta2) = {theta2_approx:.2f} deg")
+
+        # Rotate the local pump offset vector by the approximate angle
+        orientation_rad = math.radians(theta2_approx)
+        cos_theta = math.cos(orientation_rad)
+        sin_theta = math.sin(orientation_rad)
+        dx, dy = pump_offset['dx'], pump_offset['dy']
+        
+        x_offset_rotated = dx * cos_theta - dy * sin_theta
+        y_offset_rotated = dx * sin_theta + dy * cos_theta
+        
+        # The corrected target for the arm's CENTER is the well pos - rotated offset
+        center_target_x = well_x - x_offset_rotated
+        center_target_y = well_y - y_offset_rotated
+        machine.log.info(f"  -> Corrected Center Target: (x:{center_target_x:.3f}, y:{center_target_y:.3f})")
+
+        # Pass 2: "Refine" the final motor steps using the corrected center target
+        final_steps = _calculate_steps_from_xy_quadratic(machine, center_target_x, center_target_y)
+        if final_steps is None:
+            send_problem(machine, "Final position calculation failed (Pass 2).")
+            return
+        
+        target_m1_steps, target_m2_steps = final_steps
+
+    else:
+        # --- Center Move Logic (Simpler, one-pass) ---
+        machine.log.info("Positioning arm center over well.")
+        final_steps = _calculate_steps_from_xy_quadratic(machine, well_x, well_y)
+        if final_steps is None:
+            send_problem(machine, "Position calculation failed for center move.")
+            return
+        target_m1_steps, target_m2_steps = final_steps
+
+    # 4. Execute the final move
+    machine.log.info(f"Final target motor steps: ({target_m1_steps}, {target_m2_steps})")
     sequence = [{"state": "Moving"}]
     context = {
-        "name": f"to_well_quadratic_{well_designation}",
+        "name": f"to_well_{well_designation}",
         "target_m1_steps": target_m1_steps,
         "target_m2_steps": target_m2_steps
     }
