@@ -46,40 +46,35 @@ class Initialize(State):
         
         # Load calibration data 
         try:
-            # Check the configuration to see if we should even look for a file.
-            calibration_filename = machine.config.get("calibration_file", None)
+            cal_file = machine.config.get("calibration_file")
+            if not cal_file:
+                raise ValueError("Calibration file not specified in config.")
 
-            if calibration_filename:
-                # Filename is specified, so we attempt to load it.
-                machine.log.info(f"Attempting to load calibration from '{calibration_filename}'...")
-                import json
+            machine.log.info(f"Attempting to load quadratic calibration from '{cal_file}'...")
+            import json
+            
+            with open(cal_file, "r") as f:
+                cal_data = json.load(f)
+                coeffs = cal_data.get("coefficients")
                 
-                try:
-                    with open(calibration_filename, "r") as f:
-                        cal_data = json.load(f)
-                        matrix = cal_data["transformation_matrix"]
-                        machine.flags['calibration_matrix'] = matrix
-                        machine.log.info("Successfully loaded custom calibration matrix.")
-                
-                except FileNotFoundError:
-                    # This is normal if the device hasn't been calibrated yet.
-                    machine.log.info("No calibration file found. Using default identity matrix.")
-                    machine.flags['calibration_matrix'] = [[1, 0, 0], [0, 1, 0]]
-                
-                except Exception as e:
-                    # Handle corrupted files or other errors.
-                    machine.log.error(f"Failed to load or parse '{calibration_filename}': {e}. Using default identity matrix.")
-                    machine.flags['calibration_matrix'] = [[1, 0, 0], [0, 1, 0]]
+                if coeffs and "motor1" in coeffs and "motor2" in coeffs:
+                    # Store the lists of coefficients for each motor
+                    machine.flags['cal_coeffs_m1'] = coeffs["motor1"]
+                    machine.flags['cal_coeffs_m2'] = coeffs["motor2"]
+                    machine.log.info("Successfully loaded quadratic calibration coefficients.")
+                else:
+                    machine.log.error("Calibration file is missing or has malformed 'coefficients'.")
+                    machine.flags['cal_coeffs_m1'] = None
+                    machine.flags['cal_coeffs_m2'] = None
 
-            else:
-                # 3. The config explicitly disables calibration loading.
-                machine.log.info("Calibration is disabled in firmware config. Using default identity matrix.")
-                machine.flags['calibration_matrix'] = [[1, 0, 0], [0, 1, 0]]
-
+        except FileNotFoundError:
+            machine.log.error(f"FATAL: Calibration file '{cal_file}' not found.")
+            machine.flags['cal_coeffs_m1'] = None
+            machine.flags['cal_coeffs_m2'] = None
         except Exception as e:
-            # A catch-all to ensure the machine always boots.
-            machine.log.critical(f"A critical error occurred during calibration setup: {e}. Using default.")
-            machine.flags['calibration_matrix'] = [[1, 0, 0], [0, 1, 0]]
+            machine.log.error(f"Failed to load or parse calibration file: {e}")
+            machine.flags['cal_coeffs_m1'] = None
+            machine.flags['cal_coeffs_m2'] = None
 
         machine.go_to_state('Homing') # The first action after init must be to home.
 

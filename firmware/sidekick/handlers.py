@@ -47,30 +47,51 @@ def degrees_to_steps(machine, theta1, theta2):
     
     return m1_steps, m2_steps
 
-def parse_well_designation(well_str: str):
+def parse_well_designation(machine, well_str: str):
     """
-    Parses a well string (e.g., 'B6') into zero-based row and column indices.
-    Returns a tuple (row_index, col_index) or None if invalid.
+    Parses a well string (e.g., 'B6') into zero-based (row, column) indices.
+    Returns a tuple or None if invalid.
     """
-    if not isinstance(well_str, str):
-        return None
-        
-    sanitized_well = well_str.upper().strip()
-    # Regex to validate a letter A-H followed by a number 1-12
-    match = re.match(r'^([A-H])([1-9]|1[0-2])$', sanitized_well)
+    if not isinstance(well_str, str): return None
     
-    if not match:
-        return None
+    plate_geo = machine.config['plate_geometry']
+    rows = plate_geo['rows']
+    
+    sanitized_well = well_str.upper().strip()
+    # Build a regex dynamically from the config
+    match = re.match(r'^([' + rows + '])([1-9]|1[0-2])$', sanitized_well)
+    
+    if not match: return None
 
     letter_part = match.group(1)
     number_part = int(match.group(2))
     
-    # 'A' is column 0, 'B' is column 1, etc.
-    col_index = ord(letter_part) - ord('A')
-    # '1' is row 0, '2' is row 1, etc.
-    row_index = number_part - 1
+    row_index = rows.find(letter_part)
+    col_index = number_part - 1
     
     return (row_index, col_index)
+
+def _calculate_steps_from_xy_quadratic(machine, x, y):
+    """
+    Converts (x, y) coordinates in cm to (m1, m2) motor steps using the
+    loaded quadratic calibration coefficients. This is a NumPy-free function.
+
+    Returns a tuple (m1, m2) or None on failure.
+    """
+    coeffs_m1 = machine.flags.get('cal_coeffs_m1')
+    coeffs_m2 = machine.flags.get('cal_coeffs_m2')
+
+    if not coeffs_m1 or not coeffs_m2:
+        return None # Cannot calculate if coefficients aren't loaded
+
+    # Build the feature vector: [1, x, y, x^2, x*y, y^2]
+    features = [1, x, y, x*x, x*y, y*y]
+    
+    # Perform dot product manually for each motor
+    m1_steps = sum(f * c for f, c in zip(features, coeffs_m1))
+    m2_steps = sum(f * c for f, c in zip(features, coeffs_m2))
+    
+    return (int(round(m1_steps)), int(round(m2_steps)))
 
 # ============================================================================
 # COMMAND HANDLERS
@@ -449,93 +470,48 @@ def handle_to_well(machine, payload):
     Moves the end effector to a specified well on a 96-well plate.
     The final target is adjusted based on the specified pump nozzle.
     """
-    # 1. Guard Condition: Must be homed to perform an absolute move.
+
     if not check_homed(machine):
+        return
+
+    # 1. Check if calibration coefficients are loaded
+    if not machine.flags.get('cal_coeffs_m1'):
+        send_problem(machine, "Cannot use to_well; no calibration coefficients loaded.")
         return
 
     # 2. Extract and Validate Arguments
     args = payload.get("args", {})
     well_designation = args.get("well")
-    pump_arg = args.get("pump") # Can be None
-
     if well_designation is None:
         send_problem(machine, "Missing required 'well' argument.")
         return
 
-    well_indices = parse_well_designation(well_designation)
-    if well_indices is None:
-        send_problem(machine, f"Invalid 'well' designation: '{well_designation}'. Use format like 'A1' or 'H12'.")
+    # 3. Convert well designation to row/column indices
+    parsed_indices = parse_well_designation(machine, well_designation)
+    if parsed_indices is None:
+        send_problem(machine, f"Invalid 'well' designation: '{well_designation}'.")
+        return
+    row_idx, col_idx = parsed_indices
+
+    # 4. Convert row/column to (x, y) coordinates
+    pitch = machine.config['plate_geometry']['well_pitch_cm']
+    target_x = col_idx * pitch
+    target_y = row_idx * pitch
+    machine.log.info(f"'{well_designation}' -> (row:{row_idx}, col:{col_idx}) -> (x:{target_x:.2f}, y:{target_y:.2f}) cm")
+    
+    # 5. Apply the quadratic model to get motor steps
+    target_steps = _calculate_steps_from_xy_quadratic(machine, target_x, target_y)
+    if target_steps is None:
+        send_problem(machine, "Calculation failed. Check calibration data.")
         return
 
-    # 3. Load Calibration and Geometry Data from Config
-    try:
-        a1_offset = machine.config["A1_offset"]
-        pump_offsets = machine.config["pump_offsets"]
-        well_spacing = 0.9 # cm, as specified
-    except KeyError as e:
-        send_problem(machine, f"Missing required configuration data: {e}. Please check firmware config.")
-        return
+    target_m1_steps, target_m2_steps = target_steps
+    machine.log.info(f"Calculated target motor steps: ({target_m1_steps}, {target_m2_steps})")
 
-    # 4. Calculate Target Coordinates
-    row_idx, col_idx = well_indices
-    
-    # Start with the device's calibrated coordinate for well A1
-    base_x = a1_offset['dx']
-    base_y = a1_offset['dy']
-
-    # Add the offset based on the target well
-    well_target_x = base_x + (col_idx * well_spacing)
-    well_target_y = base_y + (row_idx * well_spacing)
-    
-    # Assume the final target is the well's center unless a pump is specified
-    center_target_x = well_target_x
-    center_target_y = well_target_y
-
-    if pump_arg is not None:
-        # Allow pump to be specified as int (1) or str ("p1")
-        pump_key = f"p{pump_arg}" if isinstance(pump_arg, int) else str(pump_arg).lower()
-
-        if pump_key not in pump_offsets:
-            valid_pumps = list(pump_offsets.keys())
-            send_problem(machine, f"Invalid pump '{pump_arg}'. Choose from {valid_pumps}.")
-            return
-        
-        # To position the PUMP over the well, we must move the CENTER
-        # of the end effector in the opposite direction of the pump's offset.
-        pump_offset = pump_offsets[pump_key]
-        machine.log.info(f"Obtaining theta 2")
-        guessed_angles = kinematics.inverse_kinematics(machine, center_target_x, center_target_y)
-        _theta1_guess, theta2_guess = guessed_angles
-        machine.log.info(f"Determined motor 2 angle is {theta2_guess:.2f} degrees")
-        orientation_rad = math.radians(theta2_guess)
-        cos_theta = math.cos(orientation_rad)
-        sin_theta = math.sin(orientation_rad)
-        
-        dx = pump_offset['dx']
-        dy = pump_offset['dy']
-        x_offset_rotated = dx * cos_theta - dy * sin_theta
-        y_offset_rotated = dx * sin_theta + dy * cos_theta
-
-        center_target_x -= x_offset_rotated
-        center_target_y -= y_offset_rotated
-        
-        machine.log.info(f"Adjusting for {pump_key}. Moving center to ({center_target_x:.3f}, {center_target_y:.3f})")
-
-    # 5. Perform Inverse Kinematics and Execute Move
-    machine.log.info(f"IK request for well '{well_designation}'. Target: (x={center_target_x:.3f}, y={center_target_y:.3f})...")
-    target_angles = kinematics.inverse_kinematics(machine, center_target_x, center_target_y)
-
-    if target_angles is None:
-        send_problem(machine, f"Well '{well_designation}' may be unreachable with the selected pump.")
-        return
-    
-    theta1, theta2 = target_angles
-    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
-    
-    # 6. Use the State Sequencer to execute the move
+    # 6. Execute the move using the State Sequencer
     sequence = [{"state": "Moving"}]
     context = {
-        "name": f"to_well_{well_designation}",
+        "name": f"to_well_quadratic_{well_designation}",
         "target_m1_steps": target_m1_steps,
         "target_m2_steps": target_m2_steps
     }

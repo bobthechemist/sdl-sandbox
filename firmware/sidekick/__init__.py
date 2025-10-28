@@ -56,7 +56,12 @@ SUBSYSTEM_CONFIG = {
         "m2_min": 90.0,
         "m2_max": 180.0
     },
-    "calibration_file": "sidekick_calibration.json",
+    "calibration_file": "quadratic_calibration.json",
+    "plate_geometry": {
+        "well_pitch_cm": 0.9,
+        "rows": "ABCDEFGH",
+        "columns": 12
+    },
     "pump_offsets": {
         "p1": {"dx": -1.09, "dy": 0.6}, "p2": {"dx": -1.09, "dy": 0.2},
         "p3": {"dx": -1.09, "dy": -0.2}, "p4": {"dx": -1.09, "dy": -0.6},
