@@ -110,7 +110,8 @@ class GenericErrorWithButton(State):
         super().enter(machine, context)
         error_msg = machine.flags.get('error_message', "Unknown error.")
         machine.log.critical(f"ENTERING ERROR STATE: {error_msg}")
-
+        # Abort any sequence
+        machine.sequencer.abort("Entering error state")
         # --- Hardware Setup ---
         if self._reset_pin_config:
             try:
@@ -118,6 +119,16 @@ class GenericErrorWithButton(State):
                 self._reset_button.direction = digitalio.Direction.INPUT
                 self._reset_button.pull = digitalio.Pull.UP
                 machine.log.info(f"Error recovery button initialized on pin {str(self._reset_pin_config)}.")
+            except ValueError as e:
+                # Check if the error message indicates the pin is already in use.
+                if "in use" in str(e).lower():
+                    # This is expected behavior, log the message and carry on.
+                    machine.log.info(f"Reset button on pin {str(self._reset_pin_config)} has already been initialized.")
+                else:
+                    # This is the unexpected behavior so log it and reraise the error
+                    machine.log.error(f"Could not initialize reset button due to an unexpected runtime error: {e}")
+                    self._reset_button = None
+                    # raise TODO: Do we want to force the tool to abort? Perhaps a flag to turn this feature on and off?
             except Exception as e:
                 machine.log.error(f"Could not initialize reset button: {e}")
                 self._reset_button = None

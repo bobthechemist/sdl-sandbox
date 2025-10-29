@@ -34,7 +34,7 @@ SUBSYSTEM_CONFIG = {
         "step_angle_degrees": 0.9, "microsteps": 8, "max_speed_sps": 200,
     },
     "pump_timings": {
-        "aspirate_time": 0.1, "dispense_time": 0.1, "increment_ul": 10.0,
+        "aspirate_time": 0.25, "dispense_time": 0.25, "increment_ul": 10.0,
     },
     "kinematics": {
         "L1": 7.0, "L2": 3.0, "L3": 10, "Ln": 0.5,
