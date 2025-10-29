@@ -173,7 +173,7 @@ machine.add_command("move_rel", handlers.handle_move_rel, {
 machine.add_command("dispense", handlers.handle_dispense, {
     "description": "Dispenses from a pump at the current location.",
     "args": [
-        {"name": "pump", "type": "str", "description": "Pump to use (e.g., 'p1')"},
+        {"name": "pump", "type": "str", "description": "Pump to use (e.g., 'p1')", "default": 0},
         {"name": "vol", "type": "float", "description": "Volume to dispense (uL)", "default": 10.0}
     ]
 })
@@ -205,7 +205,7 @@ machine.add_command("to_well", handlers.handle_to_well, {
     "description": "Moves to a specified well on a 96-well plate",
     "args": [
         {"name": "well", "type": "str", "description": "Target well designation (e.g., 'B6', 'h12')."},
-        {"name": "pump", "type": "str|int", "description": "Optional: pump nozzle to position over the well (e.g., 'p2' or 2). Defaults to end effector center.", "default": "center"}
+        {"name": "pump", "type": "str|int", "description": "Optional: pump nozzle to position over the well (e.g., 'p2' or 2). Defaults to end effector center.", "default": 0}
     ]
 })
 # --- Add Dynamic Flags

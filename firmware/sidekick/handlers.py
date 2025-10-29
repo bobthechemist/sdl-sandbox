@@ -346,8 +346,10 @@ def handle_dispense_at(machine, payload):
 def handle_steps(machine, payload):
     """
     Handles the low-level 'steps' command for relative motor movement.
-    This command bypasses the standard homing check for diagnostics.
     """
+    # Must be homed to work properly
+    if not check_homed(machine): return
+
     # 1. Extract and Validate Arguments
     args = payload.get("args", {})
     m1_rel_steps = args.get("m1", 0)
