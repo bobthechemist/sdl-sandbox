@@ -68,8 +68,8 @@ SUBSYSTEM_CONFIG = {
     },
     # End effector orientation may not be the same as sidekick
     "pump_offsets": {
-        "p1": {"dx": 1.09, "dy": 0.6}, "p2": {"dx": 1.09, "dy": 0.2},
-        "p3": {"dx": 1.09, "dy": -0.2}, "p4": {"dx": 1.09, "dy": -0.6},
+        "p1": {"dx": 1.09, "dy": -0.6}, "p2": {"dx": 1.09, "dy": -0.2},
+        "p3": {"dx": 1.09, "dy": 0.2}, "p4": {"dx": 1.09, "dy": 0.6},
     },
     # For aligning dispenser to a 96-well plate configuration
     # Deprecated - this probably shouldn't be used once to_well handler is fixed

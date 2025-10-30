@@ -481,7 +481,6 @@ def handle_to_well(machine, payload):
     """
     Moves end effector to a specified well on a 96-well plate
     """
-
     if not check_homed(machine):
         return
     
@@ -510,12 +509,54 @@ def handle_to_well(machine, payload):
     well_y = col_idx * pitch
     machine.log.info(f"Targeting well '{well_designation}' at (x:{well_x:.2f}, y:{well_y:.2f}) cm")
     target_x, target_y = _apply_similarity_transform(machine, well_x,well_y)
-    
-    # Will work on pumps later
-    
-    # 3. Perform Inverse Kinematics
-    machine.log.info(f"IK request for (x={target_x}, y={target_y})...")
-    target_angles = kinematics.inverse_kinematics(machine, target_x, target_y)
+    machine.log.info(f"After transformation: (x:{target_x:.2f},y:{target_y:.2f})")
+
+    # Adjust for the pump
+    pump_key = None
+    if pump_arg is not None and pump_arg != 0 and pump_arg != "0":
+        pump_key = f"p{pump_arg}" if isinstance(pump_arg, int) else str(pump_arg).lower()
+
+    if pump_key:
+        pump_offset = machine.config['pump_offsets'].get(pump_key)
+        dx = pump_offset['dx']
+        dy = pump_offset['dy']
+        if pump_offset is None:
+            send_problem(machine, f"Invalid pump specified: '{pump_arg}'.")
+            return
+        
+        # --- Pump Offset Logic (Method 1: Guess and Refine) ---
+        machine.log.info(f"Starting 2-pass move for pump '{pump_key}'...")
+        # Use the corrected position and assume the pump offset will not require additional calibration
+        machine.log.info(f"  -> Estimating orientation for center ({target_x}, {target_y}).")    
+        guessed_angles = kinematics.inverse_kinematics(machine, target_x, target_y)
+        if guessed_angles is None:
+            send_problem(machine, "Target position is likely unreachable (IK Pass 1 failed).")
+            return
+        
+        _theta1_guess, theta2_guess = guessed_angles
+        machine.log.info(f"  -> Estimated orientation angle (theta2) = {theta2_guess:.2f} degrees.")
+
+        # --- 2. Calculate the Corrected Center Target ---
+        # Now, we use the estimated orientation (theta2_guess) to rotate the
+        # local pump offset vector into the global coordinate frame.
+        orientation_rad = math.radians(theta2_guess)
+        cos_theta = math.cos(orientation_rad)
+        sin_theta = math.sin(orientation_rad)
+        
+        # Standard 2D rotation matrix application
+        x_offset_rotated = dx * cos_theta - dy * sin_theta
+        y_offset_rotated = dx * sin_theta + dy * cos_theta
+        
+        # The arm's center must be positioned such that: Center + RotatedOffset = Tip.
+        # Therefore, the target for the center is: Center = Tip - RotatedOffset.
+        x_center_target = target_x + x_offset_rotated
+        y_center_target = target_y + y_offset_rotated
+        machine.log.info(f"  -> Corrected center target is ({x_center_target:.3f}, {y_center_target:.3f}).")    
+        machine.log.info(f"Pass 2: Solving final IK for corrected center target.")
+        target_angles = kinematics.inverse_kinematics(machine, x_center_target, y_center_target)
+    else:
+        machine.log.info(f"IK request for (x={target_x}, y={target_y})...")
+        target_angles = kinematics.inverse_kinematics(machine, target_x, target_y)
 
     # 4. Check for IK Failure
     if target_angles is None:
@@ -546,8 +587,6 @@ def handle_to_well_old(machine, payload):
     Moves the end effector to a specified well on a 96-well plate.
     The final target is adjusted based on the specified pump nozzle.
     """
-
-
     if not check_homed(machine):
         return
 
