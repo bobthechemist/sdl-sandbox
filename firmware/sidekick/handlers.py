@@ -91,6 +91,7 @@ def _calculate_steps_from_xy_quadratic(machine, x, y):
     m1_steps = sum(f * c for f, c in zip(features, coeffs_m1))
     m2_steps = sum(f * c for f, c in zip(features, coeffs_m2))
     
+    machine.log.debug(f"Steps calculated using _calculate_steps_from_xy_quadratic: {(int(round(m1_steps)), int(round(m2_steps)))}")
     return (int(round(m1_steps)), int(round(m2_steps)))
 
 # ============================================================================
@@ -525,19 +526,19 @@ def handle_to_well(machine, payload):
         _m1_guess, m2_guess = guess_steps
         _theta1_approx, theta2_approx = kinematics.steps_to_degrees(machine, 0, m2_guess)
         machine.log.info(f"  -> Pass 1: Approx. orientation (theta2) = {theta2_approx:.2f} deg")
-
+        machine.log.info(f"  -> Center Target: (x:{well_x:.3f}, y:{well_y:.3f})")
         # Rotate the local pump offset vector by the approximate angle
         orientation_rad = math.radians(theta2_approx)
         cos_theta = math.cos(orientation_rad)
         sin_theta = math.sin(orientation_rad)
         dx, dy = pump_offset['dx'], pump_offset['dy']
-        
+        machine.log.info(f"  -> Translation in end-effector plane: (x:{dx}, y:{dy})")
         x_offset_rotated = dx * cos_theta - dy * sin_theta
         y_offset_rotated = dx * sin_theta + dy * cos_theta
         
         # The corrected target for the arm's CENTER is the well pos - rotated offset
-        center_target_x = well_x - x_offset_rotated
-        center_target_y = well_y - y_offset_rotated
+        center_target_x = well_x + x_offset_rotated
+        center_target_y = well_y + y_offset_rotated
         machine.log.info(f"  -> Corrected Center Target: (x:{center_target_x:.3f}, y:{center_target_y:.3f})")
 
         # Pass 2: "Refine" the final motor steps using the corrected center target
@@ -545,7 +546,7 @@ def handle_to_well(machine, payload):
         if final_steps is None:
             send_problem(machine, "Final position calculation failed (Pass 2).")
             return
-        
+        machine.log.info(f"  -> Final steps: (m1:{target_m1_steps}, m2:{target_m2_steps})")
         target_m1_steps, target_m2_steps = final_steps
 
     else:
