@@ -8,6 +8,7 @@
 **Action**: Evaluate if we need to abandon this approach
 **Next Steps**:
 - [ ] Try using wrapper._name_ instead of wrapper.__name__ which is read only.
+- [ ] try/except the __name__ so it doesn't hang the error catching.
 
 ## [2025-10-17] Calibration routine for sidekick _COMPLETE_
 

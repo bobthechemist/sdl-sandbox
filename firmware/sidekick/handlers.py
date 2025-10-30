@@ -94,6 +94,16 @@ def _calculate_steps_from_xy_quadratic(machine, x, y):
     machine.log.debug(f"Steps calculated using _calculate_steps_from_xy_quadratic: {(int(round(m1_steps)), int(round(m2_steps)))}")
     return (int(round(m1_steps)), int(round(m2_steps)))
 
+def _apply_similarity_transform(machine, x, y):
+    """
+    Uses an external calibration (similarity) to adjust the target (x,y) coordinates
+    """
+
+    new_x = sum(c*v for c, v, in zip(machine.config["similarity_transform"]["x"],[1,x,y]))
+    new_y = sum(c*v for c, v, in zip(machine.config["similarity_transform"]["y"],[1,x,y]))
+
+    return new_x, new_y
+
 # ============================================================================
 # COMMAND HANDLERS
 # ============================================================================
@@ -467,12 +477,76 @@ def handle_move_tip_to(machine, payload):
     }
     machine.sequencer.start(sequence, initial_context=context)
 
-@try_wrapper
 def handle_to_well(machine, payload):
+    """
+    Moves end effector to a specified well on a 96-well plate
+    """
+
+    if not check_homed(machine):
+        return
+    
+    if not machine.config.get('similarity_transform'):
+        send_problem(machine, "Cannot use to_well; missing calibration information.")
+        return
+
+    # 1. Extract and Validate Arguments
+    args = payload.get("args", {})
+    well_designation = args.get("well")
+    pump_arg = args.get("pump") # Can be None, 0, 1, "p1", etc.
+
+    if well_designation is None:
+        send_problem(machine, "Missing required 'well' argument.")
+        return
+
+    # 2. Parse well designation to grid indices and then to XY coordinates
+    parsed_indices = parse_well_designation(machine, well_designation)
+    if parsed_indices is None:
+        send_problem(machine, f"Invalid 'well' designation: '{well_designation}'.")
+        return
+    row_idx, col_idx = parsed_indices
+
+    pitch = machine.config['plate_geometry']['well_pitch_cm']
+    well_x = row_idx * pitch
+    well_y = col_idx * pitch
+    machine.log.info(f"Targeting well '{well_designation}' at (x:{well_x:.2f}, y:{well_y:.2f}) cm")
+    target_x, target_y = _apply_similarity_transform(machine, well_x,well_y)
+    
+    # Will work on pumps later
+    
+    # 3. Perform Inverse Kinematics
+    machine.log.info(f"IK request for (x={target_x}, y={target_y})...")
+    target_angles = kinematics.inverse_kinematics(machine, target_x, target_y)
+
+    # 4. Check for IK Failure
+    if target_angles is None:
+        # The IK function already logged the specific error.
+        send_problem(machine, "Inverse kinematics failed. Target may be unreachable or out of safe limits.")
+        return
+    
+    theta1, theta2 = target_angles
+
+    # 5. Convert Validated Angles to Steps
+    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
+    machine.log.info(f"IK success. Target: ({theta1:.2f}, {theta2:.2f}) degrees -> ({target_m1_steps}, {target_m2_steps}) steps.")
+
+    # 6. Set Flags and Execute Move
+    sequence = [{"state":"Moving"}]
+    context = {
+        "name":"move_to",
+        "target_m1_steps": target_m1_steps,
+        "target_m2_steps": target_m2_steps
+    }
+    machine.sequencer.start(sequence, initial_context = context)
+
+
+
+#@try_wrapper
+def handle_to_well_old(machine, payload):
     """
     Moves the end effector to a specified well on a 96-well plate.
     The final target is adjusted based on the specified pump nozzle.
     """
+
 
     if not check_homed(machine):
         return
@@ -498,8 +572,8 @@ def handle_to_well(machine, payload):
     row_idx, col_idx = parsed_indices
 
     pitch = machine.config['plate_geometry']['well_pitch_cm']
-    well_x = col_idx * pitch
-    well_y = row_idx * pitch
+    well_x = row_idx * pitch
+    well_y = col_idx * pitch
     machine.log.info(f"Targeting well '{well_designation}' at (x:{well_x:.2f}, y:{well_y:.2f}) cm")
 
     # 3. Determine if this is a center or pump move and get pump offset
@@ -525,6 +599,8 @@ def handle_to_well(machine, payload):
         # Use the guess to approximate the final orientation angle (theta2)
         _m1_guess, m2_guess = guess_steps
         _theta1_approx, theta2_approx = kinematics.steps_to_degrees(machine, 0, m2_guess)
+        # Want angle from m2 endstop, so theta is really 180- theta2_approx
+        theta2_approx = 270 - theta2_approx
         machine.log.info(f"  -> Pass 1: Approx. orientation (theta2) = {theta2_approx:.2f} deg")
         machine.log.info(f"  -> Center Target: (x:{well_x:.3f}, y:{well_y:.3f})")
         # Rotate the local pump offset vector by the approximate angle
@@ -537,8 +613,8 @@ def handle_to_well(machine, payload):
         y_offset_rotated = dx * sin_theta + dy * cos_theta
         
         # The corrected target for the arm's CENTER is the well pos - rotated offset
-        center_target_x = well_x + x_offset_rotated
-        center_target_y = well_y + y_offset_rotated
+        center_target_x = well_x - x_offset_rotated
+        center_target_y = well_y - y_offset_rotated
         machine.log.info(f"  -> Corrected Center Target: (x:{center_target_x:.3f}, y:{center_target_y:.3f})")
 
         # Pass 2: "Refine" the final motor steps using the corrected center target
@@ -546,8 +622,8 @@ def handle_to_well(machine, payload):
         if final_steps is None:
             send_problem(machine, "Final position calculation failed (Pass 2).")
             return
-        machine.log.info(f"  -> Final steps: (m1:{target_m1_steps}, m2:{target_m2_steps})")
         target_m1_steps, target_m2_steps = final_steps
+        machine.log.info(f"  -> Final steps: (m1:{target_m1_steps}, m2:{target_m2_steps})")
 
     else:
         # --- Center Move Logic (Simpler, one-pass) ---
