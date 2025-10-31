@@ -71,28 +71,80 @@ def parse_well_designation(machine, well_str: str):
     
     return (row_index, col_index)
 
-def _calculate_steps_from_xy_quadratic(machine, x, y):
+def calculate_dispense_cycles(machine, volume, pump):
     """
-    Converts (x, y) coordinates in cm to (m1, m2) motor steps using the
-    loaded quadratic calibration coefficients. This is a NumPy-free function.
-
-    Returns a tuple (m1, m2) or None on failure.
+    Calculates the number of cycles to perform to dispense liquid
+    TODO: Consider implementing a calibrated volume instead of assuming 10 uL
     """
-    coeffs_m1 = machine.flags.get('cal_coeffs_m1')
-    coeffs_m2 = machine.flags.get('cal_coeffs_m2')
-
-    if not coeffs_m1 or not coeffs_m2:
-        return None # Cannot calculate if coefficients aren't loaded
-
-    # Build the feature vector: [1, x, y, x^2, x*y, y^2]
-    features = [1, x, y, x*x, x*y, y*y]
+    increment = machine.config['pump_timings']['increment_ul']
+    cycles = int(volume//increment)
     
-    # Perform dot product manually for each motor
-    m1_steps = sum(f * c for f, c in zip(features, coeffs_m1))
-    m2_steps = sum(f * c for f, c in zip(features, coeffs_m2))
+    # Inform user if the requested volume is being adjusted
+    if cycles * increment != volume:
+        actual_vol = cycles * increment
+        machine.log.warning(f"Volume {volume}uL is not a multiple of {increment}uL. Dispensing {actual_vol}uL.")
+
+    if cycles <= 0:
+        send_problem(machine, f"Volume {volume}uL is too low to dispense; must be at least {increment}uL.")
+        return 0
+    else:
+        machine.log.info(f"{cycles} cycles of pump {pump} will be applied to dispense {volume} uL.")
+        return cycles
+
+def calculate_angles(machine, pump_key, target_x, target_y):
+    """
+    Returns angles needed for centering the end effector or a pump over the designated target
+    """
+
+    # Determine if centering the end effector or a pump
+    pump = None
+    if pump_key is not None and pump_key != 0 and pump_key != "0":
+        # A number (1,2,3,4) or pump string ("p1", "p2", "p3", "p4") is valid
+        pump = f"p{pump_key}" if isinstance(pump_key,int) else str(pump_key).lower()
+
+    if pump:
+        # If offsets cannot be found, then bail since pump_key was not valid
+        pump_offset = machine.config['pump_offsets'].get(pump)
+        dx = pump_offset['dx']
+        dy = pump_offset['dy']
+        if pump_offset is None:
+            send_problem(machine, f"Invalid pump specified: '{pump_key}'.")
+            return None
+        
+        # Pump Offset logic: Guess and Refine
+        machine.log.info(f"Starting 2-pass move for pump '{pump}'...")
+        machine.log.info(f" -> Estimating orientation for center ({target_x}, {target_y}).")
+        guessed_angles = kinematics.inverse_kinematics(machine, target_x, target_y)
+        if guessed_angles is None:
+            send_problem(machine, "Target position is likely unreachable (IK Pass 1 failed).")
+            return None
+        
+        _theta1_guess, theta2_guess = guessed_angles
+        machine.log.info(f" -> Estimated orientation angle (theta2) = {theta2_guess:.2f} degrees.")
+
+        orientation_rad = math.radians(theta2_guess)
+        cos_theta = math.cos(orientation_rad)
+        sin_theta = math.sin(orientation_rad)
+
+        x_offset_rotated = dx * cos_theta - dy * sin_theta
+        y_offset_rotated = dx * sin_theta + dy * cos_theta
+
+        x_center_target = target_x + x_offset_rotated
+        y_center_target = target_y + y_offset_rotated
+
+        machine.log.info(f" -> Corrected center target is ({x_center_target:.3f}, {y_center_target:.3f}).")
+        machine.log.info(f"Solving final IK for corrected center target.")
+        target_angles = kinematics.inverse_kinematics(machine, x_center_target, y_center_target)
+    else:
+        machine.log.info(f"IK request for (x={target_x}, y={target_y})...")
+        target_angles = kinematics.inverse_kinematics(machine, target_x, target_y)
+
+    # Log an error but carry on
+    if target_angles is None:
+        machine.log.error("Inverse kinematics failed at end of `calculate_angles`")
     
-    machine.log.debug(f"Steps calculated using _calculate_steps_from_xy_quadratic: {(int(round(m1_steps)), int(round(m2_steps)))}")
-    return (int(round(m1_steps)), int(round(m2_steps)))
+    return target_angles
+
 
 def _apply_similarity_transform(machine, x, y):
     """
@@ -131,6 +183,7 @@ def handle_move_to(machine, payload):
 
     target_x = args.get("x")
     target_y = args.get("y")
+    pump_arg = args.get("pump")
 
     if target_x is None or target_y is None:
         send_problem(machine, "Missing 'x' or 'y' in command arguments.")
@@ -144,8 +197,8 @@ def handle_move_to(machine, payload):
         return
 
     # 3. Perform Inverse Kinematics
-    machine.log.info(f"IK request for (x={target_x}, y={target_y})...")
-    target_angles = kinematics.inverse_kinematics(machine, target_x, target_y)
+    machine.log.info(f"IK request for (x={target_x}, y={target_y}, pump={pump_arg})...")
+    target_angles = calculate_angles(machine, pump_arg, target_x, target_y)
 
     # 4. Check for IK Failure
     if target_angles is None:
@@ -226,7 +279,7 @@ def handle_move_rel(machine, payload):
     }
     machine.sequencer.start(sequence, initial_context=context)
 
-@try_wrapper
+#@try_wrapper
 def handle_dispense(machine, payload):
     """
     Dispenses a specified volume from a pump at the current arm location.
@@ -237,7 +290,7 @@ def handle_dispense(machine, payload):
     # 1. Extract and Validate Arguments
     args = payload.get('args',{})
     pump = args.get('pump')
-    vol = args.get('vol')
+    vol = args.get('vol',None)
     
     if pump not in machine.config['pump_offsets']:
         valid_pumps = list(machine.config["pump_offsets"].keys())
@@ -249,17 +302,7 @@ def handle_dispense(machine, payload):
         return
 
     # 2. Calculate Dispense Cycles
-    increment = machine.config['pump_timings']['increment_ul']
-    cycles = int(vol // increment)
-
-    # Inform user if the requested volume is being adjusted
-    if cycles * increment != vol:
-        actual_vol = cycles * increment
-        machine.log.warning(f"Volume {vol}uL is not a multiple of {increment}uL. Dispensing {actual_vol}uL.")
-
-    if cycles <= 0:
-        send_problem(machine, f"Volume {vol}uL is too low to dispense; must be at least {increment}uL.")
-        return
+    cycles = calculate_dispense_cycles(machine, vol, pump)
         
     # 3. Set Context and Start the Sequencer
     machine.log.info(f"Dispense command accepted for pump {pump}, {cycles} cycles.")
@@ -272,7 +315,7 @@ def handle_dispense(machine, payload):
     }
     machine.sequencer.start(sequence, initial_context=context)
 
-@try_wrapper
+#@try_wrapper
 def handle_dispense_at(machine, payload):
     """
     Moves a specific pump tip to an absolute (x, y) coordinate, then
@@ -282,61 +325,40 @@ def handle_dispense_at(machine, payload):
 
     # 1. Extract and Validate All Arguments
     args = payload.get("args", {})
-    x_tip = args.get("x")
-    y_tip = args.get("y")
-    pump_key = args.get("pump")
+    target_x = args.get("x")
+    target_y = args.get("y")
+    pump_arg = args.get("pump")
     vol = args.get("vol")
+    # Handle the two accepted forms (str|int) of pump argument
+    pump = f"p{pump_arg}" if isinstance(pump_arg,int) else str(pump_arg).lower()
 
-    if x_tip is None or y_tip is None or pump_key is None or vol is None:
+    if target_x is None or target_y is None or pump_arg is None or vol is None:
         send_problem(machine, "Missing 'x', 'y', 'pump', or 'vol' in command arguments.")
         return
 
-    pump_offset = machine.config['pump_offsets'].get(pump_key)
+    pump_offset = machine.config['pump_offsets'].get(pump)
     if pump_offset is None:
-        send_problem(machine, f"Invalid pump key '{pump_key}'.")
+        send_problem(machine, f"Invalid pump key '{pump}'.")
         return
-        
-    # --- 2. Calculate the Move (Logic from handle_move_tip_to) ---
-    dx, dy = pump_offset['dx'], pump_offset['dy']
 
-    # Pass 1: "Guess" the orientation
-    guessed_angles = kinematics.inverse_kinematics(machine, x_tip, y_tip)
-    if guessed_angles is None:
-        send_problem(machine, "Target position is likely unreachable (IK Pass 1 failed).")
-        return
-    _theta1_guess, theta2_guess = guessed_angles
-
-    # Calculate the Corrected Center Target
-    orientation_rad = math.radians(theta2_guess)
-    cos_theta, sin_theta = math.cos(orientation_rad), math.sin(orientation_rad)
-    x_offset_rotated = dx * cos_theta - dy * sin_theta
-    y_offset_rotated = dx * sin_theta + dy * cos_theta
-    x_center_target = x_tip - x_offset_rotated
-    y_center_target = y_tip - y_offset_rotated
-
-    # Pass 2: "Refine" the final solution
-    final_angles = kinematics.inverse_kinematics(machine, x_center_target, y_center_target)
-    if final_angles is None:
+    # Perform Inverse Kinematics
+    machine.log.info(f"IK request from dispense_at for (x={target_x}, y={target_y}, pump={pump})...")
+    target_angles = calculate_angles(machine, pump, target_x, target_y)
+    
+    if target_angles is None:
         send_problem(machine, "Target position is unreachable (IK Pass 2 failed).")
         return
-    final_theta1, final_theta2 = final_angles
-    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, final_theta1, final_theta2)
+    
+    theta1, theta2 = target_angles
+    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
+    machine.log.info(f"IK success. Target: ({theta1:.2f}, {theta2:.2f}) degrees -> ({target_m1_steps}, {target_m2_steps}) steps.")
 
     # --- 3. Calculate the Dispense (Logic from handle_dispense) ---
-    increment = machine.config['pump_timings']['increment_ul']
-    cycles = int(vol // increment)
+    cycles = calculate_dispense_cycles(machine, vol, pump)
 
-    if cycles * increment != vol:
-        actual_vol = cycles * increment
-        machine.log.warning(f"Volume {vol}uL is not a multiple of {increment}uL. Dispensing {actual_vol}uL.")
-
-    if cycles <= 0:
-        send_problem(machine, f"Volume {vol}uL is too low to dispense; must be at least {increment}uL.")
-        return
-        
     # --- 4. Build the Sequence and Context ---
     # The context must contain ALL information needed for ALL steps in the sequence.
-    machine.log.info(f"Dispense_at command accepted. Moving tip {pump_key} to ({x_tip}, {y_tip}) then dispensing {cycles} cycles.")
+    machine.log.info(f"Dispense_at command accepted. Moving tip {pump} to ({target_x}, {target_y}) then dispensing {cycles} cycles.")
     
     sequence = [
         {"state": "Moving"},
@@ -348,7 +370,7 @@ def handle_dispense_at(machine, payload):
         "target_m1_steps": target_m1_steps,
         "target_m2_steps": target_m2_steps,
         # Parameters for the 'Dispensing' state
-        "dispense_pump": pump_key,
+        "dispense_pump": pump,
         "dispense_cycles": cycles
     }
 
@@ -393,92 +415,6 @@ def handle_steps(machine, payload):
     }
     machine.sequencer.start(sequence, initial_context=context)
 
-
-@try_wrapper
-def handle_move_tip_to(machine, payload):
-    """
-    Moves the specified tool tip (e.g., a pump nozzle) to an absolute
-    (x, y) coordinate.
-
-    This is a non-trivial calculation because the tip's offset from the arm's
-    center is rotated by the end-effector. The orientation of the end-effector
-    is determined by the final motor angle, theta2. This creates a circular
-    dependency, which we solve with a two-pass iterative approach.
-    """
-    if not check_homed(machine): return
-
-    # 1. Extract and Validate Arguments
-    args = payload.get("args", {})
-    x_tip = args.get("x")
-    y_tip = args.get("y")
-    pump_key = args.get("pump")
-
-    if x_tip is None or y_tip is None or pump_key is None:
-        send_problem(machine, "Missing 'x', 'y', or 'pump' in command arguments.")
-        return
-
-    pump_offset = machine.config['pump_offsets'].get(pump_key)
-    if pump_offset is None:
-        send_problem(machine, f"Invalid pump key '{pump_key}'.")
-        return
-        
-    dx = pump_offset['dx']
-    dy = pump_offset['dy']
-
-    # --- Pass 1: "Guess" the final orientation ---
-    # We perform an initial inverse kinematics solve for the *tip's* target
-    # position. This is not the correct final answer, but it gives us a
-    # very good estimate of what the final theta2 angle will be.
-    machine.log.info(f"Move Tip Pass 1: Estimating orientation for tip target ({x_tip}, {y_tip}).")
-    guessed_angles = kinematics.inverse_kinematics(machine, x_tip, y_tip)
-    if guessed_angles is None:
-        send_problem(machine, "Target position is likely unreachable (IK Pass 1 failed).")
-        return
-    
-    _theta1_guess, theta2_guess = guessed_angles
-    machine.log.info(f"Pass 1 result: Estimated orientation angle (theta2) = {theta2_guess:.2f} degrees.")
-
-    # --- 2. Calculate the Corrected Center Target ---
-    # Now, we use the estimated orientation (theta2_guess) to rotate the
-    # local pump offset vector into the global coordinate frame.
-    orientation_rad = math.radians(theta2_guess)
-    cos_theta = math.cos(orientation_rad)
-    sin_theta = math.sin(orientation_rad)
-    
-    # Standard 2D rotation matrix application
-    x_offset_rotated = dx * cos_theta - dy * sin_theta
-    y_offset_rotated = dx * sin_theta + dy * cos_theta
-    
-    # The arm's center must be positioned such that: Center + RotatedOffset = Tip.
-    # Therefore, the target for the center is: Center = Tip - RotatedOffset.
-    x_center_target = x_tip - x_offset_rotated
-    y_center_target = y_tip - y_offset_rotated
-    machine.log.info(f"Corrected center target is ({x_center_target:.3f}, {y_center_target:.3f}).")
-
-    # --- Pass 2: "Refine" the final solution ---
-    # We solve the IK again, this time for the corrected center target. This
-    # will yield the final, accurate motor angles.
-    machine.log.info("Move Tip Pass 2: Solving final IK for corrected center target.")
-    final_angles = kinematics.inverse_kinematics(machine, x_center_target, y_center_target)
-    if final_angles is None:
-        send_problem(machine, "Target position is unreachable (IK Pass 2 failed). This can happen near kinematic boundaries.")
-        return
-        
-    final_theta1, final_theta2 = final_angles
-
-    # --- 3. Execute the Move using the Sequencer ---
-    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, final_theta1, final_theta2)
-    machine.log.info(f"IK success. Final Target Angles: ({final_theta1:.2f}, {final_theta2:.2f}) -> Steps: ({target_m1_steps}, {target_m2_steps}).")
-
-    # Use the sequencer context, NOT machine.flags, for consistency.
-    sequence = [{"state": "Moving"}]
-    context = {
-        "name": "move_tip_to",
-        "target_m1_steps": target_m1_steps,
-        "target_m2_steps": target_m2_steps
-    }
-    machine.sequencer.start(sequence, initial_context=context)
-
 def handle_to_well(machine, payload):
     """
     Moves end effector to a specified well on a 96-well plate
@@ -513,60 +449,13 @@ def handle_to_well(machine, payload):
     target_x, target_y = _apply_similarity_transform(machine, well_x,well_y)
     machine.log.info(f"After transformation: (x:{target_x:.2f},y:{target_y:.2f})")
 
-    # Adjust for the pump
-    pump_key = None
-    if pump_arg is not None and pump_arg != 0 and pump_arg != "0":
-        pump_key = f"p{pump_arg}" if isinstance(pump_arg, int) else str(pump_arg).lower()
-
-    if pump_key:
-        pump_offset = machine.config['pump_offsets'].get(pump_key)
-        dx = pump_offset['dx']
-        dy = pump_offset['dy']
-        if pump_offset is None:
-            send_problem(machine, f"Invalid pump specified: '{pump_arg}'.")
-            return
-        
-        # --- Pump Offset Logic (Method 1: Guess and Refine) ---
-        machine.log.info(f"Starting 2-pass move for pump '{pump_key}'...")
-        # Use the corrected position and assume the pump offset will not require additional calibration
-        machine.log.info(f"  -> Estimating orientation for center ({target_x}, {target_y}).")    
-        guessed_angles = kinematics.inverse_kinematics(machine, target_x, target_y)
-        if guessed_angles is None:
-            send_problem(machine, "Target position is likely unreachable (IK Pass 1 failed).")
-            return
-        
-        _theta1_guess, theta2_guess = guessed_angles
-        machine.log.info(f"  -> Estimated orientation angle (theta2) = {theta2_guess:.2f} degrees.")
-
-        # --- 2. Calculate the Corrected Center Target ---
-        # Now, we use the estimated orientation (theta2_guess) to rotate the
-        # local pump offset vector into the global coordinate frame.
-        orientation_rad = math.radians(theta2_guess)
-        cos_theta = math.cos(orientation_rad)
-        sin_theta = math.sin(orientation_rad)
-        
-        # Standard 2D rotation matrix application
-        x_offset_rotated = dx * cos_theta - dy * sin_theta
-        y_offset_rotated = dx * sin_theta + dy * cos_theta
-        
-        # The arm's center must be positioned such that: Center + RotatedOffset = Tip.
-        # Therefore, the target for the center is: Center = Tip - RotatedOffset.
-        x_center_target = target_x + x_offset_rotated
-        y_center_target = target_y + y_offset_rotated
-        machine.log.info(f"  -> Corrected center target is ({x_center_target:.3f}, {y_center_target:.3f}).")    
-        machine.log.info(f"Pass 2: Solving final IK for corrected center target.")
-        target_angles = kinematics.inverse_kinematics(machine, x_center_target, y_center_target)
-    else:
-        machine.log.info(f"IK request for (x={target_x}, y={target_y})...")
-        target_angles = kinematics.inverse_kinematics(machine, target_x, target_y)
-
-    # 4. Check for IK Failure
+    # Call inverse kinematics to find motor angles
+    target_angles = calculate_angles(machine, pump_arg, target_x, target_y)
     if target_angles is None:
-        # The IK function already logged the specific error.
         send_problem(machine, "Inverse kinematics failed. Target may be unreachable or out of safe limits.")
         return
-    
-    theta1, theta2 = target_angles
+    else: 
+        theta1, theta2 = target_angles
 
     # 5. Convert Validated Angles to Steps
     target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)

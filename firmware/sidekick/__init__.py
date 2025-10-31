@@ -53,7 +53,7 @@ SUBSYSTEM_CONFIG = {
         "operational_limits_degrees": {
         "m1_min": 0.0,
         "m1_max": 160.0,
-        "m2_min": 90.0,
+        "m2_min": 80.0,
         "m2_max": 180.0
     },
     "calibration_file": "quadratic_calibration.json",
@@ -166,7 +166,8 @@ machine.add_command("move_to", handlers.handle_move_to, {
     "description": "Moves the arm's center point to an absolute (x, y) coordinate.",
     "args": [
         {"name": "x", "type": "float", "description": "Target x-coordinate (cm)"},
-        {"name": "y", "type": "float", "description": "Target y-coordinate (cm)"}
+        {"name": "y", "type": "float", "description": "Target y-coordinate (cm)"},
+        {"name": "pump", "type": "str|int", "description": "Optional: pump nozzle to position over the well (e.g., 'p2' or 2). Defaults to end effector center.", "default": 0}
     ]
 })
 machine.add_command("move_rel", handlers.handle_move_rel, {
@@ -197,14 +198,6 @@ machine.add_command("steps", handlers.handle_steps, {
     "args": [
         {"name": "m1", "type": "int", "description": "Relative steps for motor 1"},
         {"name": "m2", "type": "int", "description": "Relative steps for motor 2"}
-    ]
-})
-machine.add_command("move_tip_to", handlers.handle_move_tip_to, {
-    "description": "Moves a specific pump tip to an absolute (x, y) coordinate, compensating for rotation.",
-    "args": [
-        {"name": "pump", "type": "str", "description": "Pump to use (e.g., 'p1')"},
-        {"name": "x", "type": "float", "description": "Target x-coordinate for the tip (cm)"},
-        {"name": "y", "type": "float", "description": "Target y-coordinate for the tip (cm)"}
     ]
 })
 machine.add_command("to_well", handlers.handle_to_well, {

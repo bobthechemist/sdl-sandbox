@@ -1,5 +1,20 @@
 # Dev Log
 
+## [2025-10-31] how to handle send_problem
+
+**Context**: As handlers become more sophisticated and rely on helper functions, there needs to be some protocol for determining who gets to send messages to host
+**Issues**: The send_problem function is being used in helper functions, and it may be more appropriate for these functions to only log information to the machine and let the handler deal with communication
+**Action**: Review sidekick functions and consider refactoring.
+
+--- 
+
+## [2025-10-31] Updates
+
+- to_well seems to be working at a satisfactory level of positioning tolerance. 
+- homing the device frequently is likely a beneficial approach. It is unclear at what point or after how long the arm loses its positioning
+- there is a lot of redundant code for inverse kinematics that should be simplified
+- a similarity transform is being used to calibrate wells to robot coordinates
+- I don't yet know if the robot coordinates and real world coordinates are identical. 
 
 ## [2025-10-19] Fix the try wrapper
 
