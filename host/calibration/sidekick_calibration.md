@@ -2,6 +2,8 @@
 
 This directory contains scripts for calibrating the Sidekick robotic arm. The current and official method uses a 9-point quadratic surface fit to map well plate coordinates directly to motor steps.
 
+**NOTE**: These calibration routines should be considered work in progress. The present version of the firmware (2025-10-31) does not use the quadratic calibration and instead uses a similarity (translation, rotation, scaling) transform just to align the well plates. More needs to be done to identify a robust calibration approach.
+
 ## Official Calibration Process
 
 The calibration process is now streamlined into two main steps:

@@ -472,3 +472,98 @@ def handle_to_well(machine, payload):
 
 
 
+def handle_to_well_with_pumps(machine, payload):
+    """
+    Moves the end effector or a specific pump to a specified well.
+    If the optional 'vol' argument is provided, it will also dispense
+    that volume from the specified 'pump'.
+    """
+    # --- 1. Initial Setup and Guard Conditions ---
+    if not check_homed(machine):
+        return
+    
+    if not machine.config.get('similarity_transform'):
+        send_problem(machine, "Cannot use to_well; missing calibration information.")
+        return
+
+    # --- 2. Extract and Validate Arguments ---
+    args = payload.get("args", {})
+    well_designation = args.get("well")
+    pump_arg = args.get("pump")  # Can be None, 0, "p1", etc.
+    vol = args.get("vol")      # Optional volume in uL
+
+    if well_designation is None:
+        send_problem(machine, "Missing required 'well' argument.")
+        return
+        
+    # If volume is specified, a pump must also be specified.
+    if vol is not None and pump_arg is None:
+        send_problem(machine, "Missing 'pump' argument; required when 'vol' is provided.")
+        return
+
+    # --- 3. Calculate Target Coordinates ---
+    parsed_indices = parse_well_designation(machine, well_designation)
+    if parsed_indices is None:
+        send_problem(machine, f"Invalid 'well' designation: '{well_designation}'.")
+        return
+    row_idx, col_idx = parsed_indices
+
+    pitch = machine.config['plate_geometry']['well_pitch_cm']
+    well_x = row_idx * pitch
+    well_y = col_idx * pitch
+    machine.log.info(f"Targeting well '{well_designation}' at (x:{well_x:.2f}, y:{well_y:.2f}) cm")
+    
+    # Apply calibration to get the real-world target
+    target_x, target_y = _apply_similarity_transform(machine, well_x, well_y)
+    machine.log.info(f"After transformation: (x:{target_x:.2f}, y:{target_y:.2f})")
+
+    # --- 4. Calculate Motor Steps for the Move ---
+    target_angles = calculate_angles(machine, pump_arg, target_x, target_y)
+    if target_angles is None:
+        send_problem(machine, "Inverse kinematics failed. Target may be unreachable.")
+        return
+    
+    theta1, theta2 = target_angles
+    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
+    machine.log.info(f"IK success. Target: ({theta1:.2f}, {theta2:.2f}) degrees -> ({target_m1_steps}, {target_m2_steps}) steps.")
+
+    # --- 5. Conditional Logic for Dispensing ---
+    if vol is not None:
+        # This block executes if a volume is provided, creating a two-part sequence.
+        
+        # a. Format pump argument and calculate dispense cycles
+        pump = f"p{pump_arg}" if isinstance(pump_arg, int) else str(pump_arg).lower()
+        if pump not in machine.config['pump_offsets']:
+            send_problem(machine, f"Invalid pump specified: {pump_arg}.")
+            return
+            
+        cycles = calculate_dispense_cycles(machine, vol, pump)
+        if cycles <= 0:
+            # calculate_dispense_cycles already sent a specific error message.
+            return
+
+        # b. Build the two-state sequence and context
+        machine.log.info(f"Move and dispense command accepted. Moving to {well_designation}, then dispensing {vol}uL from {pump}.")
+        sequence = [
+            {"state": "Moving"},
+            {"state": "Dispensing"}
+        ]
+        context = {
+            "name": "to_well_and_dispense",
+            "target_m1_steps": target_m1_steps,
+            "target_m2_steps": target_m2_steps,
+            "dispense_pump": pump,
+            "dispense_cycles": cycles
+        }
+    else:
+        # This block executes if no volume is provided, performing only a move.
+        machine.log.info(f"Move-only command accepted for well {well_designation}.")
+        sequence = [{"state": "Moving"}]
+        context = {
+            "name": "to_well",
+            "target_m1_steps": target_m1_steps,
+            "target_m2_steps": target_m2_steps
+        }
+
+    # --- 6. Start the Sequencer ---
+    machine.sequencer.start(sequence, initial_context=context)
