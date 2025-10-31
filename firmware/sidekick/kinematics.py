@@ -26,36 +26,6 @@ def degrees_to_steps(machine, theta1, theta2):
     m2_steps = int((theta2 / 360) * steps_per_rev)
     return m1_steps, m2_steps
 
-def calculate_steps_from_xy(machine, x, y):
-    """
-    Applies the loaded calibration matrix to directly convert
-    world coordinates (x, y) into motor steps (m1, m2).
-    This bypasses the analytical inverse kinematics model.
-
-    Args:
-        machine: The state machine instance to access the calibration matrix.
-        x (float): The target world x-coordinate in cm.
-        y (float): The target world y-coordinate in cm.
-
-    Returns:
-        tuple[int, int]: The calculated target steps for (motor1, motor2).
-    """
-    # Retrieve the matrix from flags. This is loaded by the Initialize state.
-    matrix = machine.flags.get('calibration_matrix')
-    
-    # The matrix is a 2x3 list of lists: [[a, b, c], [d, e, f]]
-    # m1 = a*x + b*y + c
-    # m2 = d*x + e*y + f
-    a, b, c = matrix[0]
-    d, e, f = matrix[1]
-    
-    m1 = (a * x) + (b * y) + c
-    m2 = (d * x) + (e * y) + f
-    
-    # Return as rounded integers, as motor steps cannot be fractional.
-    return (int(round(m1)), int(round(m2)))
-
-
 # ============================================================================
 # CORE KINEMATICS LOGIC (Adapted from kinematicsfunctions.py)
 # ============================================================================
