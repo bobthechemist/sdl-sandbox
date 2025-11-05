@@ -6,8 +6,8 @@ import json
 import argparse
 from pathlib import Path
 
-# Add the project root to the Python path to allow importing from the host package
-PROJECT_ROOT = Path(__file__).resolve().parent
+# Adjust the path to go up two directories from host/ai to the project root
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(PROJECT_ROOT))
 
 from host.core.device_manager import DeviceManager
@@ -15,16 +15,117 @@ from host.core.discovery import find_data_comports
 from host.firmware_db import get_device_name
 from host.gui.console import C
 from shared_lib.messages import Message
+# NEW: Import the PlateManager
+from host.lab.sidekick_plate_manager import PlateManager
+
+# --- NEW: Planner Class ---
+
+class Planner:
+    """
+    Analyzes a user's high-level goal and, using the world model and
+    plate manager, generates a step-by-step plan of machine commands.
+    """
+    def __init__(self, world_model: dict, plate_manager: PlateManager, command_sets: dict):
+        self.world_model = world_model
+        self.plate_manager = plate_manager
+        self.command_sets = command_sets
+        # Invert the reagent map for easy lookup of pump from liquid name
+        self.reagent_to_pump = {v: k for k, v in world_model.get('reagents', {}).items()}
+
+    def create_plan(self, user_prompt: str):
+        """
+        Parses the user prompt and generates a plan.
+
+        Returns:
+            list: A list of command dictionaries representing the plan, or
+            None: If a plan cannot be created.
+        """
+        prompt = user_prompt.lower()
+        
+        # --- Goal Identification ---
+        # For now, we use a simple keyword-based approach.
+        if "spectrum of" in prompt or "measure the spectrum" in prompt:
+            # --- Entity Extraction ---
+            # Find the name of the liquid the user mentioned.
+            reagent_name = self._find_reagent_in_prompt(prompt)
+            if not reagent_name:
+                print(f"{C.ERR}[Planner] I couldn't identify a valid reagent in your request.{C.END}")
+                return None
+            
+            # Generate the specific plan for this task
+            return self._plan_measure_spectrum(reagent_name)
+        
+        else:
+            print(f"{C.ERR}[Planner] I don't understand that request. I can only 'measure the spectrum of' a liquid for now.{C.END}")
+            return None
+
+    def _find_reagent_in_prompt(self, prompt: str) -> str | None:
+        """Finds which of the known reagents is mentioned in the prompt."""
+        for pump, reagent in self.world_model.get('reagents', {}).items():
+            if reagent.lower() in prompt:
+                return reagent
+        return None
+
+    def _plan_measure_spectrum(self, reagent_name: str):
+        """Generates the specific command sequence for a single spectrum measurement."""
+        print(f"{C.INFO}[Planner] Generating plan to measure spectrum for '{reagent_name}'...{C.END}")
+        plan = []
+
+        # 1. Validate Reagent and Get Pump ID
+        pump_id = self.reagent_to_pump.get(reagent_name)
+        if not pump_id:
+            print(f"{C.ERR}[Planner] Error: Reagent '{reagent_name}' is not assigned to a pump.{C.END}")
+            return None
+
+        # 2. Select a Target Well
+        target_well = self.plate_manager.find_empty_well()
+        if not target_well:
+            print(f"{C.ERR}[Planner] Error: Cannot create plan, the well plate is full.{C.END}")
+            return None
+        print(f"  -> Selecting empty well: {target_well}")
+
+        # 3. Check Capacity and Volume
+        dispense_vol = self.world_model['standard_dispense_ul']
+        if not self.plate_manager.has_capacity_for(target_well, dispense_vol):
+            print(f"{C.ERR}[Planner] Error: Well {target_well} does not have capacity for {dispense_vol}µL.{C.END}")
+            return None
+        
+        # 4. Assemble the Plan
+        print("  -> Assembling command sequence...")
+        
+        # Step A: Home the sidekick (always a good safety measure)
+        plan.append({
+            'device': 'sidekick',
+            'command': 'home',
+            'args': {}
+        })
+
+        # Step B: Move to the empty well
+        plan.append({
+            'device': 'sidekick',
+            'command': 'to_well',
+            'args': {'well': target_well}
+        })
+        
+        # Step C: Dispense the liquid
+        plan.append({
+            'device': 'sidekick',
+            'command': 'dispense',
+            'args': {'pump': pump_id, 'vol': dispense_vol}
+        })
+
+        # Step D: Take the measurement
+        plan.append({
+            'device': 'colorimeter',
+            'command': 'measure', # Using the sequencer-based command
+            'args': {}
+        })
+
+        print(f"{C.OK}[Planner] Plan generated successfully with {len(plan)} steps.{C.END}")
+        return plan
 
 def world_building():
-    """
-    Conducts an interactive user interview to build the initial "world model"
-    for the AI to operate within.
-
-    Returns:
-        dict: A dictionary containing the established world model, or None if the
-              user chooses to abort.
-    """
+    # ... (function is unchanged)
     world_model = {}
     
     print("\n" + "="*60)
@@ -126,7 +227,7 @@ def world_building():
     return world_model
 
 def load_world_from_file(filepath: str):
-    """Loads a world model from a specified JSON file."""
+    # ... (function is unchanged)
     print(f"\n{C.INFO}[+] Loading world model from '{filepath}'...{C.END}")
     try:
         with open(filepath, 'r') as f:
@@ -147,10 +248,7 @@ def load_world_from_file(filepath: str):
         return None
 
 def check_devices_attached():
-    """
-    Scans for connected CircuitPython devices and checks if both the
-    Sidekick and Colorimeter are present.
-    """
+    # ... (function is unchanged)
     print(f"{C.INFO}[+] Scanning for required devices (Sidekick and Colorimeter)...{C.END}")
     connected_ports = find_data_comports()
 
@@ -179,9 +277,7 @@ def check_devices_attached():
         return False
 
 def connect_devices():
-    """
-    Initializes the DeviceManager and connects to the Sidekick and Colorimeter.
-    """
+    # ... (function is unchanged)
     print(f"\n{C.INFO}[+] Initializing Device Manager and connecting to devices...{C.END}")
     manager = DeviceManager()
     manager.start()
@@ -209,9 +305,7 @@ def connect_devices():
     return manager, device_ports_map
 
 def get_instructions(manager: DeviceManager, device_ports: dict, timeout: int = 5):
-    """
-    Sends 'help' commands to connected devices and waits for their responses.
-    """
+    # ... (function is unchanged)
     print(f"\n{C.INFO}[+] Retrieving command lists from all devices...{C.END}")
     help_payload = {"func": "help", "args": {}}
     help_message = Message.create_message("AI_HOST", "INSTRUCTION", payload=help_payload)
@@ -245,7 +339,7 @@ def get_instructions(manager: DeviceManager, device_ports: dict, timeout: int = 
     return all_commands
 
 def print_command_summary(all_commands: dict):
-    """Prints a formatted summary of the available commands."""
+    # ... (function is unchanged)
     print("\n" + "="*80)
     print(" " * 28 + "COMMAND SUMMARY FOR AI HOST")
     print("="*80)
@@ -261,13 +355,8 @@ def print_command_summary(all_commands: dict):
 
 
 if __name__ == "__main__":
-    # --- NEW: Command Line Argument Parsing ---
     parser = argparse.ArgumentParser(description="AI Host for the Self-Driving Laboratory.")
-    parser.add_argument(
-        '--world',
-        type=str,
-        help="Path to a JSON file containing a pre-configured world model."
-    )
+    parser.add_argument('--world', type=str, help="Path to a JSON file containing a pre-configured world model.")
     args = parser.parse_args()
 
     print("====== AI Test Script ======")
@@ -277,8 +366,7 @@ if __name__ == "__main__":
         model = None
         if args.world:
             model = load_world_from_file(args.world)
-            if not model:
-                sys.exit(1)
+            if not model: sys.exit(1)
         else:
             model = world_building()
 
@@ -286,11 +374,8 @@ if __name__ == "__main__":
             print("\nSetup was aborted by the user.")
             sys.exit(0)
         
-        # --- Step 2: Check if devices are physically present ---
-        if not check_devices_attached():
-            sys.exit(1)
-
-        # --- Step 3: Connect to the devices ---
+        # --- Step 2: Check devices and connect ---
+        if not check_devices_attached(): sys.exit(1)
         manager, device_ports = connect_devices()
         if not manager or not device_ports:
             print(f"{C.ERR}Could not establish connections. Aborting.{C.END}")
@@ -298,16 +383,38 @@ if __name__ == "__main__":
         
         time.sleep(2)
         
-        # --- Step 4: Get the command instructions from all devices ---
+        # --- Step 3: Get command sets ---
         command_sets = get_instructions(manager, device_ports)
+        if not command_sets:
+             raise RuntimeError("Failed to retrieve commands from devices.")
+
+        print_command_summary(command_sets)
         
-        # --- Step 5: If successful, print the summary ---
-        if command_sets:
-            print_command_summary(command_sets)
+        # --- NEW: Instantiate Managers and Planner ---
+        plate_manager = PlateManager(max_volume_ul=model['max_well_volume_ul'])
+        planner = Planner(world_model=model, plate_manager=plate_manager, command_sets=command_sets)
         
-        # --- The script will continue here with the main AI logic loop ---
-        print("\nReady for main AI operational loop...")
-        # (Future code will go here)
+        # --- Step 4: Main AI Operational Loop ---
+        print("\n" + "="*60)
+        print(f" " * 18 + f"{C.INFO}AI Operational Loop Initialized{C.END}" + " " * 17)
+        print("="*60)
+
+        while True:
+            user_input = input(f"\n{C.WARN}What would you like me to do? (type 'quit' to exit): {C.END}").strip()
+            
+            if user_input.lower() == 'quit':
+                break
+            
+            # Generate a plan based on the user's request
+            plan = planner.create_plan(user_input)
+
+            if plan:
+                print(f"\n{C.OK}Generated Plan:{C.END}")
+                # Pretty-print the plan for review
+                print(json.dumps(plan, indent=4))
+                # TODO: Execute the plan
+            else:
+                print(f"{C.WARN}Could not generate a plan for that request. Please try again.{C.END}")
         
     except Exception as e:
         print(f"\n{C.ERR}An unexpected error occurred in the main script: {e}{C.END}")

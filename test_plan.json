@@ -1,0 +1,28 @@
+[
+  {
+    "device": "sidekick",
+    "command": "home",
+    "args": {}
+  },
+  {
+    "device": "sidekick",
+    "command": "to_well",
+    "args": {
+      "well": "A1",
+      "pump": "p4"
+    }
+  },
+  {
+    "device": "sidekick",
+    "command": "dispense",
+    "args": {
+      "pump": "p4",
+      "vol": 100.0
+    }
+  },
+  {
+    "device": "colorimeter",
+    "command": "measure",
+    "args": {}
+  }
+]

@@ -9,5 +9,5 @@
     "max_well_volume_ul": 250.0,
     "standard_dispense_ul": 100.0,
     "experiment_name": "test",
-    "waste_location": "4.5,-5"
+    "waste_location": "4.5,-5.0"
 }

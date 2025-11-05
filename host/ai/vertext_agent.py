@@ -15,7 +15,7 @@ class Agent:
         self,
         project_id: str = os.getenv("GC_PROJECT_ID"),
         location: str = "us-east4",
-        model_name: str = "gemini-2.5-flash",
+        model_name: str = "gemini-2.5-flash-lite",
         context: str | None = None,
     ):
         self.project_id = project_id
