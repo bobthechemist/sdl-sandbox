@@ -1,0 +1,13 @@
+{
+    "reagents": {
+        "p1": "water",
+        "p2": "none",
+        "p3": "red",
+        "p4": "blue"
+    },
+    "plate_is_empty": true,
+    "max_well_volume_ul": 250.0,
+    "standard_dispense_ul": 170.0,
+    "experiment_name": "test",
+    "waste_location": "4.5, -5.0"
+}
