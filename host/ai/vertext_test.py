@@ -2,7 +2,7 @@ import time
 import json
 import re
 
-import host.vertext_agent as myagent
+import host.ai.vertext_agent as myagent
 
 from communicate.serial_postman import SerialPostman
 from shared_lib.messages import Message
