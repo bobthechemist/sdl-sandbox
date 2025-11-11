@@ -15,7 +15,7 @@ from host.core.device_manager import DeviceManager
 from host.lab.sidekick_plate_manager import PlateManager
 from host.gui.console import C
 from shared_lib.messages import Message
-from host.ai.ai_test import connect_devices, load_world_from_file
+from host.ai.ai_utils import connect_devices, load_world_from_file
 
 def wait_for_completion(
     manager: DeviceManager,
