@@ -12,8 +12,7 @@ sys.path.append(str(PROJECT_ROOT))
 from host.lab.sidekick_plate_manager import PlateManager
 from host.ai.planner import Planner
 from host.gui.console import C
-# Import setup functions from the old script (assuming they are moved to a utils file or kept here)
-from host.ai.ai_test import (
+from host.ai.ai_utils import (
     world_building, load_world_from_file, check_devices_attached,
     connect_devices, get_instructions
 )

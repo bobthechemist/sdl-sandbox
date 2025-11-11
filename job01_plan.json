@@ -1,0 +1,122 @@
+[
+  {
+    "device": "sidekick",
+    "command": "home",
+    "args": {}
+  },
+  {
+    "device": "sidekick",
+    "command": "to_well",
+    "args": {
+      "well": "A1"
+    }
+  },
+  {
+    "device": "sidekick",
+    "command": "dispense",
+    "args": {
+      "pump": "p1",
+      "vol": 100.0
+    }
+  },
+  {
+    "device": "sidekick",
+    "command": "to_well",
+    "args": {
+      "well": "A1"
+    }
+  },
+  {
+    "device": "sidekick",
+    "command": "dispense",
+    "args": {
+      "pump": "p2",
+      "vol": 100.0
+    }
+  },
+  {
+    "device": "colorimeter",
+    "command": "measure",
+    "args": {}
+  },
+  {
+    "device": "sidekick",
+    "command": "home",
+    "args": {}
+  },
+  {
+    "device": "sidekick",
+    "command": "to_well",
+    "args": {
+      "well": "A2"
+    }
+  },
+  {
+    "device": "sidekick",
+    "command": "dispense",
+    "args": {
+      "pump": "p1",
+      "vol": 100.0
+    }
+  },
+  {
+    "device": "sidekick",
+    "command": "to_well",
+    "args": {
+      "well": "A2"
+    }
+  },
+  {
+    "device": "sidekick",
+    "command": "dispense",
+    "args": {
+      "pump": "p2",
+      "vol": 50.0
+    }
+  },
+  {
+    "device": "colorimeter",
+    "command": "measure",
+    "args": {}
+  },
+  {
+    "device": "sidekick",
+    "command": "home",
+    "args": {}
+  },
+  {
+    "device": "sidekick",
+    "command": "to_well",
+    "args": {
+      "well": "A3"
+    }
+  },
+  {
+    "device": "sidekick",
+    "command": "dispense",
+    "args": {
+      "pump": "p1",
+      "vol": 100.0
+    }
+  },
+  {
+    "device": "sidekick",
+    "command": "to_well",
+    "args": {
+      "well": "A3"
+    }
+  },
+  {
+    "device": "sidekick",
+    "command": "dispense",
+    "args": {
+      "pump": "p2",
+      "vol": 33.33
+    }
+  },
+  {
+    "device": "colorimeter",
+    "command": "measure",
+    "args": {}
+  }
+]

@@ -1,12 +1,12 @@
+# host/ai/ai_utils.py
 import sys
 import time
 import queue
 import re
 import json
-import argparse
 from pathlib import Path
 
-# Adjust the path to go up two directories from host/ai to the project root
+# Setup project root path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(PROJECT_ROOT))
 
@@ -15,10 +15,16 @@ from host.core.discovery import find_data_comports
 from host.firmware_db import get_device_name
 from host.gui.console import C
 from shared_lib.messages import Message
-from host.lab.sidekick_plate_manager import PlateManager
-from host.ai.planner import Planner
 
 def world_building():
+    """
+    Conducts an interactive user interview to build the initial "world model"
+    for the AI to operate within, including save/load functionality.
+
+    Returns:
+        dict: A dictionary containing the established world model, or None if the
+              user chooses to abort.
+    """
     world_model = {}
     
     print("\n" + "="*60)
@@ -104,7 +110,7 @@ def world_building():
                     json.dump(world_model, f, indent=4)
                 print(f"{C.OK}  -> World model saved successfully to '{filename}'.{C.END}")
                 print(f"{C.INFO}     You can reload this configuration later using:{C.END}")
-                print(f"{C.INFO}     python ai-test.py --world {filename}{C.END}")
+                print(f"{C.INFO}     python ai-plan.py --world {filename}{C.END}") # Corrected example use
             except Exception as e:
                 print(f"{C.ERR}  -> Error saving file: {e}{C.END}")
             break
@@ -119,7 +125,9 @@ def world_building():
     
     return world_model
 
+
 def load_world_from_file(filepath: str):
+    """Loads a world model from a specified JSON file."""
     print(f"\n{C.INFO}[+] Loading world model from '{filepath}'...{C.END}")
     try:
         with open(filepath, 'r') as f:
@@ -140,6 +148,10 @@ def load_world_from_file(filepath: str):
         return None
 
 def check_devices_attached():
+    """
+    Scans for connected CircuitPython devices and checks if both the
+    Sidekick and Colorimeter are present.
+    """
     print(f"{C.INFO}[+] Scanning for required devices (Sidekick and Colorimeter)...{C.END}")
     connected_ports = find_data_comports()
 
@@ -168,6 +180,9 @@ def check_devices_attached():
         return False
 
 def connect_devices():
+    """
+    Initializes the DeviceManager and connects to the Sidekick and Colorimeter.
+    """
     print(f"\n{C.INFO}[+] Initializing Device Manager and connecting to devices...{C.END}")
     manager = DeviceManager()
     manager.start()
@@ -195,6 +210,9 @@ def connect_devices():
     return manager, device_ports_map
 
 def get_instructions(manager: DeviceManager, device_ports: dict, timeout: int = 5):
+    """
+    Sends 'help' commands to connected devices and waits for their responses.
+    """
     print(f"\n{C.INFO}[+] Retrieving command lists from all devices...{C.END}")
     help_payload = {"func": "help", "args": {}}
     help_message = Message.create_message("AI_HOST", "INSTRUCTION", payload=help_payload)
@@ -226,89 +244,3 @@ def get_instructions(manager: DeviceManager, device_ports: dict, timeout: int = 
         return None
         
     return all_commands
-
-def print_command_summary(all_commands: dict):
-    print("\n" + "="*80)
-    print(" " * 28 + "COMMAND SUMMARY FOR AI HOST")
-    print("="*80)
-    
-    for device_name, commands in all_commands.items():
-        print(f"\n--- {device_name.upper()} Commands ---")
-        sorted_command_names = sorted(commands.keys())
-        for command_name in sorted_command_names:
-            details = commands[command_name]
-            description = details.get('description', 'No description available.')
-            print(f"  {C.OK}{command_name:<15}{C.END} | {description}")
-    print("\n" + "="*80)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="AI Host for the Self-Driving Laboratory.")
-    parser.add_argument('--world', type=str, help="Path to a JSON file containing a pre-configured world model.")
-    args = parser.parse_args()
-
-    print("====== AI Test Script ======")
-    manager = None
-    try:
-        # --- Step 1: Establish the World Model ---
-        model = None
-        if args.world:
-            model = load_world_from_file(args.world)
-            if not model: sys.exit(1)
-        else:
-            model = world_building()
-
-        if not model:
-            print("\nSetup was aborted by the user.")
-            sys.exit(0)
-        
-        # --- Step 2: Check devices and connect ---
-        if not check_devices_attached(): sys.exit(1)
-        manager, device_ports = connect_devices()
-        if not manager or not device_ports:
-            print(f"{C.ERR}Could not establish connections. Aborting.{C.END}")
-            sys.exit(1)
-        
-        time.sleep(2)
-        
-        # --- Step 3: Get command sets ---
-        command_sets = get_instructions(manager, device_ports)
-        if not command_sets:
-             raise RuntimeError("Failed to retrieve commands from devices.")
-
-        print_command_summary(command_sets)
-        
-        # --- NEW: Instantiate Managers and Planner ---
-        plate_manager = PlateManager(max_volume_ul=model['max_well_volume_ul'])
-        planner = Planner(world_model=model, plate_manager=plate_manager, command_sets=command_sets)
-        
-        # --- Step 4: Main AI Operational Loop ---
-        print("\n" + "="*60)
-        print(f" " * 18 + f"{C.INFO}AI Operational Loop Initialized{C.END}" + " " * 17)
-        print("="*60)
-
-        while True:
-            user_input = input(f"\n{C.WARN}What would you like me to do? (type 'quit' to exit): {C.END}").strip()
-            
-            if user_input.lower() == 'quit':
-                break
-            
-            # Generate a plan based on the user's request
-            plan = planner.create_plan(user_input)
-
-            if plan:
-                print(f"\n{C.OK}Generated Plan:{C.END}")
-                # Pretty-print the plan for review
-                print(json.dumps(plan, indent=4))
-                # TODO: Execute the plan
-            else:
-                print(f"{C.WARN}Could not generate a plan for that request. Please try again.{C.END}")
-        
-    except Exception as e:
-        print(f"\n{C.ERR}An unexpected error occurred in the main script: {e}{C.END}")
-    finally:
-        if manager:
-            print(f"\n{C.INFO}Shutting down Device Manager...{C.END}")
-            manager.stop()
-            print("Shutdown complete.")
-    print("============================")
