@@ -1,4 +1,0 @@
-timestamp,step,device,command,violet,yellow,cyan,blue,red,orange,green,indigo
-2025-11-12T10:52:01.157733,6,colorimeter,measure,24,306,250,221,201,322,311,157
-2025-11-12T10:52:24.449609,12,colorimeter,measure,26,328,271,242,213,355,337,182
-2025-11-12T10:52:47.173411,18,colorimeter,measure,32,427,373,338,276,446,440,281
