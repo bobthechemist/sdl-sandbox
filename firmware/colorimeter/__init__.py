@@ -103,11 +103,13 @@ register_common_commands(machine)
 
 machine.add_command("read_all", handlers.handle_read_all, {
     "description": "Immediately reads all 10 color channels and returns the values.",
-    "args": []
+    "args": [],
+    "ai_enabled": False
 })
 machine.add_command("get_settings", handlers.handle_get_settings, {
     "description": "Gets the current sensor settings (gain, LED status, intensity).",
-    "args": []
+    "args": [],
+    "ai_enabled": False
 })
 machine.add_command("set_settings", handlers.handle_set_settings, {
     "description": "Sets one or more sensor parameters.",
@@ -115,13 +117,24 @@ machine.add_command("set_settings", handlers.handle_set_settings, {
         {"name": "gain", "type": "int", "description": "Sensor gain. See sensor docs for valid values.", "default": None},
         {"name": "led", "type": "bool", "description": "LED on/off state (true/false).", "default": None},
         {"name": "intensity", "type": "int", "description": f"LED current [{SUBSYSTEM_CONFIG['min_intensity']}-{SUBSYSTEM_CONFIG['max_intensity']}] mA.", "default": None}
-    ]
+    ],
+    "ai_enabled": False
 })
 # NEW: Command to demonstrate the StateSequencer
 machine.add_command("measure", handlers.handle_measure, {
     "description": "Performs a full measurement sequence (LED on, read, LED off).",
-    "args": []
+    "args": [],
+    "ai_enabled": True,
+    "effects": ["a spectral measurement is taken at the current arm position and the data is returned"],
+    "usage_notes": "This command requires the arm to be centered over the target well. Ensure a 'sidekick.to_well' command (with no 'pump' argument) is called first."
 })
+
+# Override common commands to ensure they are not used by the AI
+machine.supported_commands['help']['ai_enabled'] = False
+machine.supported_commands['ping']['ai_enabled'] = False
+machine.supported_commands['set_time']['ai_enabled'] = False
+machine.supported_commands['get_info']['ai_enabled'] = False
+
 
 # --- Add machine-wide flags (dynamic variables) ---
 machine.add_flag('error_message', '')

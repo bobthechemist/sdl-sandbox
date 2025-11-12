@@ -35,11 +35,27 @@ def main():
         manager, device_ports = connect_devices()
         if not manager: sys.exit("Could not connect to devices.")
         
-        command_sets = get_instructions(manager, device_ports)
-        if not command_sets: sys.exit("Failed to retrieve commands.")
+        raw_command_sets = get_instructions(manager, device_ports)
+        if not raw_command_sets: sys.exit("Failed to retrieve commands from devices.")
 
+        # --- NEW: Filter commands to only include those marked as "ai_enabled" ---
+        print(f"\n{C.INFO}[+] Filtering commands for the AI planner...{C.END}")
+        ai_command_sets = {}
+        for device, commands in raw_command_sets.items():
+            ai_command_sets[device] = {}
+            for command_name, command_details in commands.items():
+                # Default to False if the key is missing to ensure only explicitly
+                # enabled commands are passed to the AI.
+                if command_details.get("ai_enabled", False):
+                    ai_command_sets[device][command_name] = command_details
+            
+            original_count = len(commands)
+            filtered_count = len(ai_command_sets[device])
+            print(f"  -> {device}: Exposed {filtered_count} of {original_count} commands to the AI.")
+        
+        # --- Pass the filtered command set to the Planner ---
         plate_manager = PlateManager(max_volume_ul=model['max_well_volume_ul'])
-        planner = Planner(world_model=model, plate_manager=plate_manager, command_sets=command_sets)
+        planner = Planner(world_model=model, plate_manager=plate_manager, command_sets=ai_command_sets)
         
         # --- Planning Loop ---
         while True:
@@ -51,7 +67,7 @@ def main():
                 print(f"{C.WARN}Could not generate a plan. Please try again.{C.END}")
                 continue
 
-            # --- MODIFIED: Create the full output object ---
+            # Create the full output object for saving
             output_data = {
                 "user_prompt": user_input,
                 "plan": plan_steps
@@ -67,7 +83,6 @@ def main():
             if save in ('', 'y', 'yes'):
                 try:
                     with open(output_file, 'w') as f:
-                        # Save the new output_data object, not just the plan_steps
                         json.dump(output_data, f, indent=2)
                     print(f"{C.OK}Plan saved. You can now run the executor:{C.END}")
                     world_file_arg = f"--world {args.world}" if args.world else f"--world {model['experiment_name']}_world.json"

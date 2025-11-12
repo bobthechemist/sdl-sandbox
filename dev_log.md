@@ -1,5 +1,18 @@
 # Dev Log
 
+## [2025-11-12] Functional ai planner(?)
+
+**Context**: Working towards AI operation of the sidekick so that it can generate a set of instructions from a human readable prompt
+**Issues**: Three broad categories of challenges: the AI cannot do math, the AI doesn't remember the hardware state, the AI doesn't fully understand the effects of the commands
+**Commentary**
+- Original planning runs would occasionally remember that to_well has a pump argument which is necessary to run prior to dispense.
+- Unrelated to the planner, there is still a calibration problem and A1 is not being reached properly when one of the pumps is requested. It appears that all pumps are going to the same (incorrect) location
+- Related to ^^^ the AI is capable of correctly interpreting the prompt: "starting from well E6 ..."
+- Deterministic python tools for doing chemistry math will be needed, but that is going to be a significant undertaking that requires some thought.  
+- The current approach is to provide more information to the AI from the firmware itself. Each instruction has additional useage_notes and effects keys that are passed on to the AI prompt
+- With ^^^ we obtain a near-perfect execution of a prompt to create three solutions of varying volumetric ratios. In this case, a math tool isn't needed if the proper phrasing is used.
+- Creating a planner repository in docs for sequences that are worth keeping.
+
 ## [2025-10-31] how to handle send_problem
 
 **Context**: As handlers become more sophisticated and rely on helper functions, there needs to be some protocol for determining who gets to send messages to host

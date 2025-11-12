@@ -12,6 +12,7 @@ from firmware.common.command_library import register_common_commands
 # Import the device-specific parts we will write
 from . import states
 from . import handlers
+from . import kinematics
 
 # ============================================================================
 # 1. INSTRUMENT CONFIGURATION
@@ -157,10 +158,14 @@ machine.add_state(states.Dispensing())
 machine.add_state(GenericErrorWithButton(reset_pin=machine.config['pins']['user_button'], reset_state_name='Idle'))
 
 # --- Define Command Interface ---
-register_common_commands(machine) # Adds common commands
+# The common commands are registered here, but their `ai_enabled` flag is set to False by default.
+# Only specific high-level commands will be exposed to the AI planner.
+register_common_commands(machine) 
 machine.add_command("home", handlers.handle_home, {
     "description": "Finds motor zero via endstops, then moves to a safe parking spot.",
-    "args": []
+    "args": [],
+    "ai_enabled": True,
+    "effects": ["arm is now in a known, safe park position", "is_homed flag is now true"]
 })
 machine.add_command("move_to", handlers.handle_move_to, {
     "description": "Moves the arm's center point to an absolute (x, y) coordinate.",
@@ -168,21 +173,26 @@ machine.add_command("move_to", handlers.handle_move_to, {
         {"name": "x", "type": "float", "description": "Target x-coordinate (cm)"},
         {"name": "y", "type": "float", "description": "Target y-coordinate (cm)"},
         {"name": "pump", "type": "str|int", "description": "Optional: pump nozzle to position over the well (e.g., 'p2' or 2). Defaults to end effector center.", "default": 0}
-    ]
+    ],
+    "ai_enabled": True
 })
 machine.add_command("move_rel", handlers.handle_move_rel, {
     "description": "Moves the arm relative to its current position by (dx, dy).",
     "args": [
         {"name": "dx", "type": "float", "description": "Relative move in x-axis (cm)"},
         {"name": "dy", "type": "float", "description": "Relative move in y-axis (cm)"}
-    ]
+    ],
+    "ai_enabled": True
 })
 machine.add_command("dispense", handlers.handle_dispense, {
     "description": "Dispenses from a pump at the current location.",
     "args": [
         {"name": "pump", "type": "str", "description": "Pump to use (e.g., 'p1')", "default": 0},
         {"name": "vol", "type": "float", "description": "Volume to dispense (uL)", "default": 10.0}
-    ]
+    ],
+    "ai_enabled": True,
+    "effects": ["liquid is added to the current well", "arm position does NOT change"],
+    "usage_notes": "This command MUST be immediately preceded by a 'to_well' command that targets the correct pump nozzle."
 })
 machine.add_command("dispense_at", handlers.handle_dispense_at, {
     "description": "Moves a pump to an absolute (x, y) coordinate and then dispenses.",
@@ -191,22 +201,34 @@ machine.add_command("dispense_at", handlers.handle_dispense_at, {
         {"name": "vol", "type": "float", "description": "Volume to dispense (uL)", "default": 10.0},
         {"name": "x", "type": "float", "description": "Target x-coordinate (cm)"},
         {"name": "y", "type": "float", "description": "Target y-coordinate (cm)"}
-    ]
+    ],
+    "ai_enabled": True
 })
 machine.add_command("steps", handlers.handle_steps, {
     "description": "Moves motors by a relative number of steps. FOR TESTING ONLY.",
     "args": [
         {"name": "m1", "type": "int", "description": "Relative steps for motor 1"},
         {"name": "m2", "type": "int", "description": "Relative steps for motor 2"}
-    ]
+    ],
+    "ai_enabled": False
 })
 machine.add_command("to_well", handlers.handle_to_well, {
     "description": "Moves to a specified well on a 96-well plate",
     "args": [
         {"name": "well", "type": "str", "description": "Target well designation (e.g., 'B6', 'h12')."},
         {"name": "pump", "type": "str|int", "description": "Optional: pump nozzle to position over the well (e.g., 'p2' or 2). Defaults to end effector center.", "default": 0}
-    ]
+    ],
+    "ai_enabled": True,
+    "effects": ["arm moves to center the target (pump or colorimeter) over the specified well"],
+    "usage_notes": "To prepare for a 'dispense' action, you MUST use the 'pump' argument in this command. To prepare for a 'measure' action, the 'pump' argument should be omitted to center the arm."
 })
+
+# Override common commands to ensure they are not used by the AI
+machine.supported_commands['help']['ai_enabled'] = False
+machine.supported_commands['ping']['ai_enabled'] = False
+machine.supported_commands['set_time']['ai_enabled'] = False
+machine.supported_commands['get_info']['ai_enabled'] = False
+
 # --- Add Dynamic Flags
 machine.add_flag('error_message', '')
 machine.add_flag('telemetry_interval', 60.0)
