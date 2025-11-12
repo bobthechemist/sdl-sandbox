@@ -46,13 +46,19 @@ def main():
             user_input = input(f"\n{C.WARN}Enter your goal (or 'quit'): {C.END}").strip()
             if user_input.lower() == 'quit': break
             
-            plan = planner.create_plan(user_input)
-            if not plan:
+            plan_steps = planner.create_plan(user_input)
+            if not plan_steps:
                 print(f"{C.WARN}Could not generate a plan. Please try again.{C.END}")
                 continue
 
+            # --- MODIFIED: Create the full output object ---
+            output_data = {
+                "user_prompt": user_input,
+                "plan": plan_steps
+            }
+
             print(f"\n{C.OK}--- Generated Plan ---{C.END}")
-            print(json.dumps(plan, indent=2))
+            print(json.dumps(output_data, indent=2))
             print(f"{C.OK}----------------------{C.END}")
 
             # --- Save the Plan ---
@@ -61,9 +67,11 @@ def main():
             if save in ('', 'y', 'yes'):
                 try:
                     with open(output_file, 'w') as f:
-                        json.dump(plan, f, indent=2)
+                        # Save the new output_data object, not just the plan_steps
+                        json.dump(output_data, f, indent=2)
                     print(f"{C.OK}Plan saved. You can now run the executor:{C.END}")
-                    print(f"  python host/ai/ai-execute.py {output_file} --world {args.world or 'your_world_file.json'}")
+                    world_file_arg = f"--world {args.world}" if args.world else f"--world {model['experiment_name']}_world.json"
+                    print(f"  python host/ai/ai-execute.py --plan {output_file} {world_file_arg}")
                 except Exception as e:
                     print(f"{C.ERR}Error saving plan: {e}{C.END}")
 

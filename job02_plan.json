@@ -1,0 +1,131 @@
+{
+  "user_prompt": "create 1:1, 1:2, and 1:3 volumetric ratios of metal:ligand and then measure their spectra.",
+  "plan": [
+    {
+      "device": "sidekick",
+      "command": "home",
+      "args": {}
+    },
+    {
+      "device": "sidekick",
+      "command": "to_well",
+      "args": {
+        "well": "A1",
+        "pump": "p1"
+      }
+    },
+    {
+      "device": "sidekick",
+      "command": "dispense",
+      "args": {
+        "pump": "p1",
+        "vol": 150.0
+      }
+    },
+    {
+      "device": "sidekick",
+      "command": "to_well",
+      "args": {
+        "well": "A1",
+        "pump": "p2"
+      }
+    },
+    {
+      "device": "sidekick",
+      "command": "dispense",
+      "args": {
+        "pump": "p2",
+        "vol": 50.0
+      }
+    },
+    {
+      "device": "colorimeter",
+      "command": "measure",
+      "args": {}
+    },
+    {
+      "device": "sidekick",
+      "command": "home",
+      "args": {}
+    },
+    {
+      "device": "sidekick",
+      "command": "to_well",
+      "args": {
+        "well": "A2",
+        "pump": "p1"
+      }
+    },
+    {
+      "device": "sidekick",
+      "command": "dispense",
+      "args": {
+        "pump": "p1",
+        "vol": 150.0
+      }
+    },
+    {
+      "device": "sidekick",
+      "command": "to_well",
+      "args": {
+        "well": "A2",
+        "pump": "p2"
+      }
+    },
+    {
+      "device": "sidekick",
+      "command": "dispense",
+      "args": {
+        "pump": "p2",
+        "vol": 100.0
+      }
+    },
+    {
+      "device": "colorimeter",
+      "command": "measure",
+      "args": {}
+    },
+    {
+      "device": "sidekick",
+      "command": "home",
+      "args": {}
+    },
+    {
+      "device": "sidekick",
+      "command": "to_well",
+      "args": {
+        "well": "A3",
+        "pump": "p1"
+      }
+    },
+    {
+      "device": "sidekick",
+      "command": "dispense",
+      "args": {
+        "pump": "p1",
+        "vol": 150.0
+      }
+    },
+    {
+      "device": "sidekick",
+      "command": "to_well",
+      "args": {
+        "well": "A3",
+        "pump": "p2"
+      }
+    },
+    {
+      "device": "sidekick",
+      "command": "dispense",
+      "args": {
+        "pump": "p2",
+        "vol": 150.0
+      }
+    },
+    {
+      "device": "colorimeter",
+      "command": "measure",
+      "args": {}
+    }
+  ]
+}

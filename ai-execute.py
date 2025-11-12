@@ -25,12 +25,8 @@ def wait_for_completion(
     header_written: bool,
     timeout: int = 60
 ):
-    """
-    Waits for a completion message and logs any DATA_RESPONSE to the CSV.
-
-    Returns:
-        tuple: (success, response_payload, header_was_written)
-    """
+    """Waits for a completion message and logs any DATA_RESPONSE to the CSV."""
+    # ... (This function remains unchanged as its logic is still correct)
     print(f"  -> Waiting for completion from {port} (timeout: {timeout}s)...")
     start_time = time.time()
     header_was_written = header_written
@@ -47,20 +43,17 @@ def wait_for_completion(
             if status in ("SUCCESS", "DATA_RESPONSE"):
                 print(f"{C.OK}  -> Received {status}{C.END}")
                 
-                # --- NEW: Data Logging Logic ---
                 if status == "DATA_RESPONSE":
                     data_points = payload.get('data', {})
                     if isinstance(data_points, dict):
-                        # Create a flat row for the CSV
                         log_row = {
                             'timestamp': datetime.now().isoformat(),
                             'step': step_info['number'],
                             'device': step_info['device'],
                             'command': step_info['command'],
                         }
-                        log_row.update(data_points) # Add all color channels, etc.
+                        log_row.update(data_points)
                         
-                        # Write header only on the first data response
                         if not header_was_written:
                             csv_writer.fieldnames = log_row.keys()
                             csv_writer.writeheader()
@@ -81,8 +74,8 @@ def wait_for_completion(
     print(f"{C.ERR}  -> Timed out waiting for response from {port}.{C.END}")
     return False, None, header_was_written
 
+
 def main():
-    # --- UPDATED: Argument Parser ---
     parser = argparse.ArgumentParser(description="Execute a pre-generated experimental plan.")
     parser.add_argument("--plan", type=str, required=True, help="Path to the plan JSON file.")
     parser.add_argument("--world", type=str, required=True, help="Path to the world model JSON file for this plan.")
@@ -97,10 +90,26 @@ def main():
         world_model = load_world_from_file(args.world)
         if not world_model: sys.exit(1)
 
+        # --- MODIFIED: Robust plan loading ---
         try:
             with open(args.plan, 'r') as f:
-                plan = json.load(f)
+                data = json.load(f)
+
+            plan = []
+            if isinstance(data, dict) and 'plan' in data:
+                # New format: {"user_prompt": "...", "plan": [...]}
+                plan = data['plan']
+                user_prompt = data.get('user_prompt', 'Not found in plan file.')
+                print(f"{C.INFO}Executing plan for prompt: '{user_prompt}'{C.END}")
+            elif isinstance(data, list):
+                # Old format: [...]
+                plan = data
+                print(f"{C.WARN}Warning: This is an old plan format without a user prompt.{C.END}")
+            else:
+                sys.exit(f"{C.ERR}Invalid plan file format. Expected a list of steps or an object with a 'plan' key.{C.END}")
+
             print(f"{C.OK}Loaded plan with {len(plan)} steps from '{args.plan}'.{C.END}")
+
         except (FileNotFoundError, json.JSONDecodeError) as e:
             sys.exit(f"{C.ERR}Failed to load or parse plan file: {e}{C.END}")
 
@@ -110,7 +119,6 @@ def main():
         plate_manager = PlateManager(max_volume_ul=world_model['max_well_volume_ul'])
         time.sleep(2)
 
-        # --- NEW: Output File Setup ---
         output_filename = args.output if args.output else f"{world_model.get('experiment_name', 'experiment')}_results.csv"
         print(f"{C.INFO}Results will be logged to '{output_filename}'{C.END}")
         output_csv_file = open(output_filename, 'w', newline='')
@@ -123,6 +131,7 @@ def main():
         print("="*60 + "\n")
 
         for i, step in enumerate(plan):
+            # ... (Rest of the execution loop is unchanged)
             step_num = i + 1
             print(f"{C.WARN}Step {step_num}/{len(plan)}: {step['device']} -> {step['command']}{C.END}")
             
@@ -143,7 +152,8 @@ def main():
             
             if step['command'] in ('dispense', 'dispense_at', 'to_well_and_dispense'):
                 args = step['args']
-                well = args.get('well')
+                # Correctly handle getting well from different command structures
+                well = args.get('well') if 'well' in args else args.get('to_well')
                 pump = args.get('pump')
                 vol = args.get('vol')
                 if well and pump and vol:
