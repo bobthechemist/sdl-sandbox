@@ -97,7 +97,7 @@ def world_building():
 
     # --- 8. Waste Location ---
     print(f"\n{C.WARN}[5] Waste Location{C.END}")
-    waste_loc = input("  -> Where is the waste location? (e.g., 'A12' or '15.5, 2.0'): ").strip()
+    waste_loc = input("  -> Where is the waste location? (e.g., 'A12' or '4.5, -5'): ").strip()
     world_model['waste_location'] = waste_loc
 
     # --- NEW: Save World Model ---
