@@ -164,5 +164,9 @@ cython_debug/
 # BoB puts a lot of junk in the temp folder so let's ignore that
 temp/
 
+# Planning files
+CURRENT_FOCUS.md
+BRANCH_GOALS.md
+
 # The complete software stack
 all-in-one.md

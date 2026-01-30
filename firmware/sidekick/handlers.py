@@ -145,6 +145,31 @@ def calculate_angles(machine, pump_key, target_x, target_y):
     
     return target_angles
 
+def calculate_steps_from_calibration(machine, x_cm, y_cm):
+    """
+    Calculates motor steps using the loaded BILINEAR coefficients.
+    x_cm, y_cm: Coordinates relative to A1 (0,0)
+    """
+    c_m1 = machine.flags.get('cal_coeffs_m1')
+    c_m2 = machine.flags.get('cal_coeffs_m2')
+    
+    if not c_m1 or not c_m2:
+        return None 
+
+    # --- CHANGE IS HERE ---
+    # Must match the generation script: [1, x, y, xy]
+    # Removed x^2 and y^2
+    features = [1, x_cm, y_cm, x_cm*y_cm]
+    
+    # Check for mismatch (e.g., if you loaded an old quadratic file by mistake)
+    if len(c_m1) != len(features):
+        machine.log.error(f"Calibration mismatch: Expected {len(features)} coeffs, got {len(c_m1)}")
+        return None
+
+    m1_val = sum(f * c for f, c in zip(features, c_m1))
+    m2_val = sum(f * c for f, c in zip(features, c_m2))
+    
+    return int(m1_val), int(m2_val)
 
 def _apply_similarity_transform(machine, x, y):
     """
@@ -415,15 +440,14 @@ def handle_steps(machine, payload):
     }
     machine.sequencer.start(sequence, initial_context=context)
 
+
 def handle_to_well(machine, payload):
     """
-    Moves end effector to a specified well on a 96-well plate
+    Moves end effector to a specified well on a 96-well plate.
+    Prioritizes Quadratic Calibration for center moves.
+    Falls back to Inverse Kinematics for pump offsets or if calibration is missing.
     """
     if not check_homed(machine):
-        return
-    
-    if not machine.config.get('similarity_transform'):
-        send_problem(machine, "Cannot use to_well; missing calibration information.")
         return
 
     # 1. Extract and Validate Arguments
@@ -435,42 +459,64 @@ def handle_to_well(machine, payload):
         send_problem(machine, "Missing required 'well' argument.")
         return
 
-    # 2. Parse well designation to grid indices and then to XY coordinates
+    # 2. Parse well designation to grid indices
     parsed_indices = parse_well_designation(machine, well_designation)
     if parsed_indices is None:
         send_problem(machine, f"Invalid 'well' designation: '{well_designation}'.")
         return
     row_idx, col_idx = parsed_indices
 
+    # 3. Calculate Well Coordinates (Plate Relative, cm)
+    # A1 is (0,0) in this system
     pitch = machine.config['plate_geometry']['well_pitch_cm']
     well_x = row_idx * pitch
     well_y = col_idx * pitch
-    machine.log.info(f"Targeting well '{well_designation}' at (x:{well_x:.2f}, y:{well_y:.2f}) cm")
-    target_x, target_y = _apply_similarity_transform(machine, well_x,well_y)
-    machine.log.info(f"After transformation: (x:{target_x:.2f},y:{target_y:.2f})")
+    
+    machine.log.info(f"Targeting well '{well_designation}' at Plate Coords (x:{well_x:.2f}, y:{well_y:.2f})")
 
-    # Call inverse kinematics to find motor angles
-    target_angles = calculate_angles(machine, pump_arg, target_x, target_y)
-    if target_angles is None:
-        send_problem(machine, "Inverse kinematics failed. Target may be unreachable or out of safe limits.")
-        return
-    else: 
+    target_m1_steps = None
+    target_m2_steps = None
+
+    # 4a. PATH A: Quadratic Calibration (Center / No Pump)
+    # If no pump is specified, we use the direct polynomial map.
+    if not pump_arg or pump_arg == 0 or pump_arg == "0":
+        cal_steps = calculate_steps_from_calibration(machine, well_x, well_y)
+        if cal_steps:
+            target_m1_steps, target_m2_steps = cal_steps
+            machine.log.info(f"Using Quadratic Calibration -> ({target_m1_steps}, {target_m2_steps}) steps")
+        else:
+            machine.log.warning("Quadratic calibration missing. Falling back to raw IK.")
+
+    # 4b. PATH B: Inverse Kinematics (Fallback or Pump Offset)
+    # If calibration failed OR a pump offset is required (which needs angular geometry), use IK.
+    if target_m1_steps is None:
+        if not machine.config.get('similarity_transform'):
+             send_problem(machine, "Cannot use to_well; missing calibration (Similarity or Quadratic).")
+             return
+
+        # Apply Similarity Transform (Plate cm -> World cm)
+        target_x, target_y = _apply_similarity_transform(machine, well_x, well_y)
+        machine.log.info(f"Using Similarity Transform -> World (x:{target_x:.2f}, y:{target_y:.2f})")
+
+        # Call inverse kinematics to find motor angles (handles pump offsets)
+        target_angles = calculate_angles(machine, pump_arg, target_x, target_y)
+        if target_angles is None:
+            send_problem(machine, "Inverse kinematics failed. Target may be unreachable or out of safe limits.")
+            return
+        
         theta1, theta2 = target_angles
-
-    # 5. Convert Validated Angles to Steps
-    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
-    machine.log.info(f"IK success. Target: ({theta1:.2f}, {theta2:.2f}) degrees -> ({target_m1_steps}, {target_m2_steps}) steps.")
+        # Convert Angles to Steps
+        target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
+        machine.log.info(f"IK result -> ({target_m1_steps}, {target_m2_steps}) steps")
 
     # 6. Set Flags and Execute Move
     sequence = [{"state":"Moving"}]
     context = {
-        "name":"move_to",
+        "name": "move_to",
         "target_m1_steps": target_m1_steps,
         "target_m2_steps": target_m2_steps
     }
-    machine.sequencer.start(sequence, initial_context = context)
-
-
+    machine.sequencer.start(sequence, initial_context=context)
 
 def handle_to_well_with_pumps(machine, payload):
     """

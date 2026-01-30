@@ -1,0 +1,24 @@
+{
+  "calibration_date": "2026-01-30",
+  "method": "4_point_bilinear_plate_relative",
+  "description": "Maps plate-relative cm (A1=0,0) to absolute motor steps.",
+  "coefficients": {
+    "motor1": [
+      354.0000000000001,
+      -38.412698412698404,
+      58.88888888888887,
+      -3.6235369568702964
+    ],
+    "motor2": [
+      908.9999999999993,
+      46.03174603174616,
+      55.45454545454548,
+      -3.6075036075036238
+    ]
+  },
+  "plate": {
+    "well_pitch_cm": 0.9,
+    "rows": "ABCDEFGH",
+    "columns": 12
+  }
+}
