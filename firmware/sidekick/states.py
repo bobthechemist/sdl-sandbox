@@ -43,39 +43,6 @@ class Initialize(State):
             machine.flags['error_message'] = f"Hardware Initialization failed: {e}"
             machine.go_to_state('Error')
         
-        
-        # Load calibration data 
-        try:
-            cal_file = machine.config.get("calibration_file")
-            if not cal_file:
-                raise ValueError("Calibration file not specified in config.")
-
-            machine.log.info(f"Attempting to load quadratic calibration from '{cal_file}'...")
-            import json
-            
-            with open(cal_file, "r") as f:
-                cal_data = json.load(f)
-                coeffs = cal_data.get("coefficients")
-                
-                if coeffs and "motor1" in coeffs and "motor2" in coeffs:
-                    # Store the lists of coefficients for each motor
-                    machine.flags['cal_coeffs_m1'] = coeffs["motor1"]
-                    machine.flags['cal_coeffs_m2'] = coeffs["motor2"]
-                    machine.log.info("Successfully loaded quadratic calibration coefficients.")
-                else:
-                    machine.log.error("Calibration file is missing or has malformed 'coefficients'.")
-                    machine.flags['cal_coeffs_m1'] = None
-                    machine.flags['cal_coeffs_m2'] = None
-
-        except FileNotFoundError:
-            machine.log.error(f"FATAL: Calibration file '{cal_file}' not found.")
-            machine.flags['cal_coeffs_m1'] = None
-            machine.flags['cal_coeffs_m2'] = None
-        except Exception as e:
-            machine.log.error(f"Failed to load or parse calibration file: {e}")
-            machine.flags['cal_coeffs_m1'] = None
-            machine.flags['cal_coeffs_m2'] = None
-
         machine.go_to_state('Homing') # The first action after init must be to home.
 
 class Idle(State):

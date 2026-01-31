@@ -145,41 +145,6 @@ def calculate_angles(machine, pump_key, target_x, target_y):
     
     return target_angles
 
-def calculate_steps_from_calibration(machine, x_cm, y_cm):
-    """
-    Calculates motor steps using the loaded BILINEAR coefficients.
-    x_cm, y_cm: Coordinates relative to A1 (0,0)
-    """
-    c_m1 = machine.flags.get('cal_coeffs_m1')
-    c_m2 = machine.flags.get('cal_coeffs_m2')
-    
-    if not c_m1 or not c_m2:
-        return None 
-
-    # --- CHANGE IS HERE ---
-    # Must match the generation script: [1, x, y, xy]
-    # Removed x^2 and y^2
-    features = [1, x_cm, y_cm, x_cm*y_cm]
-    
-    # Check for mismatch (e.g., if you loaded an old quadratic file by mistake)
-    if len(c_m1) != len(features):
-        machine.log.error(f"Calibration mismatch: Expected {len(features)} coeffs, got {len(c_m1)}")
-        return None
-
-    m1_val = sum(f * c for f, c in zip(features, c_m1))
-    m2_val = sum(f * c for f, c in zip(features, c_m2))
-    
-    return int(m1_val), int(m2_val)
-
-def _apply_similarity_transform(machine, x, y):
-    """
-    Uses an external calibration (similarity) to adjust the target (x,y) coordinates
-    """
-
-    new_x = sum(c*v for c, v, in zip(machine.config["similarity_transform"]["x"],[1,x,y]))
-    new_y = sum(c*v for c, v, in zip(machine.config["similarity_transform"]["y"],[1,x,y]))
-
-    return new_x, new_y
 
 # ============================================================================
 # COMMAND HANDLERS
@@ -440,12 +405,9 @@ def handle_steps(machine, payload):
     }
     machine.sequencer.start(sequence, initial_context=context)
 
-
 def handle_to_well(machine, payload):
     """
-    Moves end effector to a specified well on a 96-well plate.
-    Prioritizes Quadratic Calibration for center moves.
-    Falls back to Inverse Kinematics for pump offsets or if calibration is missing.
+    Moves end effector to a specified well on a 96-well plate using a fixed A1 offset.
     """
     if not check_homed(machine):
         return
@@ -466,50 +428,31 @@ def handle_to_well(machine, payload):
         return
     row_idx, col_idx = parsed_indices
 
-    # 3. Calculate Well Coordinates (Plate Relative, cm)
-    # A1 is (0,0) in this system
+    # 3. Calculate Well Coordinates (Plate Relative)
     pitch = machine.config['plate_geometry']['well_pitch_cm']
-    well_x = row_idx * pitch
-    well_y = col_idx * pitch
     
-    machine.log.info(f"Targeting well '{well_designation}' at Plate Coords (x:{well_x:.2f}, y:{well_y:.2f})")
+    # Note: Ensure these axes match your physical setup. 
+    # Based on previous code: x=Rows, y=Cols
+    well_x_rel = row_idx * pitch
+    well_y_rel = col_idx * pitch
+    
+    # 4. Apply A1 Offset (Transform to World Coordinates)
+    a1_offset = machine.config.get('A1_offset', {'dx': 0, 'dy': 0})
+    target_x = well_x_rel + a1_offset['dx']
+    target_y = well_y_rel + a1_offset['dy']
 
-    target_m1_steps = None
-    target_m2_steps = None
+    machine.log.info(f"Targeting '{well_designation}': Rel({well_x_rel:.2f}, {well_y_rel:.2f}) -> World({target_x:.2f}, {target_y:.2f})")
 
-    # 4a. PATH A: Quadratic Calibration (Center / No Pump)
-    # If no pump is specified, we use the direct polynomial map.
-    if not pump_arg or pump_arg == 0 or pump_arg == "0":
-        cal_steps = calculate_steps_from_calibration(machine, well_x, well_y)
-        if cal_steps:
-            target_m1_steps, target_m2_steps = cal_steps
-            machine.log.info(f"Using Quadratic Calibration -> ({target_m1_steps}, {target_m2_steps}) steps")
-        else:
-            machine.log.warning("Quadratic calibration missing. Falling back to raw IK.")
+    # 5. Inverse Kinematics (Handles Pump Offsets if pump_arg is provided)
+    target_angles = calculate_angles(machine, pump_arg, target_x, target_y)
+    if target_angles is None:
+        send_problem(machine, "Inverse kinematics failed. Target may be unreachable.")
+        return
+    
+    theta1, theta2 = target_angles
+    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
 
-    # 4b. PATH B: Inverse Kinematics (Fallback or Pump Offset)
-    # If calibration failed OR a pump offset is required (which needs angular geometry), use IK.
-    if target_m1_steps is None:
-        if not machine.config.get('similarity_transform'):
-             send_problem(machine, "Cannot use to_well; missing calibration (Similarity or Quadratic).")
-             return
-
-        # Apply Similarity Transform (Plate cm -> World cm)
-        target_x, target_y = _apply_similarity_transform(machine, well_x, well_y)
-        machine.log.info(f"Using Similarity Transform -> World (x:{target_x:.2f}, y:{target_y:.2f})")
-
-        # Call inverse kinematics to find motor angles (handles pump offsets)
-        target_angles = calculate_angles(machine, pump_arg, target_x, target_y)
-        if target_angles is None:
-            send_problem(machine, "Inverse kinematics failed. Target may be unreachable or out of safe limits.")
-            return
-        
-        theta1, theta2 = target_angles
-        # Convert Angles to Steps
-        target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
-        machine.log.info(f"IK result -> ({target_m1_steps}, {target_m2_steps}) steps")
-
-    # 6. Set Flags and Execute Move
+    # 6. Execute Move
     sequence = [{"state":"Moving"}]
     context = {
         "name": "move_to",
@@ -518,52 +461,46 @@ def handle_to_well(machine, payload):
     }
     machine.sequencer.start(sequence, initial_context=context)
 
+
 def handle_to_well_with_pumps(machine, payload):
     """
-    Moves the end effector or a specific pump to a specified well.
-    If the optional 'vol' argument is provided, it will also dispense
-    that volume from the specified 'pump'.
+    Moves the end effector or a specific pump to a specified well using fixed A1 offset.
+    Optionally dispenses if 'vol' is provided.
     """
-    # --- 1. Initial Setup and Guard Conditions ---
     if not check_homed(machine):
         return
-    
-    if not machine.config.get('similarity_transform'):
-        send_problem(machine, "Cannot use to_well; missing calibration information.")
-        return
 
-    # --- 2. Extract and Validate Arguments ---
+    # 1. Extract and Validate Arguments
     args = payload.get("args", {})
     well_designation = args.get("well")
-    pump_arg = args.get("pump")  # Can be None, 0, "p1", etc.
-    vol = args.get("vol")      # Optional volume in uL
+    pump_arg = args.get("pump") 
+    vol = args.get("vol")
 
     if well_designation is None:
         send_problem(machine, "Missing required 'well' argument.")
         return
-        
-    # If volume is specified, a pump must also be specified.
+    
     if vol is not None and pump_arg is None:
         send_problem(machine, "Missing 'pump' argument; required when 'vol' is provided.")
         return
 
-    # --- 3. Calculate Target Coordinates ---
+    # 2. Parse well designation
     parsed_indices = parse_well_designation(machine, well_designation)
     if parsed_indices is None:
         send_problem(machine, f"Invalid 'well' designation: '{well_designation}'.")
         return
     row_idx, col_idx = parsed_indices
 
+    # 3. Calculate Target Coordinates (World Space)
     pitch = machine.config['plate_geometry']['well_pitch_cm']
-    well_x = row_idx * pitch
-    well_y = col_idx * pitch
-    machine.log.info(f"Targeting well '{well_designation}' at (x:{well_x:.2f}, y:{well_y:.2f}) cm")
+    a1_offset = machine.config.get('A1_offset', {'dx': 0, 'dy': 0})
     
-    # Apply calibration to get the real-world target
-    target_x, target_y = _apply_similarity_transform(machine, well_x, well_y)
-    machine.log.info(f"After transformation: (x:{target_x:.2f}, y:{target_y:.2f})")
+    target_x = (row_idx * pitch) + a1_offset['dx']
+    target_y = (col_idx * pitch) + a1_offset['dy']
 
-    # --- 4. Calculate Motor Steps for the Move ---
+    machine.log.info(f"Targeting '{well_designation}': World({target_x:.2f}, {target_y:.2f})")
+
+    # 4. Inverse Kinematics
     target_angles = calculate_angles(machine, pump_arg, target_x, target_y)
     if target_angles is None:
         send_problem(machine, "Inverse kinematics failed. Target may be unreachable.")
@@ -571,25 +508,14 @@ def handle_to_well_with_pumps(machine, payload):
     
     theta1, theta2 = target_angles
     target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
-    machine.log.info(f"IK success. Target: ({theta1:.2f}, {theta2:.2f}) degrees -> ({target_m1_steps}, {target_m2_steps}) steps.")
 
-    # --- 5. Conditional Logic for Dispensing ---
+    # 5. Build Sequence (Move only OR Move + Dispense)
     if vol is not None:
-        # This block executes if a volume is provided, creating a two-part sequence.
-        
-        # a. Format pump argument and calculate dispense cycles
         pump = f"p{pump_arg}" if isinstance(pump_arg, int) else str(pump_arg).lower()
-        if pump not in machine.config['pump_offsets']:
-            send_problem(machine, f"Invalid pump specified: {pump_arg}.")
-            return
-            
         cycles = calculate_dispense_cycles(machine, vol, pump)
-        if cycles <= 0:
-            # calculate_dispense_cycles already sent a specific error message.
-            return
+        
+        if cycles <= 0: return # Error already sent by calc function
 
-        # b. Build the two-state sequence and context
-        machine.log.info(f"Move and dispense command accepted. Moving to {well_designation}, then dispensing {vol}uL from {pump}.")
         sequence = [
             {"state": "Moving"},
             {"state": "Dispensing"}
@@ -602,8 +528,6 @@ def handle_to_well_with_pumps(machine, payload):
             "dispense_cycles": cycles
         }
     else:
-        # This block executes if no volume is provided, performing only a move.
-        machine.log.info(f"Move-only command accepted for well {well_designation}.")
         sequence = [{"state": "Moving"}]
         context = {
             "name": "to_well",
@@ -611,5 +535,4 @@ def handle_to_well_with_pumps(machine, payload):
             "target_m2_steps": target_m2_steps
         }
 
-    # --- 6. Start the Sequencer ---
     machine.sequencer.start(sequence, initial_context=context)
