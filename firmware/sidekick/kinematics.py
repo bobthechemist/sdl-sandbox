@@ -10,6 +10,8 @@ import math
 
 def steps_to_degrees(machine, m1_steps, m2_steps):
     """Converts absolute motor steps to angles in degrees."""
+    # TODO: Should simplify to steps * cfg['step_angle_degrees'] / cfg['microsteps']
+
     cfg = machine.config['motor_settings']
     steps_per_rev = (360 / cfg['step_angle_degrees']) * cfg['microsteps']
     

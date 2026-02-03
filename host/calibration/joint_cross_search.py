@@ -132,6 +132,7 @@ def main():
     parser.add_argument("--m2", type=int, required=True, help="Starting M2 steps")
     parser.add_argument("--range", type=int, default=200, help="Scan range +/- steps (default 200)")
     parser.add_argument("--step", type=int, default=10, help="Step size steps (default 10)")
+    parser.add_argument("--max_iterations", type=int, default=1, help="Max iterations to refine center (default 1)")
     parser.add_argument("--output", type=str, default="joint_search_result.json")
     args = parser.parse_args()
 
@@ -150,42 +151,84 @@ def main():
         time.sleep(2)
 
         # 1. Home first to establish coordinate system
-        print(f"\n{C.INFO}Homing...{C.END}")
+        print(f"\n{C.INFO}Homing Sidekick...{C.END}")
         send_and_wait(manager, sk, {"func": "home"}, timeout=20)
+
+        # 2. Set Gain on Colorimeter
+        print(f"\n{C.INFO}Setting Colorimeter Gain to 64x and intensity to 10 mA...{C.END}")
+        gain_payload = {"func": "set_settings", "args": {"gain": 64, "intensity": 10}}
+        if not send_and_wait(manager, cm, gain_payload, "SUCCESS"):
+            print(f"{C.ERR}Failed to set gain. Aborting.{C.END}")
+            return
 
         current_best_m1 = args.m1
         current_best_m2 = args.m2
 
-        # 2. Move to initial Start
+        # 3. Move to initial Start
         print(f"\n{C.INFO}Moving to Start ({current_best_m1}, {current_best_m2})...{C.END}")
         move_to_absolute_steps(manager, sk, current_best_m1, current_best_m2)
 
-        # 3. Scan M1 (keeping M2 fixed at initial)
-        m1_data = scan_joint(manager, sk, cm, 'm1', current_best_m1, current_best_m2, args.range, args.step)
-        best_m1, _ = find_valley_center(m1_data)
-        current_best_m1 = best_m1 # Update our best guess for M1
+        iteration_results = []
+        
+        # 4. Iterative Cross Search
+        for i in range(1, args.max_iterations + 1):
+            print(f"\n{C.WARN}=== Iteration {i} / {args.max_iterations} ==={C.END}")
+            
+            # Store the starting position of this iteration to check convergence later
+            iter_start_m1 = current_best_m1
+            iter_start_m2 = current_best_m2
 
-        # 4. Move to center of M1 valley
-        print(f"Centering M1 on {current_best_m1}...")
-        move_to_absolute_steps(manager, sk, current_best_m1, current_best_m2)
+            # --- Scan M1 (keeping M2 fixed at current best) ---
+            m1_data = scan_joint(manager, sk, cm, 'm1', current_best_m1, current_best_m2, args.range, args.step)
+            best_m1, _ = find_valley_center(m1_data)
+            
+            # Update best M1 immediately
+            current_best_m1 = best_m1 
+            
+            # Move to center of M1 valley to prepare for M2 scan
+            print(f"Centering M1 on {current_best_m1}...")
+            move_to_absolute_steps(manager, sk, current_best_m1, current_best_m2)
 
-        # 5. Scan M2 (keeping M1 fixed at new best)
-        m2_data = scan_joint(manager, sk, cm, 'm2', current_best_m1, current_best_m2, args.range, args.step)
-        _, best_m2 = find_valley_center(m2_data)
-        current_best_m2 = best_m2 # Update our best guess for M2
+            # --- Scan M2 (keeping M1 fixed at new best) ---
+            m2_data = scan_joint(manager, sk, cm, 'm2', current_best_m1, current_best_m2, args.range, args.step)
+            _, best_m2 = find_valley_center(m2_data)
+            
+            # Update best M2
+            current_best_m2 = best_m2
+            
+            # Record data for this iteration
+            iteration_results.append({
+                "iteration": i,
+                "start_position": {"m1": iter_start_m1, "m2": iter_start_m2},
+                "found_position": {"m1": current_best_m1, "m2": current_best_m2},
+                "scan_data": {"m1_scan": m1_data, "m2_scan": m2_data}
+            })
 
-        # 6. Final Result
+            # Move to final center of this iteration
+            print(f"Centering M2 on {current_best_m2}...")
+            move_to_absolute_steps(manager, sk, current_best_m1, current_best_m2)
+
+            # --- Check Convergence ---
+            if current_best_m1 == iter_start_m1 and current_best_m2 == iter_start_m2:
+                print(f"\n{C.OK}Convergence reached: Center did not change during iteration {i}.{C.END}")
+                break
+            else:
+                print(f"Center shifted: ({iter_start_m1}, {iter_start_m2}) -> ({current_best_m1}, {current_best_m2})")
+
+        # 5. Final Result
         print(f"\n{C.OK}Final Center Found: ({current_best_m1}, {current_best_m2}){C.END}")
         
-        # Save results
+        # Save results (saving full history of iterations)
         final_output = {
             "initial_guess": {"m1": args.m1, "m2": args.m2},
-            "parameters": {"range_steps": args.range, "step_size": args.step},
+            "parameters": {
+                "range_steps": args.range, 
+                "step_size": args.step, 
+                "gain": 32,
+                "max_iterations": args.max_iterations
+            },
             "final_result": {"m1": current_best_m1, "m2": current_best_m2},
-            "scan_data": {
-                "m1_scan": m1_data,
-                "m2_scan": m2_data
-            }
+            "iterations": iteration_results
         }
 
         with open(args.output, 'w') as f:
