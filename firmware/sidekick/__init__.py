@@ -49,7 +49,7 @@ SUBSYSTEM_CONFIG = {
         "joint_backoff_steps": 20,
         # Set the position of the arm after homing
         "park_move_x": 10.0, # cm
-        "park_move_y": 5.0, # cm
+        "park_move_y": 7.0, # cm
     },
         "operational_limits_degrees": {
         "m1_min": 0.0,
@@ -57,27 +57,25 @@ SUBSYSTEM_CONFIG = {
         "m2_min": 80.0,
         "m2_max": 180.0
     },
-    "calibration_file": "quadratic_calibration.json",
     "plate_geometry": {
         "well_pitch_cm": 0.9,
         "rows": "ABCDEFGH",
         "columns": 12
     },
-    "similarity_transform": {
-        "x": (7.33592, 0.989432, 0.0256818),
-        "y": (-5.366, -0.0256818, 0.989432)
+    "A1_offset": {
+        "dx": 7.59, #7.24, 
+        "dy": -5.3, #-5.57
+    },
+    "step_correction":{
+        "m1e": -4,
+        "m2e": 29,
     },
     # End effector orientation may not be the same as sidekick
     "pump_offsets": {
         "p1": {"dx": 1.09, "dy": -0.6}, "p2": {"dx": 1.09, "dy": -0.2},
         "p3": {"dx": 1.09, "dy": 0.2}, "p4": {"dx": 1.09, "dy": 0.6},
     },
-    # For aligning dispenser to a 96-well plate configuration
-    # Deprecated - this probably shouldn't be used once to_well handler is fixed
-    "A1_offset": {
-        "dx":7.24,
-        "dy":-5.57
-    }
+   
 }
 
 # ============================================================================

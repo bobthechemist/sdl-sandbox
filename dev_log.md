@@ -1,5 +1,14 @@
 # Dev Log
 
+## [2026-01-28] Development documentation lacking
+
+**Context**: Returning to the project after a one month(+) hiatus. Nothing in the documentation, git repository, or dev log provides meaningful information on where I was when the project was set aside.
+**Issues**: There is a (re)learning curve to determine what was working and what wasn't. There is no resource such as a plan to refer to.
+**Commentary**
+- A plan would be nice to have. An end goal for the next stable version and then a series of projects to achieve that state.
+- I'm creating some un-tracked files (CURRENT_STATUS and BRANCH_GOALS) to assist in documenting progress and tasks.
+- I plan to branch three tasks: sidekick calibration, mcp implementation, agentic chat loop. The order is important: AI is useless if hardware is failing; MCP impelementation drives logic decisions in the agentic chat loop.
+
 ## [2025-11-12] Functional ai planner(?)
 
 **Context**: Working towards AI operation of the sidekick so that it can generate a set of instructions from a human readable prompt

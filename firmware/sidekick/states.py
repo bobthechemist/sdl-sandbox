@@ -43,39 +43,6 @@ class Initialize(State):
             machine.flags['error_message'] = f"Hardware Initialization failed: {e}"
             machine.go_to_state('Error')
         
-        
-        # Load calibration data 
-        try:
-            cal_file = machine.config.get("calibration_file")
-            if not cal_file:
-                raise ValueError("Calibration file not specified in config.")
-
-            machine.log.info(f"Attempting to load quadratic calibration from '{cal_file}'...")
-            import json
-            
-            with open(cal_file, "r") as f:
-                cal_data = json.load(f)
-                coeffs = cal_data.get("coefficients")
-                
-                if coeffs and "motor1" in coeffs and "motor2" in coeffs:
-                    # Store the lists of coefficients for each motor
-                    machine.flags['cal_coeffs_m1'] = coeffs["motor1"]
-                    machine.flags['cal_coeffs_m2'] = coeffs["motor2"]
-                    machine.log.info("Successfully loaded quadratic calibration coefficients.")
-                else:
-                    machine.log.error("Calibration file is missing or has malformed 'coefficients'.")
-                    machine.flags['cal_coeffs_m1'] = None
-                    machine.flags['cal_coeffs_m2'] = None
-
-        except FileNotFoundError:
-            machine.log.error(f"FATAL: Calibration file '{cal_file}' not found.")
-            machine.flags['cal_coeffs_m1'] = None
-            machine.flags['cal_coeffs_m2'] = None
-        except Exception as e:
-            machine.log.error(f"Failed to load or parse calibration file: {e}")
-            machine.flags['cal_coeffs_m1'] = None
-            machine.flags['cal_coeffs_m2'] = None
-
         machine.go_to_state('Homing') # The first action after init must be to home.
 
 class Idle(State):
@@ -137,7 +104,8 @@ class Homing(State):
         elif self._homing_stage == 'RUNNING_M1':
             if not machine.hardware['endstop_m1'].value:
                 # ABSOLUTE POSITION DEFINED
-                machine.flags['current_m1_steps'] = 0
+                
+                machine.flags['current_m1_steps'] = 0 # step offset added later
                 machine.log.info(f"M1 endstop reached. Position DEFINED as {machine.flags['current_m1_steps']} steps.")
                 self._homing_stage = 'START_M2_JOINT'
                 return
@@ -164,9 +132,10 @@ class Homing(State):
         elif self._homing_stage == 'RUNNING_M2_JOINT':
             if not machine.hardware['endstop_m2'].value:
                 # ABSOLUTE POSITION DEFINED
-                machine.flags['current_m2_steps'] = 1600
+                step_offset = machine.config.get('step_correction', {'m1e':0, 'm2e':0})
+                machine.flags['current_m2_steps'] = 1600 + step_offset['m2e'] # We know M2 is 1600 steps from M1 at the endstop, so we use that as our reference point.
                 # M1's position is its starting point (0) plus the steps taken in this phase
-                machine.flags['current_m1_steps'] = 0 + self._steps_taken
+                machine.flags['current_m1_steps'] = step_offset['m1e'] + self._steps_taken
                 machine.log.info(f"M2 endstop reached. Positions DEFINED as M1={machine.flags['current_m1_steps']}, M2={machine.flags['current_m2_steps']}.")
                 self._homing_stage = 'START_JOINT_BACKOFF'
                 return
