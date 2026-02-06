@@ -49,7 +49,7 @@ SUBSYSTEM_CONFIG = {
         "joint_backoff_steps": 20,
         # Set the position of the arm after homing
         "park_move_x": 10.0, # cm
-        "park_move_y": 5.0, # cm
+        "park_move_y": 7.0, # cm
     },
         "operational_limits_degrees": {
         "m1_min": 0.0,
@@ -62,9 +62,13 @@ SUBSYSTEM_CONFIG = {
         "rows": "ABCDEFGH",
         "columns": 12
     },
-        "A1_offset": {
-        "dx": 7.24, 
-        "dy": -5.57
+    "A1_offset": {
+        "dx": 7.59, #7.24, 
+        "dy": -5.22, #-5.57
+    },
+    "step_correction":{
+        "m1e": -4,
+        "m2e": 29,
     },
     # End effector orientation may not be the same as sidekick
     "pump_offsets": {

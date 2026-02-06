@@ -104,7 +104,8 @@ class Homing(State):
         elif self._homing_stage == 'RUNNING_M1':
             if not machine.hardware['endstop_m1'].value:
                 # ABSOLUTE POSITION DEFINED
-                machine.flags['current_m1_steps'] = 0
+                
+                machine.flags['current_m1_steps'] = 0 # step offset added later
                 machine.log.info(f"M1 endstop reached. Position DEFINED as {machine.flags['current_m1_steps']} steps.")
                 self._homing_stage = 'START_M2_JOINT'
                 return
@@ -131,9 +132,10 @@ class Homing(State):
         elif self._homing_stage == 'RUNNING_M2_JOINT':
             if not machine.hardware['endstop_m2'].value:
                 # ABSOLUTE POSITION DEFINED
-                machine.flags['current_m2_steps'] = 1600
+                step_offset = machine.config.get('step_correction', {'m1e':0, 'm2e':0})
+                machine.flags['current_m2_steps'] = 1600 + step_offset['m2e'] # We know M2 is 1600 steps from M1 at the endstop, so we use that as our reference point.
                 # M1's position is its starting point (0) plus the steps taken in this phase
-                machine.flags['current_m1_steps'] = 0 + self._steps_taken
+                machine.flags['current_m1_steps'] = step_offset['m1e'] + self._steps_taken
                 machine.log.info(f"M2 endstop reached. Positions DEFINED as M1={machine.flags['current_m1_steps']}, M2={machine.flags['current_m2_steps']}.")
                 self._homing_stage = 'START_JOINT_BACKOFF'
                 return
