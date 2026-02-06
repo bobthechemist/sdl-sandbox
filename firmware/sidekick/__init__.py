@@ -64,7 +64,7 @@ SUBSYSTEM_CONFIG = {
     },
     "A1_offset": {
         "dx": 7.59, #7.24, 
-        "dy": -5.22, #-5.57
+        "dy": -5.3, #-5.57
     },
     "step_correction":{
         "m1e": -4,
