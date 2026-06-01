@@ -1,8 +1,9 @@
 import threading
 import queue
 import time
-from .device import Device # <-- IMPORT THE NEW CLASS
+from .device import Device
 from host.core.discovery import find_data_comports
+from host.firmware_db import get_device_name
 from shared_lib.messages import Message
 import json
 import logging
@@ -20,10 +21,8 @@ class DeviceManager:
         self.stop_events = {}
         self.incoming_message_queue = queue.Queue()
         
-
     def start(self):
         """Starts the message processing thread."""
-
         log.info("DeviceManager started")
 
     def stop(self):
@@ -58,6 +57,86 @@ class DeviceManager:
             return True
         else:
             return False
+        
+    def connect_all(self):
+        """
+        Scans for and connects to all recognized CircuitPython devices.
+        Returns a dictionary mapping device_key (slug) to port.
+        """
+        device_ports_map = {}
+        all_ports = find_data_comports()
+        
+        if not all_ports:
+            log.warning("No CircuitPython devices connected.")
+            return device_ports_map
+            
+        for port_info in all_ports:
+            port, vid, pid = port_info['port'], port_info['VID'], port_info['PID']
+            friendly_name = get_device_name(vid, pid)
+
+            if "Unknown" not in friendly_name:
+                clean_name = friendly_name.split('(')[0].strip()
+                device_key = clean_name.lower().replace(" ", "_")
+
+                log.info(f"Connecting to {friendly_name} on {port}...")
+                if self.connect_device(port, vid, pid):
+                    device_ports_map[device_key] = port
+                else:
+                    log.error(f"Failed to connect to {port}")
+        
+        if not device_ports_map:
+            log.warning("No recognized devices connected.")
+        else:
+            log.info(f"Connected to: {list(device_ports_map.keys())}")
+            
+        return device_ports_map
+
+    def get_device_capabilities(self, ports: list, timeout: int = 5) -> dict:
+        """
+        Synchronously fetches the command capabilities ('help' command) for the given ports.
+        Returns a dictionary mapping {port: raw_help_payload}.
+        """
+        if not ports:
+            return {}
+
+        log.info(f"Retrieving capabilities from {len(ports)} device(s)...")
+        help_msg = Message.create_message("HOST", "INSTRUCTION", payload={"func": "help", "args": {}})
+        
+        for port in ports:
+            self.send_message(port, help_msg)
+
+        capabilities = {}
+        start_time = time.time()
+        
+        while len(capabilities) < len(ports) and (time.time() - start_time) < timeout:
+            try:
+                msg_type, msg_port, msg_data = self.incoming_message_queue.get_nowait()
+                
+                if msg_type == 'RECV':
+                    # Ensure the Device model stays updated with anything pulled from the queue
+                    if msg_port in self.devices:
+                        self.devices[msg_port].update_from_message(msg_data)
+
+                    # Check if this is the expected help payload
+                    if msg_data.status == "DATA_RESPONSE":
+                        payload = msg_data.payload
+                        data_content = payload.get('data', {})
+                        
+                        # Heuristic: verify this is the command description dictionary
+                        if (isinstance(data_content, dict) and data_content and
+                            isinstance(next(iter(data_content.values()), None), dict) and
+                            'description' in next(iter(data_content.values()), {})):
+                            
+                            capabilities[msg_port] = payload
+                            log.info(f"Successfully received capabilities from {msg_port}.")
+            except queue.Empty:
+                time.sleep(0.1)
+
+        if len(capabilities) < len(ports):
+            missing = [p for p in ports if p not in capabilities]
+            log.warning(f"Timeout: Did not receive capabilities from ports: {missing}")
+
+        return capabilities
 
     def disconnect_device(self, port: str):
         if port not in self.devices:
@@ -106,4 +185,3 @@ class DeviceManager:
                 log.error(f"Critical error in listener for {port}: {e}")
                 self.incoming_message_queue.put(('ERROR', port, str(e)))
                 break
-    

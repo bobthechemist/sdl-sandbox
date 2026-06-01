@@ -7,7 +7,8 @@ FIRMWARE_DATABASE = {
             810: 'Fake Device',
             811: 'Stirplate Manager', 
             812: 'Sidekick',
-            813: 'Colorimeter'
+            813: 'Colorimeter',
+            814: 'CPExpress'
         }
     },
     900: {

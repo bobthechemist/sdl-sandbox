@@ -88,6 +88,13 @@ class ExecutionEngine:
         obs_id = self.dln.log_science(entry_type="observation", data=log_data)
         print(f" {C.OK}[Notebook] Logged Observation (ID: {obs_id}, PlanID: {plan_id}){C.END}")
 
+        data_content = payload.get("data", payload)
+        
+        if is_blob:
+            print(f"  {C.INFO}[DATA]: (Large Blob Saved to {blob_path}){C.END}")
+        else:
+            print(f"  {C.INFO}[DATA]: {data_content}{C.END}")
+
     def _extract_context_tags(self, args: dict) -> dict:
         """Finds common identifiers in args to tag data for easier relational queries."""
         tags = {}

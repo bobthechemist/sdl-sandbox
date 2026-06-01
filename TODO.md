@@ -17,3 +17,11 @@ I'm leaning towards the listed session_id. I do not know how much needs to be ch
 - In run mode, we don't need to see the text of "Goal received" since we just typed it
 - In action/planning mode, the reminder that run accepts a y is needed.
 - Update world_model.json so that there is a template that gets stored for reference but the actual json file is .gitignored
+
+## POSE
+
+- ai_utils.py is performing the duties of the DeviceManager. It should be moved to enforce separation of concerns. the control_panel gui should be reviewed to ensure we have not repeated ourselves.
+    - It's not clear than anything in ai_utils.py belongs in the ai folder. All of this work belongs to the device manager: connect_devices, get_instructions, and the world_model loading needs to be made available to ai and non-ai access, so this is a core feature - possibly a separate script to allow for future modification and generation assistance.
+    - The device manager is the controller and should not be issuing print commands. It could be logging these responses.
+- DeviceManager should be in charge of scanning for devices, connecting and disconnecting devices, returning information about the devices, and sending/receiving messages to/from devices.
+- Make a decision on where to put information. we have the .env file and world_model.json along with hard coded defaults.  Too many places to cause an error.

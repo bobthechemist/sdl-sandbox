@@ -18,7 +18,8 @@ class TalosLite:
         810: "Fake Device",
         811: "Stirplate Manager",
         812: "Sidekick",
-        813: "Colorimeter"
+        813: "Colorimeter",
+        814: "CPExpress"
     }
 
     def __init__(self, port=None, vid=DEFAULT_VID, pid=None, timeout=1.0):

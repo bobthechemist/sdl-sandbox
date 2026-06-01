@@ -13,13 +13,12 @@ from host.core.device_manager import DeviceManager
 from dln import DigitalLabNotebook, ExperimentFinalizedError
 from host.ai.prompt_factory import PromptFactory
 from host.ai.llm_manager import LLMManager
-from host.ai.ai_utils import connect_devices, get_instructions, load_world_from_file
+from host.ai.ai_utils import load_world_from_file
 from host.cogs.cog_manager import CogManager
 from host.gui.console import C
 
 class ChatApp:
     """The main Command and Control Center for the Talos-SDL Host."""
-    # --- MODIFIED: __init__ now takes the pre-loaded world_model ---
     def __init__(self, world_model: dict, provider: str, model: str):
         # 1. Core Services
         self.world_model = world_model
@@ -31,8 +30,29 @@ class ChatApp:
         )
         self.active_data_session_id = self.session_id
 
-        self.device_manager, self.device_ports = connect_devices()
-        self.ai_commands, self.ai_guidance = get_instructions(self.device_manager, self.device_ports)
+
+        # Start and connect hardware
+        print(f"\n{C.INFO}[+] Scanning for recognized Talos instruments...{C.END}")
+        self.device_manager = DeviceManager()
+        self.device_manager.start()
+        self.device_ports = self.device_manager.connect_all()
+        
+        if not self.device_ports:
+            print(f"{C.WARN}  -> No recognized devices connected. AI will run in simulation mode.{C.END}")
+        else:
+            print(f"{C.OK}[+] Connected to: {list(self.device_ports.keys())}{C.END}")
+        
+        raw_capabilities = self.device_manager.get_device_capabilities(list(self.device_ports.values()))
+        
+        self.ai_commands = {}
+        self.ai_guidance = {}
+        for device_key, port in self.device_ports.items():
+            payload = raw_capabilities.get(port, {})
+            # Filter strictly for AI-enabled commands
+            self.ai_commands[device_key] = {
+                k: v for k, v in payload.get('data', {}).items() if v.get('ai_enabled', False)
+            }
+            self.ai_guidance[device_key] = payload.get('metadata', {}).get('ai_guidance', "")
 
         # 2. State Management
         self.is_running = False
@@ -52,7 +72,6 @@ class ChatApp:
             context=self.prompt_factory.get_system_prompt("data")
         )
         self.ai_agent = self.run_agent # Default to run_agent        
-
         
         # 3. Cog and Command Management
         self.commands = {}
@@ -130,7 +149,6 @@ class ChatApp:
 def main():
     parser = argparse.ArgumentParser(description="Talos-SDL Agentic Laboratory Cockpit")
     parser.add_argument("--world", default="world_model.json", help="Path to the world model configuration file.")
-    # --- MODIFIED: These args now default to None to allow world_model to take precedence ---
     parser.add_argument("--provider", default=None, help="AI Provider (overrides world_model.json).")
     parser.add_argument("--model", default=None, help="Specific model name (overrides world_model.json).")
     parser.add_argument("--experiment", help="Override the experiment name from the world model.")
@@ -141,7 +159,6 @@ def main():
     print(f"=========================================={C.END}")
 
     try:
-        # --- MODIFIED: Centralized configuration logic ---
         world_model = load_world_from_file(args.world)
         if not world_model:
             raise FileNotFoundError(f"World model not found at '{args.world}'")
@@ -161,7 +178,6 @@ def main():
         # Pass the final resolved config to the app
         app = ChatApp(world_model=world_model, provider=final_provider, model=final_model)
         app.run()
-        # --- END MODIFICATION ---
 
     except (RuntimeError, FileNotFoundError) as e:
         print(f"\n{C.ERR}A critical error occurred on startup: {e}{C.END}")
