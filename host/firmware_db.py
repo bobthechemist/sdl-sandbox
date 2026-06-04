@@ -8,7 +8,8 @@ FIRMWARE_DATABASE = {
             811: 'Stirplate Manager', 
             812: 'Sidekick',
             813: 'Colorimeter',
-            814: 'CPExpress'
+            814: 'CPExpress',
+            815: 'Buzzer_v1',
         }
     },
     900: {
