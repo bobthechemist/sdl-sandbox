@@ -2262,6 +2262,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#host.socratic_designer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        socratic_designer
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="socratic_designer">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#host.socratic_designer.socratic_prompt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        socratic_prompt
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#host.talos_lite" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3626,6 +3654,34 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#host.socratic_designer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        socratic_designer
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="socratic_designer">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#host.socratic_designer.socratic_prompt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        socratic_prompt
+      
+    </span>
+  </a>
   
 </li>
         
@@ -10384,8 +10440,7 @@ port identification and the two ID values (VID and PID) that can be modified.</p
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>host/firmware_db.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-28">28</a></span>
-<span class="normal"><a href="#__codelineno-0-29">29</a></span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-29">29</a></span>
 <span class="normal"><a href="#__codelineno-0-30">30</a></span>
 <span class="normal"><a href="#__codelineno-0-31">31</a></span>
 <span class="normal"><a href="#__codelineno-0-32">32</a></span>
@@ -10398,21 +10453,22 @@ port identification and the two ID values (VID and PID) that can be modified.</p
 <span class="normal"><a href="#__codelineno-0-39">39</a></span>
 <span class="normal"><a href="#__codelineno-0-40">40</a></span>
 <span class="normal"><a href="#__codelineno-0-41">41</a></span>
-<span class="normal"><a href="#__codelineno-0-42">42</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_device_name</span><span class="p">(</span><span class="n">vid</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">pid</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="sd">    Looks up a human-readable name for a device based on its VID and PID.</span>
-</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31"></a>
-</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32"></a><span class="sd">    Returns a descriptive string or a default if not found.</span>
-</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34"></a>    <span class="n">manufacturer_info</span> <span class="o">=</span> <span class="n">FIRMWARE_DATABASE</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">vid</span><span class="p">)</span>
-</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35"></a>
-</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">manufacturer_info</span><span class="p">:</span>
-</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37"></a>        <span class="k">return</span> <span class="s2">&quot;Unknown Manufacturer&quot;</span>
-</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38"></a>
-</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39"></a>    <span class="n">product_name</span> <span class="o">=</span> <span class="n">manufacturer_info</span><span class="p">[</span><span class="s1">&#39;products&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">pid</span><span class="p">,</span> <span class="s2">&quot;Unknown Product&quot;</span><span class="p">)</span>
-</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="n">manufacturer_name</span> <span class="o">=</span> <span class="n">manufacturer_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;manufacturer&#39;</span><span class="p">,</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">)</span>
-</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41"></a>
-</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">product_name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">manufacturer_name</span><span class="si">}</span><span class="s2">)&quot;</span>
+<span class="normal"><a href="#__codelineno-0-42">42</a></span>
+<span class="normal"><a href="#__codelineno-0-43">43</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_device_name</span><span class="p">(</span><span class="n">vid</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">pid</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31"></a><span class="sd">    Looks up a human-readable name for a device based on its VID and PID.</span>
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32"></a>
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="sd">    Returns a descriptive string or a default if not found.</span>
+</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35"></a>    <span class="n">manufacturer_info</span> <span class="o">=</span> <span class="n">FIRMWARE_DATABASE</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">vid</span><span class="p">)</span>
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36"></a>
+</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">manufacturer_info</span><span class="p">:</span>
+</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38"></a>        <span class="k">return</span> <span class="s2">&quot;Unknown Manufacturer&quot;</span>
+</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39"></a>
+</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="n">product_name</span> <span class="o">=</span> <span class="n">manufacturer_info</span><span class="p">[</span><span class="s1">&#39;products&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">pid</span><span class="p">,</span> <span class="s2">&quot;Unknown Product&quot;</span><span class="p">)</span>
+</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41"></a>    <span class="n">manufacturer_name</span> <span class="o">=</span> <span class="n">manufacturer_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;manufacturer&#39;</span><span class="p">,</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">)</span>
+</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42"></a>
+</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">product_name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">manufacturer_name</span><span class="si">}</span><span class="s2">)&quot;</span>
 </span></code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -11459,6 +11515,93 @@ Populates the function entry box with the selected command.</p>
     </div>
 
 </div>
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-module">
+
+
+
+<h3 id="host.socratic_designer" class="doc doc-heading">
+            <code>socratic_designer</code>
+
+
+</h3>
+
+    <div class="doc doc-contents ">
+
+        <p>Talos-SDL Socratic Instrument Designer
+A tool to guide hardware developers through state-machine and command-interface 
+design using interactive, reflective prompts.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="host.socratic_designer.socratic_prompt" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">socratic_prompt</span><span class="p">(</span><span class="n">question</span><span class="p">,</span> <span class="n">tip</span><span class="p">,</span> <span class="n">placeholder</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Prints a Socratic thinking tip before asking the question.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>host/socratic_designer.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-26">26</a></span>
+<span class="normal"><a href="#__codelineno-0-27">27</a></span>
+<span class="normal"><a href="#__codelineno-0-28">28</a></span>
+<span class="normal"><a href="#__codelineno-0-29">29</a></span>
+<span class="normal"><a href="#__codelineno-0-30">30</a></span>
+<span class="normal"><a href="#__codelineno-0-31">31</a></span>
+<span class="normal"><a href="#__codelineno-0-32">32</a></span>
+<span class="normal"><a href="#__codelineno-0-33">33</a></span>
+<span class="normal"><a href="#__codelineno-0-34">34</a></span>
+<span class="normal"><a href="#__codelineno-0-35">35</a></span>
+<span class="normal"><a href="#__codelineno-0-36">36</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26"></a><span class="k">def</span><span class="w"> </span><span class="nf">socratic_prompt</span><span class="p">(</span><span class="n">question</span><span class="p">,</span> <span class="n">tip</span><span class="p">,</span> <span class="n">placeholder</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Prints a Socratic thinking tip before asking the question.&quot;&quot;&quot;</span>
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">C</span><span class="o">.</span><span class="n">BOLD</span><span class="si">}</span><span class="s2">Thinking Tip:</span><span class="si">{</span><span class="n">C</span><span class="o">.</span><span class="n">END</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">C</span><span class="o">.</span><span class="n">WARN</span><span class="si">}{</span><span class="n">tip</span><span class="si">}{</span><span class="n">C</span><span class="o">.</span><span class="n">END</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29"></a>    <span class="k">if</span> <span class="n">placeholder</span><span class="p">:</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">C</span><span class="o">.</span><span class="n">INFO</span><span class="si">}</span><span class="s2">Example:</span><span class="si">{</span><span class="n">C</span><span class="o">.</span><span class="n">END</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">placeholder</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31"></a>    <span class="n">ans</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">C</span><span class="o">.</span><span class="n">BOLD</span><span class="si">}</span><span class="s2">&gt; </span><span class="si">{</span><span class="n">question</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">C</span><span class="o">.</span><span class="n">END</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32"></a>    <span class="k">while</span> <span class="ow">not</span> <span class="n">ans</span><span class="p">:</span>
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">C</span><span class="o">.</span><span class="n">ERR</span><span class="si">}</span><span class="s2">This field is required to build a valid design specification.</span><span class="si">{</span><span class="n">C</span><span class="o">.</span><span class="n">END</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34"></a>        <span class="n">ans</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">C</span><span class="o">.</span><span class="n">BOLD</span><span class="si">}</span><span class="s2">&gt; </span><span class="si">{</span><span class="n">question</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">C</span><span class="o">.</span><span class="n">END</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="k">return</span> <span class="n">ans</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
 
 
   </div>
