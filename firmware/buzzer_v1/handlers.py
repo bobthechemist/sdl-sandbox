@@ -2,6 +2,7 @@
 # type: ignore
 from shared_lib.messages import send_problem, send_success
 from shared_lib.error_handling import try_wrapper
+from adafruit_drv2605 import Effect
 
 @try_wrapper
 def handle_motor_on(machine, payload):
@@ -57,7 +58,7 @@ def handle_set_effect(machine, payload):
         return
 
     # 4. Apply changes
-    machine.hardware['drv'].sequence[0] = effect
+    machine.hardware['drv'].sequence[0] = Effect(effect)
     machine.flags['current_effect'] = effect
     
     send_success(machine, f"Effect successfully set to {effect}.")
