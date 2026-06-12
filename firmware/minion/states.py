@@ -7,12 +7,39 @@ import adafruit_drv2605
 import adafruit_as7341
 from shared_lib.statemachine import State
 from shared_lib.messages import Message
-from firmware.common.common_states import listen_for_instructions
+
+# ============================================================================
+# GLOBAL BACKGROUND CALLBACK
+# ============================================================================
+
+def run_minion_background(machine):
+    """
+    Global background loop executed every update cycle.
+    Handles background communication and motor looping independently of states.
+    """
+    # 1. Listen for serial commands globally
+    # Removes need for states to manually implement instruction handlers
+    from firmware.common.common_states import listen_for_instructions
+    listen_for_instructions(machine)
+
+    # 2. Maintain haptic motor playback if is_active is enabled
+    if machine.flags.get('is_active', False):
+        try:
+            # Poll internal GO register (0x0C) to verify loop status
+            status = machine.hardware['drv']._read_u8(0x0c)
+            if status == 0:
+                machine.hardware['drv'].play()
+        except Exception as e:
+            machine.log.error(f"Background DRV2605 check failed: {e}")
+
+# ============================================================================
+# PRIMARY SYSTEM STATES
+# ============================================================================
 
 class Initialize(State):
     """
-    Initializes the shared I2C connection, the DRV2605 haptic controller,
-    and the AS7341 spectral sensor. Sets up default hardware configurations.
+    Initializes the shared I2C bus and sets up default parameters
+    for both the AS7341 spectral sensor and the DRV2605 haptic controller.
     """
     @property
     def name(self): return 'Initialize'
@@ -26,24 +53,22 @@ class Initialize(State):
             i2c = busio.I2C(board.SCL, board.SDA)
             machine.hardware['i2c'] = i2c
             
-            # 2. Initialize DRV2605L Controller (Buzzer)
+            # 2. Initialize DRV2605 Controller
             drv = adafruit_drv2605.DRV2605(i2c)
             machine.hardware['drv'] = drv
             
-            # Setup Buzzer Operational Parameters
             default_effect = machine.config['operational_parameters']['effect']
             drv.sequence[0] = default_effect
             drv.sequence[1] = 0 # Safety: ensure multi-sequence is terminated
             
             machine.flags['current_effect'] = default_effect
             machine.flags['is_active'] = False
-            machine.log.info("DRV2605 hardware initialized via shared I2C.")
+            machine.log.info("DRV2605 motor hardware initialized via shared I2C.")
             
-            # 3. Initialize AS7341 Sensor (Colorimeter)
+            # 3. Initialize AS7341 Sensor
             machine.sensor = adafruit_as7341.AS7341(i2c)
             machine.log.info("AS7341 sensor found and initialized via shared I2C.")
 
-            # Setup Colorimeter Operational Parameters
             default_gain_val = machine.config.get("default_gain", 8)
             default_intensity = machine.config.get("default_intensity", 4)
             
@@ -52,19 +77,18 @@ class Initialize(State):
             machine.sensor.led_current = default_intensity
             machine.sensor.led = False
             machine.log.info(f"Colorimeter default settings: Gain={default_gain_val}x, Intensity={default_intensity}mA")
-            
-            # Transition to idle on successful initialization of both devices
+
             machine.go_to_state('Idle')
             
         except Exception as e:
             machine.flags['error_message'] = f"Hardware Initialization failed: {e}"
-            machine.log.error(machine.flags['error_message'])
+            machine.log.critical(machine.flags['error_message'])
             machine.go_to_state('Error')
 
 class Buzzing(State):
     """
-    Continuous state that actively keeps the motor playing its effect.
-    Listens for instruction commands dynamically to allow clean interruption.
+    Continuous state that monitors motor playback activity.
+    The primary looping responsibility is delegated to the background callback.
     """
     @property
     def name(self): return 'Buzzing'
@@ -77,22 +101,17 @@ class Buzzing(State):
 
     def update(self, machine):
         super().update(machine)
-        
-        # Crucial: Allow system to process commands (like `motor_off`) 
-        # while blocked inside this state.
-        listen_for_instructions(machine)
-        
-        # Poll internal GO register (0x0C) to see if effect has naturally terminated
-        # Returns 1 while running, 0 when stopped
-        status = machine.hardware['drv']._read_u8(0x0c)
-        if status == 0:
-            machine.hardware['drv'].play()
+        # Background loop handles periodic play triggers dynamically
 
     def exit(self, machine):
         super().exit(machine)
-        machine.hardware['drv'].stop()
-        machine.flags['is_active'] = False
-        machine.log.info("Motor buzzing stopped.")
+        # Transition out of state without cutting hardware power if motor is active.
+        # Allows background task to keep stirring during sequencer tasks.
+        if not machine.flags.get('is_active', False):
+            machine.hardware['drv'].stop()
+            machine.log.info("Motor buzzing stopped.")
+        else:
+            machine.log.info("Buzzing state exited, motor continues spinning in background.")
 
 # ============================================================================
 # STATES FOR THE 'measure' COMMAND SEQUENCE
@@ -107,10 +126,10 @@ class TurnOnLED(State):
         super().enter(machine, context)
         machine.sensor.led = True
         time.sleep(0.2)
-        self.task_complete = True # Signal to base class that this state is done.
+        self.task_complete = True
 
     def update(self, machine):
-        super().update(machine) # Base class handles sequencer advancement now.
+        super().update(machine)
 
 class ReadSensor(State):
     """Sequencer State: Reads the sensor and stores the result in the sequencer's context."""

@@ -36,9 +36,12 @@ SUBSYSTEM_CONFIG = {
     "min_intensity": 1,
     "max_intensity": 10,
     "ai_guidance": (
-        "1. This motor is connected to a 96-well plate and is used to sonically stir the solutions in the wells. "
-        "Use 'motor_on' to start sonic stirring indefinitely, 'motor_off' to stop, and 'set_effect' to change intensity/pattern (0 to 123) when the motor is OFF.\n"
-        "2. The colorimeter is mounted on the Sidekick arm. You MUST ensure the Sidekick has centered the arm over the target well (using to_well with no pump argument) "
+        "This motor is connected to a 96-well plate and is used to sonically stir the solutions in the wells. "
+        "1. Use 'motor_on' to start sonic stirring indefinitely. "
+        "2. Use 'motor_off' to stop the stirring. "
+        "3. Use 'set_effect' to change the stirring intensity/pattern (0 to 123). The motor must be OFF to change the effect. "
+        "Additionally, the colorimeter is mounted on the Sidekick arm. You MUST ensure the Sidekick has "
+        "centered the arm over the target well (using to_well with no pump argument) "
         "before calling the 'measure' command."
     )
 }
@@ -48,25 +51,17 @@ SUBSYSTEM_CONFIG = {
 # ============================================================================
 
 def send_telemetry(machine):
-    """Generates and sends consolidated telemetry containing status from both sensors."""
+    """Generates and sends telemetry message containing device indicators."""
     try:
-        # Motor variables
         is_active = machine.flags.get('is_active', False)
         current_effect = machine.flags.get('current_effect', SUBSYSTEM_CONFIG['operational_parameters']['effect'])
-        
-        # Colorimeter variables
         led_on = machine.sensor.led
         led_current = machine.sensor.led_current
-
-        machine.log.debug(f"Telemetry: Motor Active={is_active}, Effect={current_effect}, LED On={led_on}, Current={led_current}mA")
 
         telemetry_message = Message(
             subsystem_name=machine.name,
             status="TELEMETRY",
             payload={
-                "metadata": {
-                    "data_type": "minion_status"
-                },
                 "data": {
                     "motor_is_active": is_active,
                     "current_effect": current_effect,
@@ -77,11 +72,11 @@ def send_telemetry(machine):
         )
         machine.postman.send(telemetry_message.serialize())
     except Exception as e:
-        machine.log.error(f"Failed to send telemetry: {e}")
+        machine.log.error(f"Failed to generate telemetry: {e}")
 
 def build_status(machine):
     """
-    Builds the comprehensive status dictionary for the get_info command.
+    Builds the status dictionary for the get_info command.
     """
     return {
         "motor_is_active": machine.flags.get('is_active', False),
@@ -97,7 +92,8 @@ machine = StateMachine(
     version=SUBSYSTEM_VERSION,
     config=SUBSYSTEM_CONFIG,
     init_state=SUBSYSTEM_INIT_STATE,
-    status_callback=build_status
+    status_callback=build_status,
+    background_callback=states.run_minion_background  # Standardized Option A Callback Hook
 )
 
 # --- Attach Communication Channel ---
@@ -117,7 +113,6 @@ machine.add_state(states.TurnOffLED())
 # --- Define Command Interface ---
 register_common_commands(machine)
 
-# Buzzer Command interface
 machine.add_command("motor_on", handlers.handle_motor_on, {
     "description": "Turns on the buzzing motor to sonically stir the solution.",
     "args": [],
@@ -141,7 +136,6 @@ machine.add_command("set_effect", handlers.handle_set_effect, {
     "usage_notes": "The motor must be off before changing the effect."
 })
 
-# Colorimeter Command interface
 machine.add_command("read_all", handlers.handle_read_all, {
     "description": "Immediately reads all 10 color channels and returns the values.",
     "args": [],
@@ -182,4 +176,4 @@ machine.supported_commands['get_info']['ai_enabled'] = False
 machine.add_flag('is_active', False)
 machine.add_flag('current_effect', SUBSYSTEM_CONFIG['operational_parameters']['effect'])
 machine.add_flag('error_message', '')
-machine.add_flag('telemetry_interval', 15.0)  # Telemetry interval for consolidated status reports
+machine.add_flag('telemetry_interval', 15.0)
