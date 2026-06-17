@@ -10,6 +10,7 @@ FIRMWARE_DATABASE = {
             813: 'Colorimeter',
             814: 'CPExpress',
             815: 'Buzzer_v1',
+            816: 'Minion',
         }
     },
     900: {
