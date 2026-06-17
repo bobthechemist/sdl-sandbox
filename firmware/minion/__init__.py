@@ -139,7 +139,7 @@ machine.add_command("set_effect", handlers.handle_set_effect, {
 machine.add_command("read_all", handlers.handle_read_all, {
     "description": "Immediately reads all 10 color channels and returns the values.",
     "args": [],
-    "ai_enabled": False
+    "ai_enabled": True
 })
 
 machine.add_command("get_settings", handlers.handle_get_settings, {

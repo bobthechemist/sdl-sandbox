@@ -33,6 +33,10 @@ def handle_motor_off(machine, payload):
     """
     Handles turning the motor off. Transitions back to Idle.
     """
+
+    # Ensure the motor active flag it set
+    machine.flags['is_active'] = False
+
     if machine.state.name != "Buzzing":
         send_success(machine, "Motor is already off.")
         return

@@ -8,6 +8,7 @@ import adafruit_as7341
 from shared_lib.statemachine import State
 from shared_lib.messages import Message
 
+
 # ============================================================================
 # GLOBAL BACKGROUND CALLBACK
 # ============================================================================
@@ -58,8 +59,8 @@ class Initialize(State):
             machine.hardware['drv'] = drv
             
             default_effect = machine.config['operational_parameters']['effect']
-            drv.sequence[0] = default_effect
-            drv.sequence[1] = 0 # Safety: ensure multi-sequence is terminated
+            drv.sequence[0] = adafruit_drv2605.Effect(default_effect)
+            drv.sequence[1] = adafruit_drv2605.Effect(0) # Safety: ensure multi-sequence is terminated
             
             machine.flags['current_effect'] = default_effect
             machine.flags['is_active'] = False
