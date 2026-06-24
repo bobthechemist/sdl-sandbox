@@ -8,7 +8,6 @@ import adafruit_as7341
 from shared_lib.statemachine import State
 from shared_lib.messages import Message
 
-
 # ============================================================================
 # GLOBAL BACKGROUND CALLBACK
 # ============================================================================
