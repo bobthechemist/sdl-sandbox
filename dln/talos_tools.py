@@ -93,3 +93,56 @@ def get_human_narrative_trail(notebook, session_id: int) -> List[Dict[str, Any]]
         })
 
     return parsed_trail
+
+
+"""
+The following SQL could be useful in summarizing a set of colorimetry data.
+It assumes the colorimeter is the only sensor.
+
+WITH ParentIntent AS (
+    -- Maps each plan back to the most recent preceding intent
+    SELECT 
+        p.id AS plan_id,
+        (
+            SELECT i.id 
+            FROM ScienceLog i 
+            WHERE i.session_id = 52 
+              AND i.entry_type = 'intent' 
+              AND i.id < p.id 
+            ORDER BY i.id DESC 
+            LIMIT 1
+        ) AS intent_id,
+        (
+            SELECT json_extract(i.data, '$.goal') 
+            FROM ScienceLog i 
+            WHERE i.session_id = 52 
+              AND i.entry_type = 'intent' 
+              AND i.id < p.id 
+            ORDER BY i.id DESC 
+            LIMIT 1
+        ) AS intent_text
+    FROM ScienceLog p
+    WHERE p.session_id = 52 
+      AND p.entry_type = 'plan'
+)
+SELECT 
+    obs.id AS observation_id,
+    obs.timestamp,
+    pi.intent_id AS associated_intent_id,
+    pi.intent_text AS associated_intent,
+    -- Parsed spectral channels (ready for Excel charting)
+    json_extract(obs.data, '$.payload.data.violet') AS violet,
+    json_extract(obs.data, '$.payload.data.indigo') AS indigo,
+    json_extract(obs.data, '$.payload.data.blue') AS blue,
+    json_extract(obs.data, '$.payload.data.cyan') AS cyan,
+    json_extract(obs.data, '$.payload.data.green') AS green,
+    json_extract(obs.data, '$.payload.data.yellow') AS yellow,
+    json_extract(obs.data, '$.payload.data.orange') AS orange,
+    json_extract(obs.data, '$.payload.data.red') AS red
+FROM ScienceLog obs
+LEFT JOIN ParentIntent pi 
+  ON CAST(json_extract(obs.data, '$.plan_metadata.plan_id') AS INTEGER) = pi.plan_id
+WHERE obs.session_id = 52 
+  AND obs.entry_type = 'observation'
+ORDER BY obs.timestamp ASC;
+"""
