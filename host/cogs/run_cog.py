@@ -199,7 +199,7 @@ class RunCog(BaseCog):
         pairs = input_str.split()
         for pair in pairs:
             if "=" not in pair: continue
-            k, v = pair.split("...", 1)
+            k, v = pair.split("=", 1)
             try:
                 val = json.loads(v)
             except json.JSONDecodeError:
