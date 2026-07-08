@@ -27,6 +27,26 @@ FIRMWARE_DATABASE = {
     # }
 }
 
+# ============================================================================
+# EXTERNAL HARDWARE LIBRARY DEPENDENCIES
+# ============================================================================
+FIRMWARE_DEPENDENCIES = {
+    "buzzer_v1": ["adafruit_drv2605", "adafruit_logging"],
+    "colorimeter": ["adafruit_as7341", "adafruit_logging"],
+    "minion": ["adafruit_drv2605", "adafruit_as7341", "adafruit_logging"],
+    "mplam": ["neopixel", "adafruit_logging"],
+    "pybot_arm": ["adafruit_logging"],
+    "sidekick": ["adafruit_logging"],
+    "stirplate_manager": [
+        "adafruit_motorkit",
+        "adafruit_motor",
+        "adafruit_pca9685",
+        "adafruit_register",
+        "adafruit_bus_device",
+        "adafruit_logging"
+    ]
+}
+
 def get_device_name(vid: int, pid: int) -> str:
     """
     Looks up a human-readable name for a device based on its VID and PID.

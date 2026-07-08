@@ -182,5 +182,9 @@ all-in-one.md
 # world_model contains personal information
 world_model.json
 
+# firmware_lib is a directory where python drivers for firmware are stored
+firmware_lib/*
+!/firmware_lib/*.md
+
 # temporary as needed
 # docs/
