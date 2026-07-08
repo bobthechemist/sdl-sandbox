@@ -17,6 +17,7 @@ class LLMManager:
         """
         provider = provider or os.getenv("AI_PROVIDER", "gemini").lower()
         
+        # TODO: Get rid of vertex, no longer supported. consider changing 'ollama' to local so it can handle ollama or llama.cpp
         if provider == "vertex":
             model = model or os.getenv("AI_MODEL", "gemini-2.5-flash-lite")
             return VertexAgent(context=context, model_name=model)
@@ -29,9 +30,9 @@ class LLMManager:
 
             return OpenAIAgent(context=context, model_name=model, base_url=url,model_kwargs=ollama_config)
 
-        elif provider == "gemini":
+        elif provider == "gemini" or provider == "google":
             # Google AI Studio (requires API Key)
-            model = model or os.getenv("AI_MODEL", "gemini-2.5-flash-lite")
+            model = model or os.getenv("AI_MODEL", "gemini-flash-lite-latest")
             return GeminiAgent(context=context, model_name=model)
                 
         elif provider == "openai":
