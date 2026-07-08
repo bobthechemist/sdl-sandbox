@@ -57,7 +57,7 @@ class RunCog(BaseCog):
         
         # 2. Check if the user rejected the plan
         if envelope.get("status") == "rejected":
-            print(f"\n{C.WARN}[*] Plan was formally REJECTED. Decision logged to DLN (ID: {plan_id}).{C.END}")
+            print(f"\n{C.WARN}[*] Plan was REJECTED. Decision logged to DLN (ID: {plan_id}).{C.END}")
             return
 
         # 3. Check if the user aborted the plan with CTRL-C
@@ -82,6 +82,7 @@ class RunCog(BaseCog):
             json_str = response.split("```")[1].split("```")[0]
         return json.loads(json_str.strip())
 
+    # TODO: input splitting seems to be convoluted and highly dependent on the command. Consider refactoring.
     def _review_and_edit_plan(self, envelope):
         """Displays the plan for human-in-the-loop review and editing."""
         plan = envelope["final_plan"]
