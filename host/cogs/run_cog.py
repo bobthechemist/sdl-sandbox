@@ -73,6 +73,15 @@ class RunCog(BaseCog):
         # Pass the plan_id to the execution engine for the approved plan
         self.execution_engine.execute_plan(envelope["final_plan"], plan_id=plan_id)
 
+    def _parse_ai_response(self, response):
+        """Extracts a JSON object from the AI's response text."""
+        json_str = response
+        if "```json" in response:
+            json_str = response.split("```json")[1].split("```")[0]
+        elif "```" in response:
+            json_str = response.split("```")[1].split("```")[0]
+        return json.loads(json_str.strip())
+
     def _review_and_edit_plan(self, envelope):
         """Displays the plan for human-in-the-loop review and editing."""
         plan = envelope["final_plan"]
@@ -190,7 +199,7 @@ class RunCog(BaseCog):
         pairs = input_str.split()
         for pair in pairs:
             if "=" not in pair: continue
-            k, v = pair.split("=", 1)
+            k, v = pair.split("...", 1)
             try:
                 val = json.loads(v)
             except json.JSONDecodeError:
