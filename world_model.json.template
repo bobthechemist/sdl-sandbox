@@ -21,6 +21,5 @@
     "p4": "Indicator"
   },
   "max_well_volume_ul": 250.0,
-  "standard_dispense_ul": 10.0,
-  "waste_location": "A12"
+  "standard_dispense_ul": 10.0
 }

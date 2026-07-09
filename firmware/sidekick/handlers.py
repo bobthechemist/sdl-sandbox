@@ -6,6 +6,42 @@ import math
 from shared_lib.error_handling import try_wrapper
 import re
 
+def _execute_coordinate_move(machine, x, y, command_name, pump_arg=None):
+    """
+    Resolves targets to steps and triggers the sequencer for a standard move.
+    """
+    # 1. Resolve coordinates to physical steps
+    step_targets = _resolve_coordinates_to_steps(machine, x, y, pump_arg)
+    if step_targets is None:
+        # The calculation helper handles logging; we report the failure here.
+        send_problem(machine, f"Movement failed: target ({x}, {y}) is unreachable or out of limits.")
+        return False
+    
+    target_m1_steps, target_m2_steps = step_targets
+
+    # 2. Trigger the sequencer with the calculated step targets
+    sequence = [{"state": "Moving"}]
+    context = {
+        "name": command_name,
+        "target_m1_steps": target_m1_steps,
+        "target_m2_steps": target_m2_steps
+    }
+    machine.sequencer.start(sequence, initial_context=context)
+    return True
+
+def _resolve_coordinates_to_steps(machine, x, y, pump_arg=None):
+    """
+    Translates coordinates and pump offsets to target step counts.
+    Returns (m1_steps, m2_steps) or None if unreachable.
+    """
+    # 1. Solve IK to get angles
+    target_angles = calculate_angles(machine, pump_arg, x, y)
+    if target_angles is None:
+        return None
+    
+    # 2. Convert angles to steps
+    theta1, theta2 = target_angles
+    return kinematics.degrees_to_steps(machine, theta1, theta2)
 
 def get_current_position_steps(machine):
     """Returns the current position as a tuple of motor steps: (m1, m2)."""
@@ -37,16 +73,6 @@ def check_homed(machine):
         return False
     return True
 
-def degrees_to_steps(machine, theta1, theta2):
-    """Converts motor angles in degrees to absolute step counts."""
-    cfg = machine.config['motor_settings']
-    steps_per_rev = (360 / cfg['step_angle_degrees']) * cfg['microsteps']
-    
-    m1_steps = int((theta1 / 360) * steps_per_rev)
-    m2_steps = int((theta2 / 360) * steps_per_rev)
-    
-    return m1_steps, m2_steps
-
 def parse_well_designation(machine, well_str: str):
     """
     Parses a well string (e.g., 'B6') into zero-based (row, column) indices.
@@ -54,18 +80,29 @@ def parse_well_designation(machine, well_str: str):
     """
     if not isinstance(well_str, str): return None
     
+    # 1. Load limits from config
     plate_geo = machine.config['plate_geometry']
     rows = plate_geo['rows']
+    max_cols = plate_geo['columns']
     
     sanitized_well = well_str.upper().strip()
-    # Build a regex dynamically from the config
-    match = re.match(r'^([' + rows + '])([1-9]|1[0-2])$', sanitized_well)
     
-    if not match: return None
+    # 2. Match the row letter(s) and any positive integer for the column
+    # This regex dynamically matches any row character defined in config,
+    # followed by an integer starting with 1-9 (e.g., 1, 12, 24).
+    match = re.match(r'^([' + rows + r'])([1-9][0-9]*)$', sanitized_well)
+    if not match: 
+        return None
 
     letter_part = match.group(1)
     number_part = int(match.group(2))
     
+    # 3. Validate column number against the configuration limit
+    if number_part > max_cols:
+        machine.log.warning(f"Requested column {number_part} exceeds plate limit of {max_cols}.")
+        return None
+
+    # 4. Calculate zero-based indices
     row_index = rows.find(letter_part)
     col_index = number_part - 1
     
@@ -157,6 +194,41 @@ def handle_home(machine, payload):
     machine.go_to_state('Homing')
 
 @try_wrapper
+def handle_park(machine, payload):
+    """
+    Moves the arm to the pre-configured safe park position defined in homing_settings.
+    """
+    # 1. Guard Condition: Check if homed
+    if not check_homed(machine):
+        return
+
+    # 2. Retrieve coordinates from config
+    park_x = machine.config['homing_settings']['park_move_x']
+    park_y = machine.config['homing_settings']['park_move_y']
+
+    machine.log.info(f"Park command accepted. Targeting coordinates: ({park_x}, {park_y})")
+
+    _execute_coordinate_move(machine, park_x,park_y, "park")
+
+@try_wrapper
+def handle_waste(machine, payload):
+    """
+    Moves the arm to the pre-configured waste position defined in waste_position config.
+    """
+    # 1. Guard Condition: Check if homed
+    if not check_homed(machine):
+        return
+
+    # 2. Retrieve coordinates from config
+    waste_config = machine.config.get('waste_position', {})
+    waste_x = waste_config.get('x', 8.9) # Default is X used in initial creation of function
+    waste_y = waste_config.get('y', -9.2) # Defaults is Y used in initial creation of function
+
+    machine.log.info(f"Waste command accepted. Targeting coordinates: ({waste_x}, {waste_y})")
+
+    _execute_coordinate_move(machine, waste_x, waste_y, "waste")
+
+@try_wrapper
 def handle_move_to(machine, payload):
     """
     Handles the high-level 'move_to' command. It uses inverse kinematics
@@ -186,30 +258,7 @@ def handle_move_to(machine, payload):
         send_problem(machine, "Invalid coordinate format; 'x' and 'y' must be numbers.")
         return
 
-    # 3. Perform Inverse Kinematics
-    machine.log.info(f"IK request for (x={target_x}, y={target_y}, pump={pump_arg})...")
-    target_angles = calculate_angles(machine, pump_arg, target_x, target_y)
-
-    # 4. Check for IK Failure
-    if target_angles is None:
-        # The IK function already logged the specific error.
-        send_problem(machine, "Inverse kinematics failed. Target may be unreachable or out of safe limits.")
-        return
-    
-    theta1, theta2 = target_angles
-
-    # 5. Convert Validated Angles to Steps
-    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
-    machine.log.info(f"IK success. Target: ({theta1:.2f}, {theta2:.2f}) degrees -> ({target_m1_steps}, {target_m2_steps}) steps.")
-
-    # 6. Set Flags and Execute Move
-    sequence = [{"state":"Moving"}]
-    context = {
-        "name":"move_to",
-        "target_m1_steps": target_m1_steps,
-        "target_m2_steps": target_m2_steps
-    }
-    machine.sequencer.start(sequence, initial_context = context)
+    _execute_coordinate_move(machine, target_x, target_y, "move_to", pump_arg)
 
 @try_wrapper
 def handle_move_rel(machine, payload):
@@ -251,23 +300,7 @@ def handle_move_rel(machine, payload):
     x_target = x_current + dx
     y_target = y_current + dy
 
-    # 5. Convert Target Position back to Motor Steps using Inverse Kinematics
-    target_angles = kinematics.inverse_kinematics(machine, x_target, y_target)
-
-    if target_angles is None:
-        send_problem(machine, f"Inverse kinematics failed. Target ({x_target:.2f}, {y_target:.2f}) may be unreachable.")
-        return
-    
-    theta1_target, theta2_target = target_angles
-    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1_target, theta2_target)
-    
-    # 6. Set Context and Start the Sequencer
-    sequence = [{"state": "Moving"}]
-    context = {
-        "target_m1_steps": target_m1_steps,
-        "target_m2_steps": target_m2_steps
-    }
-    machine.sequencer.start(sequence, initial_context=context)
+    _execute_coordinate_move(machine, x_target, y_target, "move_rel")
 
 #@try_wrapper
 def handle_dispense(machine, payload):
@@ -443,23 +476,7 @@ def handle_to_well(machine, payload):
 
     machine.log.info(f"Targeting '{well_designation}': Rel({well_x_rel:.2f}, {well_y_rel:.2f}) -> World({target_x:.2f}, {target_y:.2f})")
 
-    # 5. Inverse Kinematics (Handles Pump Offsets if pump_arg is provided)
-    target_angles = calculate_angles(machine, pump_arg, target_x, target_y)
-    if target_angles is None:
-        send_problem(machine, "Inverse kinematics failed. Target may be unreachable.")
-        return
-    
-    theta1, theta2 = target_angles
-    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
-
-    # 6. Execute Move
-    sequence = [{"state":"Moving"}]
-    context = {
-        "name": "move_to",
-        "target_m1_steps": target_m1_steps,
-        "target_m2_steps": target_m2_steps
-    }
-    machine.sequencer.start(sequence, initial_context=context)
+    _execute_coordinate_move(machine, target_x, target_y, "to_well", pump_arg)
 
 
 def handle_to_well_with_pumps(machine, payload):

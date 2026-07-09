@@ -51,7 +51,11 @@ SUBSYSTEM_CONFIG = {
         "park_move_x": 10.0, # cm
         "park_move_y": 7.0, # cm
     },
-        "operational_limits_degrees": {
+    "waste_position": {
+        "x": 8.9, # cm
+        "y": -9.2 # cm
+    },
+    "operational_limits_degrees": {
         "m1_min": 0.0,
         "m1_max": 160.0,
         "m2_min": 80.0,
@@ -170,6 +174,20 @@ machine.add_command("home", handlers.handle_home, {
     "args": [],
     "ai_enabled": True,
     "effects": ["arm is now in a known, safe park position", "is_homed flag is now true"]
+})
+machine.add_command("park", handlers.handle_park, {
+    "description": "Moves the arm to the pre-configured safe park position.",
+    "args": [],
+    "ai_enabled": True,
+    "effects": ["arm moves to the pre-configured park position"],
+    "usage_notes": "This command requires the device to be homed first."
+})
+machine.add_command("waste", handlers.handle_waste, {
+    "description": "Moves the arm to the designated waste container position.",
+    "args": [],
+    "ai_enabled": True,
+    "effects": ["arm moves to the waste position"],
+    "usage_notes": "This command requires the device to be homed first."
 })
 machine.add_command("move_to", handlers.handle_move_to, {
     "description": "Moves the arm's center point to an absolute (x, y) coordinate.",
