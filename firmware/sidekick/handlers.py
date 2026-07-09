@@ -255,30 +255,7 @@ def handle_move_to(machine, payload):
         send_problem(machine, "Invalid coordinate format; 'x' and 'y' must be numbers.")
         return
 
-    # 3. Perform Inverse Kinematics
-    machine.log.info(f"IK request for (x={target_x}, y={target_y}, pump={pump_arg})...")
-    target_angles = calculate_angles(machine, pump_arg, target_x, target_y)
-
-    # 4. Check for IK Failure
-    if target_angles is None:
-        # The IK function already logged the specific error.
-        send_problem(machine, "Inverse kinematics failed. Target may be unreachable or out of safe limits.")
-        return
-    
-    theta1, theta2 = target_angles
-
-    # 5. Convert Validated Angles to Steps
-    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
-    machine.log.info(f"IK success. Target: ({theta1:.2f}, {theta2:.2f}) degrees -> ({target_m1_steps}, {target_m2_steps}) steps.")
-
-    # 6. Set Flags and Execute Move
-    sequence = [{"state":"Moving"}]
-    context = {
-        "name":"move_to",
-        "target_m1_steps": target_m1_steps,
-        "target_m2_steps": target_m2_steps
-    }
-    machine.sequencer.start(sequence, initial_context = context)
+    _execute_coordinate_move(machine, target_x, target_y, "move_to", pump_arg)
 
 @try_wrapper
 def handle_move_rel(machine, payload):
@@ -320,23 +297,7 @@ def handle_move_rel(machine, payload):
     x_target = x_current + dx
     y_target = y_current + dy
 
-    # 5. Convert Target Position back to Motor Steps using Inverse Kinematics
-    target_angles = kinematics.inverse_kinematics(machine, x_target, y_target)
-
-    if target_angles is None:
-        send_problem(machine, f"Inverse kinematics failed. Target ({x_target:.2f}, {y_target:.2f}) may be unreachable.")
-        return
-    
-    theta1_target, theta2_target = target_angles
-    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1_target, theta2_target)
-    
-    # 6. Set Context and Start the Sequencer
-    sequence = [{"state": "Moving"}]
-    context = {
-        "target_m1_steps": target_m1_steps,
-        "target_m2_steps": target_m2_steps
-    }
-    machine.sequencer.start(sequence, initial_context=context)
+    _execute_coordinate_move(machine, x_target, y_target, "move_rel")
 
 #@try_wrapper
 def handle_dispense(machine, payload):
@@ -512,23 +473,7 @@ def handle_to_well(machine, payload):
 
     machine.log.info(f"Targeting '{well_designation}': Rel({well_x_rel:.2f}, {well_y_rel:.2f}) -> World({target_x:.2f}, {target_y:.2f})")
 
-    # 5. Inverse Kinematics (Handles Pump Offsets if pump_arg is provided)
-    target_angles = calculate_angles(machine, pump_arg, target_x, target_y)
-    if target_angles is None:
-        send_problem(machine, "Inverse kinematics failed. Target may be unreachable.")
-        return
-    
-    theta1, theta2 = target_angles
-    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
-
-    # 6. Execute Move
-    sequence = [{"state":"Moving"}]
-    context = {
-        "name": "move_to",
-        "target_m1_steps": target_m1_steps,
-        "target_m2_steps": target_m2_steps
-    }
-    machine.sequencer.start(sequence, initial_context=context)
+    _execute_coordinate_move(target_x, target_y, "to_well", pump_arg)
 
 
 def handle_to_well_with_pumps(machine, payload):
