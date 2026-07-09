@@ -164,6 +164,9 @@ cython_debug/
 # BoB puts a lot of junk in the temp folder so let's ignore that
 temp/
 
+# The _private folder in docs is supposed to be private 
+docs/_private/
+
 # Local experiment database and files
 .talos/
 .talos_phase1_test/
