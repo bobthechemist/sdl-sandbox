@@ -171,6 +171,13 @@ machine.add_command("home", handlers.handle_home, {
     "ai_enabled": True,
     "effects": ["arm is now in a known, safe park position", "is_homed flag is now true"]
 })
+machine.add_command("park", handlers.handle_park, {
+    "description": "Moves the arm to the pre-configured safe park position.",
+    "args": [],
+    "ai_enabled": True,
+    "effects": ["arm moves to the pre-configured park position"],
+    "usage_notes": "This command requires the device to be homed first."
+})
 machine.add_command("move_to", handlers.handle_move_to, {
     "description": "Moves the arm's center point to an absolute (x, y) coordinate.",
     "args": [

@@ -157,6 +157,40 @@ def handle_home(machine, payload):
     machine.go_to_state('Homing')
 
 @try_wrapper
+def handle_park(machine, payload):
+    """
+    Moves the arm to the pre-configured safe park position defined in homing_settings.
+    """
+    # 1. Guard Condition: Check if homed
+    if not check_homed(machine):
+        return
+
+    # 2. Retrieve coordinates from config
+    park_x = machine.config['homing_settings']['park_move_x']
+    park_y = machine.config['homing_settings']['park_move_y']
+
+    machine.log.info(f"Park command accepted. Targeting coordinates: ({park_x}, {park_y})")
+
+    # 3. Perform Inverse Kinematics
+    target_angles = kinematics.inverse_kinematics(machine, park_x, park_y)
+    if target_angles is None:
+        send_problem(machine, f"Inverse kinematics failed. Park position ({park_x}, {park_y}) is unreachable.")
+        return
+
+    # 4. Convert Angles to Steps
+    theta1, theta2 = target_angles
+    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
+
+    # 5. Start the Sequencer with the Moving state
+    sequence = [{"state": "Moving"}]
+    context = {
+        "name": "park",
+        "target_m1_steps": target_m1_steps,
+        "target_m2_steps": target_m2_steps
+    }
+    machine.sequencer.start(sequence, initial_context=context)
+
+@try_wrapper
 def handle_move_to(machine, payload):
     """
     Handles the high-level 'move_to' command. It uses inverse kinematics
