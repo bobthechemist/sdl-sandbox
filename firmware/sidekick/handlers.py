@@ -191,6 +191,41 @@ def handle_park(machine, payload):
     machine.sequencer.start(sequence, initial_context=context)
 
 @try_wrapper
+def handle_waste(machine, payload):
+    """
+    Moves the arm to the pre-configured waste position defined in waste_position config.
+    """
+    # 1. Guard Condition: Check if homed
+    if not check_homed(machine):
+        return
+
+    # 2. Retrieve coordinates from config
+    waste_config = machine.config.get('waste_position', {})
+    waste_x = waste_config.get('x', 8.9) # Default is X used in initial creation of function
+    waste_y = waste_config.get('y', -9.2) # Defaults is Y used in initial creation of function
+
+    machine.log.info(f"Waste command accepted. Targeting coordinates: ({waste_x}, {waste_y})")
+
+    # 3. Perform Inverse Kinematics
+    target_angles = kinematics.inverse_kinematics(machine, waste_x, waste_y)
+    if target_angles is None:
+        send_problem(machine, f"Inverse kinematics failed. Waste position ({waste_x}, {waste_y}) is unreachable.")
+        return
+
+    # 4. Convert Angles to Steps
+    theta1, theta2 = target_angles
+    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
+
+    # 5. Start the Sequencer with the Moving state
+    sequence = [{"state": "Moving"}]
+    context = {
+        "name": "waste",
+        "target_m1_steps": target_m1_steps,
+        "target_m2_steps": target_m2_steps
+    }
+    machine.sequencer.start(sequence, initial_context=context)
+
+@try_wrapper
 def handle_move_to(machine, payload):
     """
     Handles the high-level 'move_to' command. It uses inverse kinematics
