@@ -33,14 +33,121 @@ def main():
     parser.add_argument("--output", required=True, help="Filename for the output Markdown report.")
     parser.add_argument("--template", required=True, help="Path to the Markdown template file.")
     parser.add_argument("--agent", default="gemini", help="AI Provider (default: gemini).")
-    parser.add_argument("--model", default="gemini-2.5-flash-lite", help="Model name (default: gemini-2.5-flash-lite).")
+    parser.add_argument("--model", default="gemini-flash-lite-latest", help="Model name (default: gemini-flash-lite-latest).")
 
     args = parser.parse_args()
 
-    # 1. Validation
-    # No log file check, we rely on DB existence
+    # Load Data from New DLN
+    print(f"{C.INFO}Loading log data and template...{C.END}")
+    template_content = load_file(args.template)
 
-    # 2. User Context Input
+    # Initialize the new DLN (assuming it's in .talos)
+    notebook = DigitalLabNotebook(db_path=".talos/lab_notebook.db") 
+    
+    # Retrieve ExperimentSession data
+    exp_session_raw = notebook.query_relational(
+        f"SELECT id, title, start_time, end_time, context_json, final_summary, final_hash, status "
+        f"FROM ExperimentSession WHERE id = {args.experiment_id}"
+    )
+    if not exp_session_raw:
+        print(f"{C.ERR}Error: Experiment session with ID {args.experiment_id} not found.{C.END}")
+        sys.exit(1)
+    
+    # Convert raw tuple result to dictionary for easier access
+    session_data = dict(zip(['id', 'title', 'start_time', 'end_time', 'context_json', 'final_summary', 'final_hash', 'status'], exp_session_raw[0]))
+    session_start_time = session_data['start_time'].isoformat() if hasattr(session_data['start_time'], 'isoformat') else str(session_data['start_time'])
+    
+    # Ensure context_json is parsed correctly for safe access
+    session_context = json.loads(session_data.get('context_json', '{}')) if isinstance(session_data.get('context_json'), str) else session_data.get('context_json', {})
+
+    # Retrieve ScienceLog entries
+    science_logs_raw = notebook.query_relational(
+        f"SELECT id, timestamp, entry_type, data, supersedes_id, correction_reason "
+        f"FROM ScienceLog WHERE session_id = {args.experiment_id} ORDER BY timestamp ASC"
+    )
+    
+    # Retrieve TransactionLog entries
+    transaction_logs_raw = notebook.query_relational(
+        f"SELECT id, timestamp, raw_io "
+        f"FROM TransactionLog WHERE session_id = {args.experiment_id} ORDER BY timestamp ASC"
+    )
+
+    # Format logs into a structured list of dicts for the LLM prompt
+    formatted_science_logs = []
+    for log_id, timestamp, entry_type, data_json, supersedes_id, correction_reason in science_logs_raw:
+        ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
+        formatted_science_logs.append({
+            "log_id": log_id, "timestamp": ts_str, "type": entry_type,
+            "data": json.loads(data_json), "supersedes": supersedes_id, "reason": correction_reason
+        })
+    
+    formatted_transaction_logs = []
+    for log_id, timestamp, raw_io in transaction_logs_raw:
+        ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
+        formatted_transaction_logs.append({
+            "log_id": log_id, "timestamp": ts_str, "raw_io": raw_io
+        })
+
+    # --- Extract and Format Human-in-the-Loop Interactions ---
+    hitl_rows = []
+    for log in formatted_science_logs:
+        log_id = log["log_id"]
+        ts_str = log["timestamp"].split("T")[-1] if "T" in log["timestamp"] else log["timestamp"].split(" ")[-1]
+        if "." in ts_str:
+            ts_str = ts_str.split(".")[0]
+            
+        entry_type = log["type"]
+        data = log["data"]
+        
+        if entry_type == "intent":
+            content = data.get("goal") or data.get("intent") or ""
+            hitl_rows.append(f"| {log_id} | {ts_str} | Instruction (Intent) | {content} |")
+        elif entry_type == "note":
+            content = data.get("message") or ""
+            hitl_rows.append(f"| {log_id} | {ts_str} | Operator Note | {content} |")
+        elif entry_type == "plan" and data.get("human_edits"):
+            edits = data.get("human_edits")
+            edits_formatted = []
+            for edit in edits:
+                action = edit.get("action", "")
+                cmd = edit.get("cmd", "")
+                rationale = edit.get("rationale", "")
+                edits_formatted.append(f"{action.upper()} '{cmd}' ({rationale})")
+            hitl_rows.append(f"| {log_id} | {ts_str} | Plan Modification | {'; '.join(edits_formatted)} |")
+
+    if hitl_rows:
+        human_interactions_md = (
+            "| Log ID | Time | Type | Content |\n"
+            "| :---: | :---: | :---: | :--- |\n" + "\n".join(hitl_rows)
+        )
+    else:
+        human_interactions_md = "*No specific Human-in-the-Loop interactions or overrides were recorded.*"
+
+    # --- Format Reagents List ---
+    reagents_raw = session_context.get('reagents', {})
+    if reagents_raw:
+        reagents_list = "\n".join([f"*   **{k}:** {v}" for k, v in reagents_raw.items()])
+    else:
+        reagents_list = "*   *No reagents registered in session context.*"
+
+    # Compile static replacements. Leave synthesis placeholders intact for LLM completion.
+    replacements = {
+        "{{ EXPERIMENT_TITLE }}": session_data.get('title', 'N/A') or "N/A",
+        "{{ DATE }}": session_start_time.split('T')[0] if 'T' in session_start_time else session_start_time.split(' ')[0],
+        "{{ SESSION_ID }}": str(session_data['id']),
+        "{{ REAGENTS_LIST }}": reagents_list,
+        "{{ HUMAN_INTERACTIONS }}": human_interactions_md
+    }
+
+    # If objective summary is pre-defined in DB context, replace it. Otherwise, let LLM synthesize it.
+    if session_context.get('objective'):
+        replacements["{{ OBJECTIVE_SUMMARY }}"] = session_context['objective']
+
+    # Apply metadata replacements to the template content
+    for key, value in replacements.items():
+        template_content = template_content.replace(key, value)
+
+    # Ask the user for extra context as fallback input
     print(f"\n{C.INFO}--- Experiment Context ---{C.END}")
     print("Please provide specific experimental details to aid the summary.")
     print("(e.g., 'This was a titration of Acetic Acid with NaOH using Universal Indicator')")
@@ -49,81 +156,19 @@ def main():
         print(f"{C.WARN}No context provided. Proceeding with log data only.{C.END}")
         user_context = "No specific user context provided."
 
-    # 3. Load Data from New DLN
-    print(f"{C.INFO}Loading log data and template...{C.END}")
-    template_content = load_file(args.template)
-
-    # Initialize the new DLN (assuming it's in .talos)
-    notebook = DigitalLabNotebook(db_path=".talos/lab_notebook.db") 
-    
-    # Retrieve ExperimentSession data
-    exp_session_raw = notebook.query_relational(f"SELECT id, title, start_time, end_time, context_json, final_summary, final_hash, status FROM ExperimentSession WHERE id = {args.experiment_id}")
-    if not exp_session_raw:
-        print(f"{C.ERR}Error: Experiment session with ID {args.experiment_id} not found.{C.END}")
-        sys.exit(1)
-    
-    # Convert raw tuple result to dictionary for easier access
-    session_data = dict(zip(['id', 'title', 'start_time', 'end_time', 'context_json', 'final_summary', 'final_hash', 'status'], exp_session_raw[0]))
-    session_start_time = session_data['start_time'].isoformat() if session_data['start_time'] else datetime.now().isoformat()
-    
-    # Ensure context_json is parsed correctly for safe access
-    session_context = json.loads(session_data.get('context_json', '{}')) if isinstance(session_data.get('context_json'), str) else session_data.get('context_json', {})
-
-
-    # Retrieve ScienceLog entries
-    science_logs_raw = notebook.query_relational(f"SELECT id, timestamp, entry_type, data, supersedes_id, correction_reason FROM ScienceLog WHERE session_id = {args.experiment_id} ORDER BY timestamp ASC")
-    
-    # Retrieve TransactionLog entries
-    transaction_logs_raw = notebook.query_relational(f"SELECT id, timestamp, raw_io FROM TransactionLog WHERE session_id = {args.experiment_id} ORDER BY timestamp ASC")
-
-    # Format logs into a structured list of dicts for the LLM prompt
-    formatted_science_logs = []
-    for log_id, timestamp, entry_type, data_json, supersedes_id, correction_reason in science_logs_raw:
-        formatted_science_logs.append({
-            "log_id": log_id, "timestamp": timestamp.isoformat(), "type": entry_type,
-            "data": json.loads(data_json), "supersedes": supersedes_id, "reason": correction_reason
-        })
-    
-    formatted_transaction_logs = []
-    for log_id, timestamp, raw_io in transaction_logs_raw:
-        formatted_transaction_logs.append({
-            "log_id": log_id, "timestamp": timestamp.isoformat(), "raw_io": raw_io
-        })
-
-    # Prepare basic template tokens for direct replacement (e.g., title, date)
-    replacements = {
-        "{{ EXPERIMENT_TITLE }}": session_data.get('title', 'N/A'),
-        "{{ DATE }}": session_start_time.split('T')[0],
-        "{{ SESSION_ID }}": str(session_data['id']),
-        "{{ OBJECTIVE_SUMMARY }}": session_context.get('objective', 'No objective provided.'), 
-        "{{ CONNECTED_DEVICES }}": "See details in log.", # This would need more parsing from logs
-        "{{ REAGENTS_LIST }}": json.dumps(session_context.get('reagents', {}), indent=2), # Get from world model
-        "{{ PROCEDURAL_SUMMARY }}": "See detailed log below.", # LLM will fill this in detail
-        "{{ DATA_ANALYSIS }}": "See detailed log below.", # LLM will fill this in detail
-        "{{ SCIENTIFIC_CONCLUSION }}": session_data.get('final_summary', 'No conclusion yet.'),
-        "{{ RECOMMENDATIONS }}": "N/A" # LLM can fill this if asked
-    }
-
-    # Apply initial replacements to the template content
-    for key, value in replacements.items():
-        template_content = template_content.replace(key, value)
-
     # 4. Prepare Prompt for the LLM
-    # The LLM will now interpret the structured data from the DLN
-
     system_instruction = """You are an expert Laboratory Data Scientist. 
-Your task is to write a formal electronic laboratory notebook entry based on a robotic execution log.
-You will be provided with:
-1. A Markdown Template.
-2. Structured JSON data from a Digital Lab Notebook (DLN) session (Experiment Session Metadata, Science Logs, and Transaction Logs).
-3. User context about the experiment.
+Your task is to write a formal, highly professional electronic laboratory notebook entry by completing the provided Markdown Template using a robotic execution log.
 
 **GUIDELINES:**
-- **Strictly** follow the structure of the provided template.
-- **Extract Data:** Look for 'observation' entries in Science Logs. If spectral or tabular data is present in the 'data' field, format it into clear Markdown tables in the 'Observations & Results' section.
-- **Interpret:** Do not just list logs. Interpret the actions and findings (e.g., "created a serial dilution" from plan and intent logs, "measured pH" from observation logs).
-- **Scientific Tone:** Use passive voice where appropriate for methods, and active analytical voice for conclusions.
-- **Completeness:** Ensure all sections of the template are filled using information from the DLN and user context.
+- **Strictly follow the structure of the provided template.** Do not add, remove, or modify top-level markdown headers.
+- **Synthesize Remaining Placeholders:** Populate the placeholders `{{ OBJECTIVE_SUMMARY }}`, `{{ CONNECTED_DEVICES }}`, `{{ PROCEDURAL_SUMMARY }}`, `{{ DATA_ANALYSIS }}`, `{{ REFLECTIONS }}`, and `{{ RECOMMENDATIONS }}` dynamically by replacing them in the template.
+- **Objective Summary:** Formulate a clear, concise scientific objective based on the experiment name, context, and logged interactions.
+- **Connected Devices:** Identify and list the physical hardware devices active during the run (e.g., robotic arms, colorimeters) by analyzing command structures in the logs.
+- **Procedural Summary:** Write a high-quality, professional, step-by-step summary of the experimental run. Organize the description as logical laboratory phases rather than a raw sequential list of commands.
+- **Data Analysis & Results:** Extract raw spectral data from 'observation' records in the Science Log. Format this data into tidy Markdown tables grouped logically (e.g., control tests, continuous variation series). Discuss visible trends, spectral absorption behaviors, and potential outliers/errors.
+- **Reflections & Next Steps:** Formulate current thoughts on the outcome, identify potential data processing steps (such as blank subtraction and absorbance conversion), state any concerns or source of noise, and propose concrete recommendations/next steps for subsequent trials.
+- **Tone:** Maintain a humble, professional, objective, and scholarly tone. Avoid overconfident or exaggerated language (do not use words like "perfectly", "flawlessly", or "100% correct").
 """
 
     user_prompt = f"""
@@ -141,7 +186,7 @@ You will be provided with:
 {json.dumps(formatted_science_logs, indent=2)}
 
 **Transaction Log Entries (recent 20):**
-{json.dumps(formatted_transaction_logs[-20:], indent=2)} # Limit transaction logs for brevity in prompt
+{json.dumps(formatted_transaction_logs[-20:], indent=2)}
 """
 
     # 5. Initialize Agent

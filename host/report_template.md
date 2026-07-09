@@ -2,30 +2,27 @@
 
 **Date:** {{ DATE }}
 **Session ID:** {{ SESSION_ID }}
-**Operator:** Sidekick AI Controller / Human Supervisor
+**Operator:** *Your name here*
 
 ### 1. Objective
 {{ OBJECTIVE_SUMMARY }}
 
 ### 2. Materials & Equipment
-*   **Hardware:** Sidekick Robotic Arm, {{ CONNECTED_DEVICES }}
+*   **Hardware:** {{ CONNECTED_DEVICES }}
 *   **Reagents:**
 {{ REAGENTS_LIST }}
 
-### 3. Procedure
+### 3. Human-in-the-Loop Interactions
+{{ HUMAN_INTERACTIONS }}
+
+### 4. Procedure
 {{ PROCEDURAL_SUMMARY }}
-*   *Describe the setup (homing, priming).*
-*   *Describe the liquid handling actions (source wells, destination wells, volumes).*
-*   *Describe the measurement parameters (sensor settings, targets).*
 
-### 4. Observations & Results
+### 5. Observations & Results
 {{ DATA_ANALYSIS }}
-*   *Include Markdown tables of raw data if spectral measurements were taken.*
-*   *Describe any trends, peaks, or colorimetric shifts observed.*
-*   *Note any operational anomalies.*
 
-### 5. Conclusions
-{{ SCIENTIFIC_CONCLUSION }}
+### 6. Reflections
+{{ REFLECTIONS }}
 
-### 6. Next Steps
+### 7. Next Steps
 {{ RECOMMENDATIONS }}
