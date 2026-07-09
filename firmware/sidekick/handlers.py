@@ -473,7 +473,7 @@ def handle_to_well(machine, payload):
 
     machine.log.info(f"Targeting '{well_designation}': Rel({well_x_rel:.2f}, {well_y_rel:.2f}) -> World({target_x:.2f}, {target_y:.2f})")
 
-    _execute_coordinate_move(target_x, target_y, "to_well", pump_arg)
+    _execute_coordinate_move(machine, target_x, target_y, "to_well", pump_arg)
 
 
 def handle_to_well_with_pumps(machine, payload):
