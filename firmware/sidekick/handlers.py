@@ -54,18 +54,29 @@ def parse_well_designation(machine, well_str: str):
     """
     if not isinstance(well_str, str): return None
     
+    # 1. Load limits from config
     plate_geo = machine.config['plate_geometry']
     rows = plate_geo['rows']
+    max_cols = plate_geo['columns']
     
     sanitized_well = well_str.upper().strip()
-    # Build a regex dynamically from the config
-    match = re.match(r'^([' + rows + '])([1-9]|1[0-2])$', sanitized_well)
     
-    if not match: return None
+    # 2. Match the row letter(s) and any positive integer for the column
+    # This regex dynamically matches any row character defined in config,
+    # followed by an integer starting with 1-9 (e.g., 1, 12, 24).
+    match = re.match(r'^([' + rows + r'])([1-9][0-9]*)$', sanitized_well)
+    if not match: 
+        return None
 
     letter_part = match.group(1)
     number_part = int(match.group(2))
     
+    # 3. Validate column number against the configuration limit
+    if number_part > max_cols:
+        machine.log.warning(f"Requested column {number_part} exceeds plate limit of {max_cols}.")
+        return None
+
+    # 4. Calculate zero-based indices
     row_index = rows.find(letter_part)
     col_index = number_part - 1
     
