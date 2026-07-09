@@ -6,6 +6,29 @@ import math
 from shared_lib.error_handling import try_wrapper
 import re
 
+def _execute_coordinate_move(machine, x, y, command_name, pump_arg=None):
+    """
+    Internal helper to centralize IK, step conversion, and sequencer execution.
+    """
+    # 1. Kinematics calculations
+    target_angles = calculate_angles(machine, pump_arg, x, y)
+    if target_angles is None:
+        send_problem(machine, f"Movement failed: coordinates ({x}, {y}) are unreachable.")
+        return False
+    
+    # 2. Angle to step conversion
+    theta1, theta2 = target_angles
+    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
+    
+    # 3. Trigger sequencer
+    sequence = [{"state": "Moving"}]
+    context = {
+        "name": command_name,
+        "target_m1_steps": target_m1_steps,
+        "target_m2_steps": target_m2_steps
+    }
+    machine.sequencer.start(sequence, initial_context=context)
+    return True
 
 def get_current_position_steps(machine):
     """Returns the current position as a tuple of motor steps: (m1, m2)."""
@@ -182,24 +205,7 @@ def handle_park(machine, payload):
 
     machine.log.info(f"Park command accepted. Targeting coordinates: ({park_x}, {park_y})")
 
-    # 3. Perform Inverse Kinematics
-    target_angles = kinematics.inverse_kinematics(machine, park_x, park_y)
-    if target_angles is None:
-        send_problem(machine, f"Inverse kinematics failed. Park position ({park_x}, {park_y}) is unreachable.")
-        return
-
-    # 4. Convert Angles to Steps
-    theta1, theta2 = target_angles
-    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
-
-    # 5. Start the Sequencer with the Moving state
-    sequence = [{"state": "Moving"}]
-    context = {
-        "name": "park",
-        "target_m1_steps": target_m1_steps,
-        "target_m2_steps": target_m2_steps
-    }
-    machine.sequencer.start(sequence, initial_context=context)
+    _execute_coordinate_move(machine, park_x,park_y, "park")
 
 @try_wrapper
 def handle_waste(machine, payload):
@@ -217,24 +223,7 @@ def handle_waste(machine, payload):
 
     machine.log.info(f"Waste command accepted. Targeting coordinates: ({waste_x}, {waste_y})")
 
-    # 3. Perform Inverse Kinematics
-    target_angles = kinematics.inverse_kinematics(machine, waste_x, waste_y)
-    if target_angles is None:
-        send_problem(machine, f"Inverse kinematics failed. Waste position ({waste_x}, {waste_y}) is unreachable.")
-        return
-
-    # 4. Convert Angles to Steps
-    theta1, theta2 = target_angles
-    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
-
-    # 5. Start the Sequencer with the Moving state
-    sequence = [{"state": "Moving"}]
-    context = {
-        "name": "waste",
-        "target_m1_steps": target_m1_steps,
-        "target_m2_steps": target_m2_steps
-    }
-    machine.sequencer.start(sequence, initial_context=context)
+    _execute_coordinate_move(machine, waste_x, waste_y, "waste")
 
 @try_wrapper
 def handle_move_to(machine, payload):
