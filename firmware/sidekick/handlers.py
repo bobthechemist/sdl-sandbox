@@ -8,19 +8,18 @@ import re
 
 def _execute_coordinate_move(machine, x, y, command_name, pump_arg=None):
     """
-    Internal helper to centralize IK, step conversion, and sequencer execution.
+    Resolves targets to steps and triggers the sequencer for a standard move.
     """
-    # 1. Kinematics calculations
-    target_angles = calculate_angles(machine, pump_arg, x, y)
-    if target_angles is None:
-        send_problem(machine, f"Movement failed: coordinates ({x}, {y}) are unreachable.")
+    # 1. Resolve coordinates to physical steps
+    step_targets = _resolve_coordinates_to_steps(machine, x, y, pump_arg)
+    if step_targets is None:
+        # The calculation helper handles logging; we report the failure here.
+        send_problem(machine, f"Movement failed: target ({x}, {y}) is unreachable or out of limits.")
         return False
     
-    # 2. Angle to step conversion
-    theta1, theta2 = target_angles
-    target_m1_steps, target_m2_steps = kinematics.degrees_to_steps(machine, theta1, theta2)
-    
-    # 3. Trigger sequencer
+    target_m1_steps, target_m2_steps = step_targets
+
+    # 2. Trigger the sequencer with the calculated step targets
     sequence = [{"state": "Moving"}]
     context = {
         "name": command_name,
@@ -29,6 +28,20 @@ def _execute_coordinate_move(machine, x, y, command_name, pump_arg=None):
     }
     machine.sequencer.start(sequence, initial_context=context)
     return True
+
+def _resolve_coordinates_to_steps(machine, x, y, pump_arg=None):
+    """
+    Translates coordinates and pump offsets to target step counts.
+    Returns (m1_steps, m2_steps) or None if unreachable.
+    """
+    # 1. Solve IK to get angles
+    target_angles = calculate_angles(machine, pump_arg, x, y)
+    if target_angles is None:
+        return None
+    
+    # 2. Convert angles to steps
+    theta1, theta2 = target_angles
+    return kinematics.degrees_to_steps(machine, theta1, theta2)
 
 def get_current_position_steps(machine):
     """Returns the current position as a tuple of motor steps: (m1, m2)."""
@@ -59,16 +72,6 @@ def check_homed(machine):
         send_problem(machine, "Device must be homed before this operation.")
         return False
     return True
-
-def degrees_to_steps(machine, theta1, theta2):
-    """Converts motor angles in degrees to absolute step counts."""
-    cfg = machine.config['motor_settings']
-    steps_per_rev = (360 / cfg['step_angle_degrees']) * cfg['microsteps']
-    
-    m1_steps = int((theta1 / 360) * steps_per_rev)
-    m2_steps = int((theta2 / 360) * steps_per_rev)
-    
-    return m1_steps, m2_steps
 
 def parse_well_designation(machine, well_str: str):
     """
