@@ -11,6 +11,7 @@ FIRMWARE_DATABASE = {
             814: 'CPExpress',
             815: 'Buzzer_v1',
             816: 'Minion',
+            817: 'Primus',
         }
     },
     900: {
@@ -44,7 +45,8 @@ FIRMWARE_DEPENDENCIES = {
         "adafruit_register",
         "adafruit_bus_device",
         "adafruit_logging"
-    ]
+    ],
+    "primus": ["adafruit_logging", "adafruit_motor"]
 }
 
 def get_device_name(vid: int, pid: int) -> str:
