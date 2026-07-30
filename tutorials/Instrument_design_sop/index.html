@@ -8,13 +8,9 @@
       
       
       
-        <link rel="canonical" href="https://bobthechemist.github.io/talos-sdl/concepts/architecture_overview/">
+        <link rel="canonical" href="https://bobthechemist.github.io/talos-sdl/tutorials/Instrument_design_sop/">
       
       
-        <link rel="prev" href="../../tutorials/building_your_first_firmware/">
-      
-      
-        <link rel="next" href="../core_philosophy_features/">
       
       
         
@@ -25,7 +21,7 @@
     
     
       
-        <title>System Architecture Overview - Talos-SDL Documentation</title>
+        <title>Standard Operating Procedure: Agentic Firmware Design for Talos-SDL - Talos-SDL Documentation</title>
       
     
     
@@ -68,7 +64,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#system-architecture-overview" class="md-skip">
+        <a href="#standard-operating-procedure-agentic-firmware-design-for-talos-sdl" class="md-skip">
           Skip to content
         </a>
       
@@ -104,7 +100,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              System Architecture Overview
+              Standard Operating Procedure: Agentic Firmware Design for Talos-SDL
             
           </span>
         </div>
@@ -281,7 +277,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorials/user_guide/" class="md-nav__link">
+      <a href="../user_guide/" class="md-nav__link">
         
   
   
@@ -309,7 +305,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorials/building_your_first_firmware/" class="md-nav__link">
+      <a href="../building_your_first_firmware/" class="md-nav__link">
         
   
   
@@ -341,8 +337,6 @@
       
   
   
-    
-  
   
   
     
@@ -355,11 +349,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
           <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
@@ -380,7 +376,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -395,37 +391,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    System Architecture Overview
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../concepts/architecture_overview/" class="md-nav__link">
         
   
   
@@ -441,48 +410,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#scientific-workflow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Scientific Workflow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#technical-flowchart" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Technical Flowchart
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -495,7 +422,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../core_philosophy_features/" class="md-nav__link">
+      <a href="../../concepts/core_philosophy_features/" class="md-nav__link">
         
   
   
@@ -1212,10 +1139,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#scientific-workflow" class="md-nav__link">
+  <a href="#prerequisites" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Scientific Workflow
+        Prerequisites
       
     </span>
   </a>
@@ -1223,10 +1150,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#technical-flowchart" class="md-nav__link">
+  <a href="#phase-1-preparation-context-generation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Technical Flowchart
+        Phase 1: Preparation &amp; Context Generation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-2-drafting-the-instrument-specification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2: Drafting the Instrument Specification
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-3-assembling-the-ai-prompt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3: Assembling the AI Prompt
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-4-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4: Implementation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-5-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5: Validation
       
     </span>
   </a>
@@ -1250,126 +1221,89 @@
 
 
 
-<h1 id="system-architecture-overview">System Architecture Overview</h1>
-<p>This document provides a high-level overview of the Talos-SDL framework's architecture, illustrating the interactions between the human operator, the AI agent, the host computer, and the physical instruments. It highlights both the scientific workflow and the underlying technical implementation across the digital and physical spaces.</p>
-<h2 id="scientific-workflow">Scientific Workflow</h2>
-<p>The scientific workflow within Talos-SDL is designed to keep the scientist in control while leveraging AI for autonomous experimentation. It follows a transparent, human-in-the-loop process.</p>
-<pre class="mermaid"><code>%%{init: {
-  'theme': 'forest',
-  'themeVariables': {
-    'edgeLabelBackground': '#eeeeee'
-  }
-} }%%
-graph TD
-    %% Styling (Forest theme provides defaults, but these classes refine them)
-    classDef human fill:#d4edda,stroke:#28a745,stroke-width:2px;
-    classDef ai fill:#cce5ff,stroke:#004085,stroke-width:2px;
-    classDef system fill:#f8f9fa,stroke:#383d41,stroke-width:2px;
-    classDef hardware fill:#fff3cd,stroke:#856404,stroke-width:2px;
-    classDef data fill:#d1ecf1,stroke:#0c5460,stroke-width:2px;
-
-    %% First Subgraph (Top)
-    subgraph Cognitive_World [Digital &amp; Cognitive Space]
-        User[👨‍🔬 Scientist / User]:::human
-        AI[🧠 AI Laboratory Agent]:::ai
-        Chat[💬 Chat Interface &lt;br/&gt; /run or /data mode]:::system
-    end
-
-    %% Second Subgraph (Bottom)
-    subgraph Physical_World [Hardware &amp; Execution Space]
-        Orchestrator[⚙️ Lab Orchestrator]:::system
-        Instruments[🔬 Physical Instruments]:::hardware
-        Data[📊 Digital Lab Notebook]:::data
-
-        %% Columnar Ranking
-        Orchestrator ~~~ Instruments ~~~ Data
-    end
-
-    %% Logic Flow
-    User -- "(1) Request" --&gt; Chat
-    Chat -- "(2) Context" --&gt; AI
-    AI -- "(3) Proposes Plan" --&gt; Chat
-    Chat -. "(4) Human Approval" .-&gt; User
-    Chat -- "(5) Validated Commands" --&gt; Orchestrator
-
-    %% Execution &amp; Feedback
-    Orchestrator == "(6) Physical Action" ==&gt; Instruments
-    Instruments -- "(7) Telemetry" --&gt; Orchestrator
-    Orchestrator -- "(8) Log Data" --&gt; Data
-    Orchestrator -- "(9) Feedback" --&gt; AI
-    AI -- "(10) Summary" --&gt; User</code></pre>
-<h2 id="technical-flowchart">Technical Flowchart</h2>
-<p>The technical architecture separates the host computer's Python-based orchestration from the microcontroller's CircuitPython-based firmware. Communication is standardized using JSON messages, facilitated by a dedicated communication layer.</p>
-<pre class="mermaid"><code>flowchart TB
-    %% Host Side
-    subgraph Host_Computer [Host Computer Python]
-        subgraph View [View / Interfaces]
-            GUI[Tkinter MainView]
-            REPL[AI chat.py REPL]
-            AI_Agent[LLM Manager]
-        end
-
-        subgraph Controller [Controller]
-            DM[DeviceManager]
-            Queue[(incoming_message_queue)]
-            Registry[Data Registry]
-        end
-
-        subgraph Model [Models]
-            Dev1[Device Model: Sidekick]
-            Dev2[Device Model: Colorimeter]
-            Plate[PlateManager State]
-        end
-
-        GUI &amp; REPL --&gt;|"(1) Send Command"| DM
-        REPL &lt;--&gt; AI_Agent
-        DM --&gt;|"(5) Receive Response"| Queue
-        Queue --&gt;|"(6) Update Digital Twin"| Dev1 &amp; Dev2
-        Queue --&gt;|"(6) Update"| Registry
-        Dev1 &amp; Dev2 -. "Reflect State" .- GUI
-    end
-
-    %% The Bridge
-    subgraph Comms [Communication Layer]
-        JSON[Standardized JSON Messages&lt;br/&gt;INSTRUCTION, DATA_RESPONSE, SUCCESS]
-    end
-
-    %% Device Side
-    subgraph Microcontrollers [Microcontrollers CircuitPython]
-        subgraph FW1 [Sidekick Firmware]
-            CP1[CircuitPythonPostman]
-            SM1{StateMachine}
-            Handlers1[handlers.py]
-            States1((states.py / Sequencer))
-        end
-
-        subgraph FW2 [Colorimeter Firmware]
-            CP2[CircuitPythonPostman]
-            SM2{StateMachine}
-        end
-    end
-
-    %% Connections
-    DM == "(2) Serial Tx" ==&gt; JSON
-    JSON == "(2) Serial Tx" ==&gt; CP1 &amp; CP2
-
-    CP1 &lt;--&gt;|"(3) Route"| SM1
-    SM1 --&gt;|"(3) Dispatch"| Handlers1
-    Handlers1 --&gt;|"(4) Execute"| States1
-    States1 --&gt;|"(4) Hardware Pulse"| Hardware1((Motors / Pumps))
-
-    %% Return Path
-    CP1 -.-&gt;|"(5) Serial Rx"| JSON
-    JSON -.-&gt;|"(5) Serial Rx"| DM
-
-    %% Styling
-    classDef mvc fill:#e6e6fa,stroke:#4b0082,stroke-width:2px;
-    classDef comms fill:#ffe4e1,stroke:#8b0000,stroke-width:2px,stroke-dasharray: 5 5;
-    classDef fw fill:#e0ffff,stroke:#008b8b,stroke-width:2px;
-
-    class GUI,REPL,AI_Agent,DM,Queue,Registry,Dev1,Dev2,Plate mvc;
-    class JSON comms;
-    class CP1,SM1,Handlers1,States1,CP2,SM2 fw;</code></pre>
+<h1 id="standard-operating-procedure-agentic-firmware-design-for-talos-sdl">Standard Operating Procedure: Agentic Firmware Design for Talos-SDL</h1>
+<p><strong>Objective:</strong> 
+This document provides a step-by-step guide for non-developers to rapidly design, generate, and deploy custom firmware for a sensor-equipped microcontroller using a frontier AI model (LLM). By following this agentic approach, you can go from a hardware concept to a functioning Talos-SDL instrument in a matter of hours.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>Before beginning, ensure you have:</p>
+<ol>
+<li>Your microcontroller and hardware components fully assembled.</li>
+<li>A list of the specific pins your components are connected to (e.g., I2C pins, digital I/O, PWM pins).</li>
+<li>Any necessary hardware operational limits (e.g., calibration minimums/maximums, acceptable ranges for commands). <em>Note: AI models cannot guess physical constraints unique to your specific mechanical setup.</em></li>
+<li>The Talos-SDL repository cloned to your local machine.</li>
+</ol>
+<h2 id="phase-1-preparation-context-generation">Phase 1: Preparation &amp; Context Generation</h2>
+<p>To ensure the AI understands the Talos-SDL architecture, you must provide it with the current codebase context.</p>
+<ol>
+<li><strong>Run the Context Generator:</strong>
+   Navigate to your Talos-SDL directory and run the context generation script:
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>utility/create_code_context.py<span class="w"> </span>&lt;firmware&gt;
+</span></code></pre></div></li>
+<li><strong>Select an Example:</strong>
+   Replace <firmware> with the example you want to pass to the coding agent. If you do not know which one to choose, the use <code>sidekick</code> as this is the firmware that the developer used to build Talos-sdl.</li>
+<li><strong>Locate the Output:</strong>
+   The script will generate a compiled text file in the <code>temp/</code> directory named something like <code>code_context_YYMMDD.md</code>. </li>
+</ol>
+<h2 id="phase-2-drafting-the-instrument-specification">Phase 2: Drafting the Instrument Specification</h2>
+<p>Next, you will define what your instrument actually does using a standardized template.</p>
+<ol>
+<li><strong>Copy the Template:</strong>
+   Navigate to <code>docs/developer_guides/ai_agent_prompt_templates/</code> and copy the file named <code>my_instrument_spec.md</code> into your <code>temp/</code> directory.</li>
+<li><strong>Rename the File:</strong>
+   Rename this copied file to reflect your new instrument (e.g., <code>&lt;INSTRUMENT_NAME&gt;_spec.md</code>).</li>
+<li><strong>Complete the Specification:</strong>
+   Open the file and fill in all the bracketed fields. </li>
+<li>Be as specific as possible regarding pin assignments, expected command arguments, sensor output units, and initialization requirements.</li>
+<li><em>Tip: If you are unsure how to describe a complex sensor interaction, you can provide the sensor's datasheet to an AI chat interface and ask it to help you fill out the <code>my_instrument_spec.md</code> template.</em></li>
+</ol>
+<hr />
+<h2 id="phase-3-assembling-the-ai-prompt">Phase 3: Assembling the AI Prompt</h2>
+<p>You will now combine the context, your specification, and the master AI instructions into a single prompt.</p>
+<ol>
+<li><strong>Prepare the Master Prompt:</strong>
+   Navigate to <code>docs/developer_guides/ai_agent_prompt_templates/</code> and copy the file named <code>firmware_generation_template.md</code> into your <code>temp/</code> directory. Rename it to <code>&lt;INSTRUMENT_NAME&gt;_prompt.md</code>.</li>
+<li><strong>Insert the Components:</strong>
+   Open <code>&lt;INSTRUMENT_NAME&gt;_prompt.md</code>. Inside this document, there will be designated sections to paste your inputs:</li>
+<li><strong>Input 1:</strong> Open <code>code_context_YYMMDD.md</code>, copy all its contents, and paste it into the designated "Code Context" section.</li>
+<li><strong>Input 2:</strong> Open your completed <code>&lt;INSTRUMENT_NAME&gt;_spec.md</code>, copy its contents, and paste it into the designated "Instrument Spec" section.</li>
+<li><strong>Generate the Firmware:</strong>
+   Copy the entirety of your assembled <code>&lt;INSTRUMENT_NAME&gt;_prompt.md</code> text and paste it into the frontier AI model of your choice (e.g., GPT-4, Claude 3.5 Sonnet, Gemini Pro). Submit the prompt and await the generated code.</li>
+</ol>
+<h2 id="phase-4-implementation">Phase 4: Implementation</h2>
+<p>Once the AI provides the code, you need to integrate it into your local Talos-SDL repository.</p>
+<ol>
+<li><strong>Create the Firmware Directory:</strong>
+   In your local repository, navigate to the <code>firmware/</code> directory and create a new folder named after your instrument.</li>
+<li><strong>Create the Core Files:</strong>
+   Inside this new folder, manually create three blank Python files:</li>
+<li><code>__init__.py</code></li>
+<li><code>handlers.py</code></li>
+<li><code>states.py</code></li>
+<li><strong>Add Linter Ignores:</strong> (Optional)
+   At the very top of each of these three files, type <code># type: ignore</code>. This prevents your code editor from raising unnecessary warnings about missing microcontroller-specific libraries.</li>
+<li><strong>Paste the Code:</strong>
+   Carefully copy the corresponding code blocks provided by the AI and paste them into their respective files.</li>
+<li><strong>Update the Firmware Database:</strong>
+   Open the global <code>host/firmware_db</code> file. Add your new instrument's entry, being absolutely sure to list any external libraries (e.g., sensor driver libraries) the AI included in the <code>states.py</code> or <code>handlers.py</code> imports.</li>
+<li><strong>Deploy the firmware:</strong>
+   Execute <code>python deploy.py &lt;drive&gt; &lt;firmware&gt;</code> where <code>&lt;drive&gt;</code> is the drive letter associated with your microcontroller and <code>&lt;firmware&gt;</code> is the name of your new instrument. This script will copy the necessary files to your circuitpython drive. <em>Keep in mind that this will overwrite and remove files on your microcontroller.</em></li>
+</ol>
+<h2 id="phase-5-validation">Phase 5: Validation</h2>
+<p>With the code in place, it is time to test the instrument.</p>
+<ol>
+<li><strong>Power Cycle:</strong>
+   <strong>Crucial Step:</strong> You must physically power cycle the microcontroller (unplug it and plug it back in) for the new <code>boot.py</code> and structural changes to take full effect. A simple soft reset button is often not enough.</li>
+<li><strong>Verify Hardware Pins:</strong>
+   Review the <code>__init__.py</code> and <code>states.py</code> files. <em>AI models frequently hallucinate or guess incorrect pin numbers.</em> Cross-reference the pin numbers in the generated code with your physical wiring to ensure they match perfectly. Correct them if necessary.</li>
+<li><strong>Test Commands:</strong>
+   Use your interface to send basic commands to the device. </li>
+<li><strong>Monitor the Console / REPL:</strong>
+   If a command fails or the device reports a problem without a clear error message, open the REPL or console output (e.g., via Thonny). </li>
+<li>Look for tracebacks or exception errors.</li>
+<li>Common issues include: missing step contexts in <code>statemachine.py</code>, incorrect I2C addresses, or missing libraries.</li>
+<li><strong>Iterate:</strong>
+   If you encounter bugs, copy the error output from the console and paste it back into your chat with the AI. Ask it to correct the specific file, then copy and paste the updated code into your local files.</li>
+</ol>
 
 
 

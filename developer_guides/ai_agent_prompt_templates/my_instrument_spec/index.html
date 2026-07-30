@@ -8,28 +8,24 @@
       
       
       
-        <link rel="canonical" href="https://bobthechemist.github.io/talos-sdl/concepts/architecture_overview/">
+        <link rel="canonical" href="https://bobthechemist.github.io/talos-sdl/developer_guides/ai_agent_prompt_templates/my_instrument_spec/">
       
       
-        <link rel="prev" href="../../tutorials/building_your_first_firmware/">
-      
-      
-        <link rel="next" href="../core_philosophy_features/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>System Architecture Overview - Talos-SDL Documentation</title>
+        <title>Talos Instrument Spec Sheet: [Instrument Name] - Talos-SDL Documentation</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -48,9 +44,9 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -68,7 +64,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#system-architecture-overview" class="md-skip">
+        <a href="#talos-instrument-spec-sheet-instrument-name" class="md-skip">
           Skip to content
         </a>
       
@@ -84,7 +80,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="Talos-SDL Documentation" class="md-header__button md-logo" aria-label="Talos-SDL Documentation" data-md-component="logo">
+    <a href="../../.." title="Talos-SDL Documentation" class="md-header__button md-logo" aria-label="Talos-SDL Documentation" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -104,7 +100,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              System Architecture Overview
+              Talos Instrument Spec Sheet: [Instrument Name]
             
           </span>
         </div>
@@ -182,7 +178,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="Talos-SDL Documentation" class="md-nav__button md-logo" aria-label="Talos-SDL Documentation" data-md-component="logo">
+    <a href="../../.." title="Talos-SDL Documentation" class="md-nav__button md-logo" aria-label="Talos-SDL Documentation" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -200,7 +196,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href="../../.." class="md-nav__link">
         
   
   
@@ -281,7 +277,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorials/user_guide/" class="md-nav__link">
+      <a href="../../../tutorials/user_guide/" class="md-nav__link">
         
   
   
@@ -309,7 +305,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorials/building_your_first_firmware/" class="md-nav__link">
+      <a href="../../../tutorials/building_your_first_firmware/" class="md-nav__link">
         
   
   
@@ -341,8 +337,6 @@
       
   
   
-    
-  
   
   
     
@@ -355,11 +349,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
           <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
@@ -380,7 +376,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -395,37 +391,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    System Architecture Overview
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../concepts/architecture_overview/" class="md-nav__link">
         
   
   
@@ -441,48 +410,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#scientific-workflow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Scientific Workflow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#technical-flowchart" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Technical Flowchart
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -495,7 +422,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../core_philosophy_features/" class="md-nav__link">
+      <a href="../../../concepts/core_philosophy_features/" class="md-nav__link">
         
   
   
@@ -584,7 +511,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developer_guides/coding_style_guide/" class="md-nav__link">
+      <a href="../../coding_style_guide/" class="md-nav__link">
         
   
   
@@ -612,7 +539,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developer_guides/socratic_design_method/" class="md-nav__link">
+      <a href="../../socratic_design_method/" class="md-nav__link">
         
   
   
@@ -640,7 +567,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../developer_guides/ai_agent_prompt_templates/firmware_generation_template/" class="md-nav__link">
+      <a href="../firmware_generation_template/" class="md-nav__link">
         
   
   
@@ -729,7 +656,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design_protocols/communication_protocol/" class="md-nav__link">
+      <a href="../../../design_protocols/communication_protocol/" class="md-nav__link">
         
   
   
@@ -757,7 +684,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design_protocols/firmware_design_protocol/" class="md-nav__link">
+      <a href="../../../design_protocols/firmware_design_protocol/" class="md-nav__link">
         
   
   
@@ -785,7 +712,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design_protocols/host_design_protocol/" class="md-nav__link">
+      <a href="../../../design_protocols/host_design_protocol/" class="md-nav__link">
         
   
   
@@ -813,7 +740,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design_protocols/messaging_protocol/" class="md-nav__link">
+      <a href="../../../design_protocols/messaging_protocol/" class="md-nav__link">
         
   
   
@@ -892,7 +819,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design_protocols/design_examples/colorimeter_spec/" class="md-nav__link">
+      <a href="../../../design_protocols/design_examples/colorimeter_spec/" class="md-nav__link">
         
   
   
@@ -920,7 +847,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design_protocols/design_examples/sidekick_spec/" class="md-nav__link">
+      <a href="../../../design_protocols/design_examples/sidekick_spec/" class="md-nav__link">
         
   
   
@@ -948,7 +875,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design_protocols/design_examples/stirplate_spec/" class="md-nav__link">
+      <a href="../../../design_protocols/design_examples/stirplate_spec/" class="md-nav__link">
         
   
   
@@ -1045,7 +972,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/communicate/" class="md-nav__link">
+      <a href="../../../api/communicate/" class="md-nav__link">
         
   
   
@@ -1073,7 +1000,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/firmware/" class="md-nav__link">
+      <a href="../../../api/firmware/" class="md-nav__link">
         
   
   
@@ -1101,7 +1028,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/host/" class="md-nav__link">
+      <a href="../../../api/host/" class="md-nav__link">
         
   
   
@@ -1129,7 +1056,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/shared_lib/" class="md-nav__link">
+      <a href="../../../api/shared_lib/" class="md-nav__link">
         
   
   
@@ -1157,7 +1084,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/dln/" class="md-nav__link">
+      <a href="../../../api/dln/" class="md-nav__link">
         
   
   
@@ -1212,10 +1139,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#scientific-workflow" class="md-nav__link">
+  <a href="#1-overview-hardware" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Scientific Workflow
+        1. Overview &amp; Hardware
       
     </span>
   </a>
@@ -1223,10 +1150,43 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#technical-flowchart" class="md-nav__link">
+  <a href="#2-configuration-wiring-subsystem_config" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Technical Flowchart
+        2. Configuration &amp; Wiring (SUBSYSTEM_CONFIG)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-telemetry-status-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Telemetry &amp; Status Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-commands-the-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Commands (The API)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-operating-states-the-state-machine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Operating States (The State Machine)
       
     </span>
   </a>
@@ -1250,126 +1210,75 @@
 
 
 
-<h1 id="system-architecture-overview">System Architecture Overview</h1>
-<p>This document provides a high-level overview of the Talos-SDL framework's architecture, illustrating the interactions between the human operator, the AI agent, the host computer, and the physical instruments. It highlights both the scientific workflow and the underlying technical implementation across the digital and physical spaces.</p>
-<h2 id="scientific-workflow">Scientific Workflow</h2>
-<p>The scientific workflow within Talos-SDL is designed to keep the scientist in control while leveraging AI for autonomous experimentation. It follows a transparent, human-in-the-loop process.</p>
-<pre class="mermaid"><code>%%{init: {
-  'theme': 'forest',
-  'themeVariables': {
-    'edgeLabelBackground': '#eeeeee'
-  }
-} }%%
-graph TD
-    %% Styling (Forest theme provides defaults, but these classes refine them)
-    classDef human fill:#d4edda,stroke:#28a745,stroke-width:2px;
-    classDef ai fill:#cce5ff,stroke:#004085,stroke-width:2px;
-    classDef system fill:#f8f9fa,stroke:#383d41,stroke-width:2px;
-    classDef hardware fill:#fff3cd,stroke:#856404,stroke-width:2px;
-    classDef data fill:#d1ecf1,stroke:#0c5460,stroke-width:2px;
-
-    %% First Subgraph (Top)
-    subgraph Cognitive_World [Digital &amp; Cognitive Space]
-        User[👨‍🔬 Scientist / User]:::human
-        AI[🧠 AI Laboratory Agent]:::ai
-        Chat[💬 Chat Interface &lt;br/&gt; /run or /data mode]:::system
-    end
-
-    %% Second Subgraph (Bottom)
-    subgraph Physical_World [Hardware &amp; Execution Space]
-        Orchestrator[⚙️ Lab Orchestrator]:::system
-        Instruments[🔬 Physical Instruments]:::hardware
-        Data[📊 Digital Lab Notebook]:::data
-
-        %% Columnar Ranking
-        Orchestrator ~~~ Instruments ~~~ Data
-    end
-
-    %% Logic Flow
-    User -- "(1) Request" --&gt; Chat
-    Chat -- "(2) Context" --&gt; AI
-    AI -- "(3) Proposes Plan" --&gt; Chat
-    Chat -. "(4) Human Approval" .-&gt; User
-    Chat -- "(5) Validated Commands" --&gt; Orchestrator
-
-    %% Execution &amp; Feedback
-    Orchestrator == "(6) Physical Action" ==&gt; Instruments
-    Instruments -- "(7) Telemetry" --&gt; Orchestrator
-    Orchestrator -- "(8) Log Data" --&gt; Data
-    Orchestrator -- "(9) Feedback" --&gt; AI
-    AI -- "(10) Summary" --&gt; User</code></pre>
-<h2 id="technical-flowchart">Technical Flowchart</h2>
-<p>The technical architecture separates the host computer's Python-based orchestration from the microcontroller's CircuitPython-based firmware. Communication is standardized using JSON messages, facilitated by a dedicated communication layer.</p>
-<pre class="mermaid"><code>flowchart TB
-    %% Host Side
-    subgraph Host_Computer [Host Computer Python]
-        subgraph View [View / Interfaces]
-            GUI[Tkinter MainView]
-            REPL[AI chat.py REPL]
-            AI_Agent[LLM Manager]
-        end
-
-        subgraph Controller [Controller]
-            DM[DeviceManager]
-            Queue[(incoming_message_queue)]
-            Registry[Data Registry]
-        end
-
-        subgraph Model [Models]
-            Dev1[Device Model: Sidekick]
-            Dev2[Device Model: Colorimeter]
-            Plate[PlateManager State]
-        end
-
-        GUI &amp; REPL --&gt;|"(1) Send Command"| DM
-        REPL &lt;--&gt; AI_Agent
-        DM --&gt;|"(5) Receive Response"| Queue
-        Queue --&gt;|"(6) Update Digital Twin"| Dev1 &amp; Dev2
-        Queue --&gt;|"(6) Update"| Registry
-        Dev1 &amp; Dev2 -. "Reflect State" .- GUI
-    end
-
-    %% The Bridge
-    subgraph Comms [Communication Layer]
-        JSON[Standardized JSON Messages&lt;br/&gt;INSTRUCTION, DATA_RESPONSE, SUCCESS]
-    end
-
-    %% Device Side
-    subgraph Microcontrollers [Microcontrollers CircuitPython]
-        subgraph FW1 [Sidekick Firmware]
-            CP1[CircuitPythonPostman]
-            SM1{StateMachine}
-            Handlers1[handlers.py]
-            States1((states.py / Sequencer))
-        end
-
-        subgraph FW2 [Colorimeter Firmware]
-            CP2[CircuitPythonPostman]
-            SM2{StateMachine}
-        end
-    end
-
-    %% Connections
-    DM == "(2) Serial Tx" ==&gt; JSON
-    JSON == "(2) Serial Tx" ==&gt; CP1 &amp; CP2
-
-    CP1 &lt;--&gt;|"(3) Route"| SM1
-    SM1 --&gt;|"(3) Dispatch"| Handlers1
-    Handlers1 --&gt;|"(4) Execute"| States1
-    States1 --&gt;|"(4) Hardware Pulse"| Hardware1((Motors / Pumps))
-
-    %% Return Path
-    CP1 -.-&gt;|"(5) Serial Rx"| JSON
-    JSON -.-&gt;|"(5) Serial Rx"| DM
-
-    %% Styling
-    classDef mvc fill:#e6e6fa,stroke:#4b0082,stroke-width:2px;
-    classDef comms fill:#ffe4e1,stroke:#8b0000,stroke-width:2px,stroke-dasharray: 5 5;
-    classDef fw fill:#e0ffff,stroke:#008b8b,stroke-width:2px;
-
-    class GUI,REPL,AI_Agent,DM,Queue,Registry,Dev1,Dev2,Plate mvc;
-    class JSON comms;
-    class CP1,SM1,Handlers1,States1,CP2,SM2 fw;</code></pre>
+<h1 id="talos-instrument-spec-sheet-instrument-name">Talos Instrument Spec Sheet: [Instrument Name]</h1>
+<h2 id="1-overview-hardware">1. Overview &amp; Hardware</h2>
+<ul>
+<li><strong>Subsystem Name:</strong> <code>[e.g., STIR_PLATE, SMART_VALVE, TEMP_SENSOR]</code></li>
+<li><strong>Primary Purpose:</strong> [What does this instrument do in one or two sentences?]</li>
+<li><strong>Hardware Components Used:</strong> <ul>
+<li>[e.g., 1x Adafruit MotorKit FeatherWing]</li>
+<li>[e.g., 1x DS18B20 Temperature Sensor]</li>
+<li>[e.g., 1x Standard Hobby Servo]</li>
+</ul>
+</li>
+<li><strong>AI Guidance:</strong> [What does the AI agent need to know to use this safely? E.g., "The heater must be turned on before dispensing."]</li>
+</ul>
+<h2 id="2-configuration-wiring-subsystem_config">2. Configuration &amp; Wiring (<code>SUBSYSTEM_CONFIG</code>)</h2>
+<p><em>List the physical pins and default settings the AI should use to write the configuration dictionary.</em></p>
+<p><strong>Pins:</strong>
+*   <code>[e.g., servo_pin]</code>: <code>[e.g., board.GP15]</code>
+*   <code>[e.g., sensor_sda]</code>: <code>[e.g., board.SDA]</code>
+*   <code>[e.g., sensor_scl]</code>: <code>[e.g., board.SCL]</code></p>
+<p><strong>Operational Parameters &amp; Safe Limits:</strong>
+*   <code>[e.g., default_speed]</code>: <code>[e.g., 0.5]</code>
+*   <code>[e.g., max_temperature]</code>: <code>[e.g., 85.0]</code>
+*   <code>[e.g., servo_closed_angle]</code>: <code>[e.g., 0]</code>
+*   <code>[e.g., servo_open_angle]</code>: <code>[e.g., 90]</code></p>
+<h2 id="3-telemetry-status-data">3. Telemetry &amp; Status Data</h2>
+<p><em>What data should this instrument report back to the host computer?</em>
+*   <strong>Telemetry (Streams constantly in the background):</strong> [e.g., Current temperature, current motor speed]
+*   <strong>Status (Sent when requested via <code>get_info</code>):</strong> [e.g., Is the heater currently on? What is the current servo angle?]</p>
+<h2 id="4-commands-the-api">4. Commands (The API)</h2>
+<p><em>What commands can the user or AI issue to control this device? Add rows as needed.</em></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Command Name</th>
+<th style="text-align: left;">Description</th>
+<th style="text-align: left;">Arguments (Name: Type)</th>
+<th style="text-align: left;">What happens? (Success Condition)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>[e.g., open_valve]</code></td>
+<td style="text-align: left;">[Opens the servo valve completely.]</td>
+<td style="text-align: left;">[None]</td>
+<td style="text-align: left;">[Servo moves to 90 degrees, returns SUCCESS.]</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>[e.g., set_speed]</code></td>
+<td style="text-align: left;">[Sets the speed of the motor.]</td>
+<td style="text-align: left;"><code>speed</code>: float (0.0 to 1.0)</td>
+<td style="text-align: left;">[Motor speed updates, returns SUCCESS.]</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>[e.g., read_temp]</code></td>
+<td style="text-align: left;">[Reads the current liquid temp.]</td>
+<td style="text-align: left;">[None]</td>
+<td style="text-align: left;">[Returns a DATA_RESPONSE with the temperature in Celsius.]</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-operating-states-the-state-machine">5. Operating States (The State Machine)</h2>
+<p><em>Talos instruments run on a State Machine. The agent will automatically build an <code>Initialize</code> state (to set up your hardware), an <code>Idle</code> state (to wait for commands), and an <code>Error</code> state.</em> </p>
+<p><strong>Do you need custom states?</strong>
+*   <em>If your device just reads sensors or flicks switches instantly, you </em><em>do not</em><em> need custom states. (Leave this section blank).</em>
+*   <em>If your device does something that takes time (like "Heating up to a target temperature" or "Moving a robotic arm to a coordinate"), define that state below.</em></p>
+<p><strong>Custom State: <code>[e.g., Heating]</code></strong>
+*   <strong>Purpose:</strong> [e.g., To safely apply power to the heater until the target temperature is reached.]
+*   <strong>What triggers it:</strong> [e.g., The <code>set_temperature</code> command.]
+*   <strong>What happens in the loop:</strong> [e.g., Constantly checks the temperature. If it hits the target, turns off the heater and goes back to Idle. If it exceeds <code>max_temperature</code>, goes to Error.]</p>
 
 
 
@@ -1419,10 +1328,10 @@ graph TD
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.sections", "navigation.expand"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

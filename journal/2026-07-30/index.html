@@ -8,13 +8,9 @@
       
       
       
-        <link rel="canonical" href="https://bobthechemist.github.io/talos-sdl/concepts/architecture_overview/">
+        <link rel="canonical" href="https://bobthechemist.github.io/talos-sdl/journal/2026-07-30/">
       
       
-        <link rel="prev" href="../../tutorials/building_your_first_firmware/">
-      
-      
-        <link rel="next" href="../core_philosophy_features/">
       
       
         
@@ -25,7 +21,7 @@
     
     
       
-        <title>System Architecture Overview - Talos-SDL Documentation</title>
+        <title>BCCE 2026 - Talos-SDL Documentation</title>
       
     
     
@@ -68,7 +64,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#system-architecture-overview" class="md-skip">
+        <a href="#bcce-2026" class="md-skip">
           Skip to content
         </a>
       
@@ -104,7 +100,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              System Architecture Overview
+              BCCE 2026
             
           </span>
         </div>
@@ -341,8 +337,6 @@
       
   
   
-    
-  
   
   
     
@@ -355,11 +349,13 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
           <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
@@ -380,7 +376,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -395,37 +391,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    System Architecture Overview
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../concepts/architecture_overview/" class="md-nav__link">
         
   
   
@@ -441,48 +410,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#scientific-workflow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Scientific Workflow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#technical-flowchart" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Technical Flowchart
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -495,7 +422,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../core_philosophy_features/" class="md-nav__link">
+      <a href="../../concepts/core_philosophy_features/" class="md-nav__link">
         
   
   
@@ -1212,21 +1139,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#scientific-workflow" class="md-nav__link">
+  <a href="#notes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Scientific Workflow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#technical-flowchart" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Technical Flowchart
+        Notes
       
     </span>
   </a>
@@ -1250,126 +1166,54 @@
 
 
 
-<h1 id="system-architecture-overview">System Architecture Overview</h1>
-<p>This document provides a high-level overview of the Talos-SDL framework's architecture, illustrating the interactions between the human operator, the AI agent, the host computer, and the physical instruments. It highlights both the scientific workflow and the underlying technical implementation across the digital and physical spaces.</p>
-<h2 id="scientific-workflow">Scientific Workflow</h2>
-<p>The scientific workflow within Talos-SDL is designed to keep the scientist in control while leveraging AI for autonomous experimentation. It follows a transparent, human-in-the-loop process.</p>
-<pre class="mermaid"><code>%%{init: {
-  'theme': 'forest',
-  'themeVariables': {
-    'edgeLabelBackground': '#eeeeee'
-  }
-} }%%
-graph TD
-    %% Styling (Forest theme provides defaults, but these classes refine them)
-    classDef human fill:#d4edda,stroke:#28a745,stroke-width:2px;
-    classDef ai fill:#cce5ff,stroke:#004085,stroke-width:2px;
-    classDef system fill:#f8f9fa,stroke:#383d41,stroke-width:2px;
-    classDef hardware fill:#fff3cd,stroke:#856404,stroke-width:2px;
-    classDef data fill:#d1ecf1,stroke:#0c5460,stroke-width:2px;
-
-    %% First Subgraph (Top)
-    subgraph Cognitive_World [Digital &amp; Cognitive Space]
-        User[👨‍🔬 Scientist / User]:::human
-        AI[🧠 AI Laboratory Agent]:::ai
-        Chat[💬 Chat Interface &lt;br/&gt; /run or /data mode]:::system
-    end
-
-    %% Second Subgraph (Bottom)
-    subgraph Physical_World [Hardware &amp; Execution Space]
-        Orchestrator[⚙️ Lab Orchestrator]:::system
-        Instruments[🔬 Physical Instruments]:::hardware
-        Data[📊 Digital Lab Notebook]:::data
-
-        %% Columnar Ranking
-        Orchestrator ~~~ Instruments ~~~ Data
-    end
-
-    %% Logic Flow
-    User -- "(1) Request" --&gt; Chat
-    Chat -- "(2) Context" --&gt; AI
-    AI -- "(3) Proposes Plan" --&gt; Chat
-    Chat -. "(4) Human Approval" .-&gt; User
-    Chat -- "(5) Validated Commands" --&gt; Orchestrator
-
-    %% Execution &amp; Feedback
-    Orchestrator == "(6) Physical Action" ==&gt; Instruments
-    Instruments -- "(7) Telemetry" --&gt; Orchestrator
-    Orchestrator -- "(8) Log Data" --&gt; Data
-    Orchestrator -- "(9) Feedback" --&gt; AI
-    AI -- "(10) Summary" --&gt; User</code></pre>
-<h2 id="technical-flowchart">Technical Flowchart</h2>
-<p>The technical architecture separates the host computer's Python-based orchestration from the microcontroller's CircuitPython-based firmware. Communication is standardized using JSON messages, facilitated by a dedicated communication layer.</p>
-<pre class="mermaid"><code>flowchart TB
-    %% Host Side
-    subgraph Host_Computer [Host Computer Python]
-        subgraph View [View / Interfaces]
-            GUI[Tkinter MainView]
-            REPL[AI chat.py REPL]
-            AI_Agent[LLM Manager]
-        end
-
-        subgraph Controller [Controller]
-            DM[DeviceManager]
-            Queue[(incoming_message_queue)]
-            Registry[Data Registry]
-        end
-
-        subgraph Model [Models]
-            Dev1[Device Model: Sidekick]
-            Dev2[Device Model: Colorimeter]
-            Plate[PlateManager State]
-        end
-
-        GUI &amp; REPL --&gt;|"(1) Send Command"| DM
-        REPL &lt;--&gt; AI_Agent
-        DM --&gt;|"(5) Receive Response"| Queue
-        Queue --&gt;|"(6) Update Digital Twin"| Dev1 &amp; Dev2
-        Queue --&gt;|"(6) Update"| Registry
-        Dev1 &amp; Dev2 -. "Reflect State" .- GUI
-    end
-
-    %% The Bridge
-    subgraph Comms [Communication Layer]
-        JSON[Standardized JSON Messages&lt;br/&gt;INSTRUCTION, DATA_RESPONSE, SUCCESS]
-    end
-
-    %% Device Side
-    subgraph Microcontrollers [Microcontrollers CircuitPython]
-        subgraph FW1 [Sidekick Firmware]
-            CP1[CircuitPythonPostman]
-            SM1{StateMachine}
-            Handlers1[handlers.py]
-            States1((states.py / Sequencer))
-        end
-
-        subgraph FW2 [Colorimeter Firmware]
-            CP2[CircuitPythonPostman]
-            SM2{StateMachine}
-        end
-    end
-
-    %% Connections
-    DM == "(2) Serial Tx" ==&gt; JSON
-    JSON == "(2) Serial Tx" ==&gt; CP1 &amp; CP2
-
-    CP1 &lt;--&gt;|"(3) Route"| SM1
-    SM1 --&gt;|"(3) Dispatch"| Handlers1
-    Handlers1 --&gt;|"(4) Execute"| States1
-    States1 --&gt;|"(4) Hardware Pulse"| Hardware1((Motors / Pumps))
-
-    %% Return Path
-    CP1 -.-&gt;|"(5) Serial Rx"| JSON
-    JSON -.-&gt;|"(5) Serial Rx"| DM
-
-    %% Styling
-    classDef mvc fill:#e6e6fa,stroke:#4b0082,stroke-width:2px;
-    classDef comms fill:#ffe4e1,stroke:#8b0000,stroke-width:2px,stroke-dasharray: 5 5;
-    classDef fw fill:#e0ffff,stroke:#008b8b,stroke-width:2px;
-
-    class GUI,REPL,AI_Agent,DM,Queue,Registry,Dev1,Dev2,Plate mvc;
-    class JSON comms;
-    class CP1,SM1,Handlers1,States1,CP2,SM2 fw;</code></pre>
+<h1 id="bcce-2026">BCCE 2026</h1>
+<p>These are notes developed while traveling to BCCE (Madison, Wisconsin). One goal of this programming session was to improve the agentic SOP for firmware design. A second idea that was being fleshed out was transitioning to a dynamic execution engine that allows injection of commands which should allow for closed-loop REPL sessions. A third idea was adding host side cogs to provide universal tools (e.g. wait) to REPL.</p>
+<p><em>This document is meant to replace the <code>firmware_design_sop.md</code>. The goal is to create an easy-to-follow set of instructions for </em><em>agentic</em><em> firmware design. The file <code>building_your_first_firmware.md</code> is meant to be a non-agentic approach that teaches the firmware design structure. It will need its own refactoring.</em></p>
+<h2 id="notes">Notes</h2>
+<p>These notes are collected while walking through the build of <code>PRIMUS</code> - the entry-level robotic lab built on a Maker Pi 2040. </p>
+<ul>
+<li>The <code>firmware_generation_template.md</code> contains the prompt that will be sent to a frontier agent for constructing the firmware. <ul>
+<li>It requires two files, one containing the relevant codebase and another containing the spec sheet for the design.</li>
+<li>Presently, the spec sheet design is clunky and that is what we want to improve</li>
+<li>We are missing a tool to easily create the codebase, which consists of the shared_lib directory and whatever firmware is being used as a representative.</li>
+</ul>
+</li>
+<li>Created <code>utility/create_code_context.py</code> to generate the code context. It will store this output in the temp directory and allows the user to choose a firmware package to use as the example. It will overwrite a file that was generated on the same day.</li>
+<li>Moving to the spec file requirement. Created a new template <code>docs/developer_guides/ai_agent_prompt_templates/my_instrument_spec.md</code> which has bracketed fields for the user to fill in. The intent is for an entry-level user to be able to complete this form.<ul>
+<li>SOP ideas: copy this file into temp. rename to represent the actual instrument (e.g. primus_spec_v1.md) and complete. Might be possible to send this to another agent for help in completing.</li>
+<li><em>primus</em> tangent to find the motor limits. tilt seems to be 700 and 2300 (0 and 180). pan is 550 and 2300. When creating a robot such as this, it is possible that the calibration of the motors is out of scope for talos firmware and the user needs to know this information.</li>
+</ul>
+</li>
+<li>Would like an easy way for the three files - firmware_generation_template, user_created_spec, code_context - to be converted into an instrument_prompt.md (e.g. primus_prompt.md)<ul>
+<li>Copy <code>firwmare_generation_template.md</code> to the temp folder, rename it <code>&lt;INSTRUMENT&gt;_prompt.md</code></li>
+<li>add <code>code_context_YYMMDD.md</code> and <code>&lt;INSTRUMENT&gt;_spec.md</code> in the designated locations</li>
+<li>Send to LLM of your choice.</li>
+</ul>
+</li>
+<li>Following above (v1) and we have a 19k prompt.<ul>
+<li>Manually created the folder primus and the three files. Copy pasted the prompt output. Should have a type ignore added to each of these files so that warnings don't get raised about resolving libraries</li>
+<li>Manually added primus to the firmware_db, including the libraries needed.</li>
+<li>power cycle the microcontroller</li>
+<li>tried to pan to 45 degrees, REPL reports a problem but does not state what. This needs to be fixed in the chat script.</li>
+<li>Copied the console output from thonny which is reporting the problem<ul>
+<li>There may be an issue in statemachine.py which accepts a local step <code>context</code> but ignores it.</li>
+</ul>
+</li>
+<li>Movements work (pan and tilt), Neopixel usage required a check - the AI claimed that the neopixels were on GP28 and I accepted that, but they are actually on GP18. Tones work.</li>
+<li>Need to update chat so that the goal received does not clutter the display with what the user typed.</li>
+</ul>
+</li>
+<li>I used <code>git log --pretty=format:"%h - %an, %ad : %s" --date=iso</code> to get the timestamps for the git commits in this branch, that shows the previous work took 2 hours and a couple of minutes. Given that there was development time in here and I went to get a cup of coffee, it is probable that this version of primus can be created in 1-2 hours.</li>
+<li>use some format of <code>git log --reverse main..primus --pretty=format:"## %s%n**Date:** %ad | **Hash:** %h%n%n%b%n---" --date=short &gt; journal.md</code> to create a log of the programming journey based on the commit messages.</li>
+<li>Now interested in modifying the primus code to have several sensors, the sgp30 voc sensor (MOX), the vl53L0X TOF sensor, and the AS7341 colorimeter.<ul>
+<li>the sgp30 is in grove 2 (SCL-3, SDA-2)</li>
+<li>the vl53l0x is in grove 3 (SCL-5, SDA-4)</li>
+<li>the as7341 is in grove 4 (SCL-17, SDA-16)</li>
+</ul>
+</li>
+<li>I need to pretend we have 3 I2C ports with bitbangio. I will therefore try a frontier model to modify the current firmware.</li>
+<li>This trivial test allows all three sensors to work. </li>
+</ul>
 
 
 
