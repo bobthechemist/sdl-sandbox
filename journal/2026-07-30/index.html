@@ -1214,6 +1214,92 @@
 <li>I need to pretend we have 3 I2C ports with bitbangio. I will therefore try a frontier model to modify the current firmware.</li>
 <li>This trivial test allows all three sensors to work. </li>
 </ul>
+<h1 id="prd-dynamic-execution-engine-refactor">PRD: Dynamic Execution Engine Refactor</h1>
+<h2 id="1-objective">1. Objective</h2>
+<p>Refactor the <code>ExecutionEngine</code> (<code>host/ai/execution_engine.py</code>) to transition from a static, linear execution model to a dynamic, continuous-evaluation loop. This enables external routines to inject new steps into an active plan at runtime (allowing for closed-loop optimizations) without breaking existing linear workflows, violating the immutability of the DLN, or requiring firmware modifications.</p>
+<h2 id="2-scope">2. Scope</h2>
+<ul>
+<li><strong>In Scope:</strong> <ul>
+<li>Refactoring <code>ExecutionEngine.execute_plan</code> to use a dynamic <code>while</code> loop.</li>
+<li>Adding an API to the engine for step injection at runtime.</li>
+<li>Increasing the verbosity of errors to provide meaningful feedback to user.</li>
+<li>Establishing a minimal callback/routing interface for <code>"host"</code> device commands (to prevent them from triggering serial timeouts).</li>
+<li>Updating <code>RunCog</code> to pass the host tools registry into the <code>ExecutionEngine</code> upon instantiation.</li>
+</ul>
+</li>
+<li><strong>Out of Scope:</strong> <ul>
+<li>Developing specific host-level tools (e.g., <code>wait</code>, <code>optimize</code>) at this time.</li>
+<li>Modifying the broader Cog architecture.</li>
+<li>Modifying microcontroller firmware or serial message definitions.</li>
+<li>Modifying AI prompts or planner logic.</li>
+</ul>
+</li>
+</ul>
+<h2 id="3-design-principles">3. Design Principles</h2>
+<ul>
+<li><strong>Separation of Concerns (SoC):</strong> The <code>ExecutionEngine</code> is responsible <em>only</em> for iterating through steps, logging progress, and routing commands. The business logic of host tools must remain outside of the engine.</li>
+<li><strong>Keep It Simple (KISS):</strong> Avoid complex threading queues or DAGs for the execution plan. Standard lists and index tracking are sufficient.</li>
+<li><strong>Backward Compatibility:</strong> A statically defined plan must execute exactly as it did before. The <code>else</code> block at the end of the execution loop must be preserved via standard <code>while...else</code> syntax.</li>
+</ul>
+<h2 id="4-technical-requirements">4. Technical Requirements</h2>
+<h3 id="41-execution-loop-refactoring">4.1. Execution Loop Refactoring</h3>
+<ul>
+<li><strong>Current State:</strong> <code>execute_plan</code> uses a static <code>for step_idx, step in enumerate(plan):</code> loop.</li>
+<li><strong>New State:</strong> <code>execute_plan</code> must initialize instance-level state tracking and use a <code>while</code> loop.<ul>
+<li><code>self.current_plan = plan</code></li>
+<li><code>self.current_step_idx = 0</code></li>
+<li><code>while self.current_step_idx &lt; len(self.current_plan):</code></li>
+<li><code>self.current_step_idx += 1</code> must occur at the end of every loop iteration.</li>
+</ul>
+</li>
+</ul>
+<h3 id="42-dynamic-step-injection-api">4.2. Dynamic Step Injection API</h3>
+<ul>
+<li><strong>Requirement:</strong> Provide a public method on the <code>ExecutionEngine</code> to append steps mid-execution.</li>
+<li><strong>Signature:</strong> <code>def inject_steps(self, new_steps: list) -&gt; None</code></li>
+<li><strong>Behavior:</strong> Extends <code>self.current_plan</code> with the <code>new_steps</code> list. Because the loop condition evaluates <code>len(self.current_plan)</code> dynamically, execution will naturally continue into the injected steps.</li>
+</ul>
+<h3 id="43-local-command-routing-the-callback-interface">4.3. Local Command Routing (The Callback Interface)</h3>
+<ul>
+<li><strong>Requirement:</strong> The engine must intercept steps targeting <code>"host"</code> and dispatch them locally.</li>
+<li><strong>Implementation:</strong> <ul>
+<li>Modify <code>ExecutionEngine.__init__</code> to accept a <code>host_tools</code> dictionary (mapping command strings to callable functions). Defaults to <code>{}</code>.</li>
+<li>Inside the execution loop, check if <code>device == "host"</code>.</li>
+<li>If true, look up the command in <code>self.host_tools</code>.</li>
+<li>Invoke the callback with a standardized signature: <code>callback(args: dict, plan_id: int, step_idx: int, engine: ExecutionEngine, dln: DigitalLabNotebook)</code>.</li>
+<li>If the command is not found in <code>host_tools</code>, abort the plan execution gracefully with a logged error.</li>
+</ul>
+</li>
+</ul>
+<h3 id="44-state-logging-integrity">4.4. State &amp; Logging Integrity</h3>
+<ul>
+<li><strong>Requirement:</strong> The DLN <code>step_index</code> metadata must correctly reflect the sequential execution of the plan, including injected steps. The original <code>plan</code> JSON logged to the database must remain immutable.</li>
+<li><strong>Implementation:</strong> Because <code>self.current_step_idx</code> simply increments inside the <code>while</code> loop, dynamically added steps will automatically receive the correct, sequential index ID (e.g., Step 4, Step 5) under the original <code>plan_id</code>. DLN <code>observation</code> and <code>system</code> logs will maintain perfect relational traceability without retroactive modifications.</li>
+</ul>
+<h2 id="5-required-file-changes">5. Required File Changes</h2>
+<h3 id="51-hostaiexecution_enginepy">5.1. <code>host/ai/execution_engine.py</code></h3>
+<ol>
+<li><strong><code>__init__</code></strong>: Add <code>host_tools=None</code> to parameters. Set <code>self.host_tools = host_tools or {}</code>.</li>
+<li><strong><code>execute_plan</code></strong>: <ul>
+<li>Bind <code>plan</code> to <code>self.current_plan</code> and initialize <code>self.current_step_idx = 0</code>.</li>
+<li>Change the <code>for</code> loop to a <code>while</code> loop.</li>
+<li>Add an <code>if device == "host":</code> routing block to handle local callback invocation.</li>
+<li>Ensure the index increments safely and the <code>while...else</code> success block is preserved.</li>
+</ul>
+</li>
+<li><strong><code>inject_steps</code></strong>: Implement <code>self.current_plan.extend(new_steps)</code>.</li>
+</ol>
+<h3 id="52-hostcogsrun_cogpy">5.2. <code>host/cogs/run_cog.py</code></h3>
+<ol>
+<li><strong><code>__init__</code> (Line 12)</strong>: Update the <code>ExecutionEngine</code> instantiation to pass the host tools from the main app. Since the <code>ChatApp</code> doesn't fully construct a host tools dictionary yet, use <code>getattr</code> to pass an empty dictionary safely, preventing instantiation errors while leaving the door open for future Cogs.
+    <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="bp">self</span><span class="o">.</span><span class="n">execution_engine</span> <span class="o">=</span> <span class="n">ExecutionEngine</span><span class="p">(</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">app</span><span class="o">.</span><span class="n">device_manager</span><span class="p">,</span> 
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">app</span><span class="o">.</span><span class="n">device_ports</span><span class="p">,</span> 
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">app</span><span class="o">.</span><span class="n">dln</span><span class="p">,</span> 
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="nb">getattr</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="s2">&quot;host_tools&quot;</span><span class="p">,</span> <span class="p">{})</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
+</span></code></pre></div></li>
+</ol>
 
 
 
