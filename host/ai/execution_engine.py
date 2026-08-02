@@ -10,42 +10,76 @@ class ExecutionEngine:
     A streamlined engine responsible ONLY for executing a pre-approved plan.
     It has no planning or AI capabilities.
     """
-    def __init__(self, manager, device_ports, dln):
+    def __init__(self, manager, device_ports, dln, host_tools=None):
         self.manager = manager
         self.device_ports = device_ports
         self.dln = dln
+        self.host_tools = host_tools or {}
+        self.current_plan = []
+        self.current_step_idx = 0
+
+    def inject_steps(self, new_steps: list) -> None:
+        """Appends new steps to the active execution plan at runtime."""
+        self.current_plan.extend(new_steps)
 
     def execute_plan(self, plan: list, plan_id: int = None):
-        """Executes a list of command steps sequentially, linked to a plan_id."""
+        """Executes a list of command steps sequentially with support for dynamic evaluation."""
         print(f"\n{C.INFO}Executing Plan (ID: {plan_id})...{C.END}")
-        for step_idx, step in enumerate(plan):
+        self.current_plan = plan
+        self.current_step_idx = 0
+
+        while self.current_step_idx < len(self.current_plan):
+            step = self.current_plan[self.current_step_idx]
             device = step.get("device", "").lower()
             command = step.get("command")
             args = step.get("args", {})
             
-            print(f"  -> Step {step_idx+1}/{len(plan)}: {device}.{command}()...", end="", flush=True)
+            # Note: len(self.current_plan) allows dynamic resizing mid-execution
+            print(f"  -> Step {self.current_step_idx + 1}/{len(self.current_plan)}: {device}.{command}()...", end="", flush=True)
 
-            port = self.device_ports.get(device)
-            if not port:
-                print(f" {C.ERR}[FAILED]{C.END}")
-                break
-
-            msg = Message.create_message("HOST_ENGINE", "INSTRUCTION", payload={"func": command, "args": args})
-            self.dln.log_transaction(f"SENT: {msg.serialize()}")
-            self.manager.send_message(port, msg)
-            
-            result = self._wait_for_result(port)
-            self.dln.log_transaction(f"RECV: {json.dumps(result)}")
-
-            if result['status'] in ("SUCCESS", "DATA_RESPONSE"):
-                print(f" {C.OK}[OK]{C.END}")
-                if result['status'] == "DATA_RESPONSE":
-                    # Pass the plan_id and current step_idx
-                    self._handle_data_response(device, command, args, result['payload'], plan_id, step_idx)
+            if device == "host":
+                if command in self.host_tools:
+                    try:
+                        # Invoke the host callback
+                        self.host_tools[command](args, plan_id, self.current_step_idx, self, self.dln)
+                        print(f" {C.OK}[OK]{C.END}")
+                    except Exception as e:
+                        error_msg = f"Host tool '{command}' failed: {str(e)}"
+                        self.dln.log_science(entry_type="system", data={"message": "Plan did not complete successfully.", "plan_id": plan_id, "step_index": self.current_step_idx, "error": error_msg})
+                        print(f" {C.ERR}[PROBLEM]{C.END}\n     {C.WARN}-> Error: {error_msg}{C.END}")
+                        break
+                else:
+                    error_msg = f"Host command '{command}' is not registered in host_tools."
+                    self.dln.log_science(entry_type="system", data={"message": "Plan did not complete successfully.", "plan_id": plan_id, "step_index": self.current_step_idx, "error": error_msg})
+                    print(f" {C.ERR}[FAILED]{C.END}\n     {C.WARN}-> Error: {error_msg}{C.END}")
+                    break
             else:
-                self.dln.log_science(entry_type="system", data={"message": "Plan did not complete successfully.", "plan_id": plan_id, "step_index": step_idx, "error": result['payload']})
-                print(f" {C.ERR}[PROBLEM]{C.END}")
-                break 
+                port = self.device_ports.get(device)
+                if not port:
+                    error_msg = f"Device '{device}' not found in connected ports."
+                    self.dln.log_science(entry_type="system", data={"message": "Plan did not complete successfully.", "plan_id": plan_id, "step_index": self.current_step_idx, "error": error_msg})
+                    print(f" {C.ERR}[FAILED]{C.END}\n     {C.WARN}-> Error: {error_msg}{C.END}")
+                    break
+
+                msg = Message.create_message("HOST_ENGINE", "INSTRUCTION", payload={"func": command, "args": args})
+                self.dln.log_transaction(f"SENT: {msg.serialize()}")
+                self.manager.send_message(port, msg)
+                
+                result = self._wait_for_result(port)
+                self.dln.log_transaction(f"RECV: {json.dumps(result)}")
+
+                if result['status'] in ("SUCCESS", "DATA_RESPONSE"):
+                    print(f" {C.OK}[OK]{C.END}")
+                    if result['status'] == "DATA_RESPONSE":
+                        # Pass the plan_id and current step_idx
+                        self._handle_data_response(device, command, args, result['payload'], plan_id, self.current_step_idx)
+                else:
+                    error_msg = result.get('payload', 'Unknown hardware or serial error.')
+                    self.dln.log_science(entry_type="system", data={"message": "Plan did not complete successfully.", "plan_id": plan_id, "step_index": self.current_step_idx, "error": error_msg})
+                    print(f" {C.ERR}[PROBLEM]{C.END}\n     {C.WARN}-> Error: {error_msg}{C.END}")
+                    break 
+
+            self.current_step_idx += 1
         else:
             self.dln.log_science(entry_type="system", data={"message": "Plan executed successfully.", "plan_id": plan_id})
             print(f"{C.OK}Plan finished successfully.{C.END}")

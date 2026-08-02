@@ -12,7 +12,12 @@ class RunCog(BaseCog):
     def __init__(self, app):
         super().__init__(app)
         self.prompt_factory = PromptFactory(app.world_model, app.ai_commands, app.ai_guidance)
-        self.execution_engine = ExecutionEngine(app.device_manager, app.device_ports, app.dln)
+        self.execution_engine = ExecutionEngine(
+            app.device_manager, 
+            app.device_ports, 
+            app.dln,
+            getattr(app, "host_tools", {})
+        )
 
     def get_commands(self):
         return {"/run": self.handle_run}

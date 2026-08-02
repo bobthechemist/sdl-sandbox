@@ -17,6 +17,8 @@ from host.ai.ai_utils import load_world_from_file
 from host.cogs.cog_manager import CogManager
 from host.gui.console import C
 
+
+
 class ChatApp:
     """The main Command and Control Center for the Talos-SDL Host."""
     def __init__(self, world_model: dict, provider: str, model: str):
@@ -72,7 +74,11 @@ class ChatApp:
             context=self.prompt_factory.get_system_prompt("data")
         )
         self.ai_agent = self.run_agent # Default to run_agent        
-        
+
+        self.host_tools = {
+           
+        }
+
         # 3. Cog and Command Management
         self.commands = {}
         self.cog_manager = CogManager(self)
