@@ -1432,8 +1432,9 @@ Adhere to the following standards:</p>
 <p><strong>Command Definition Schema:</strong></p>
 </li>
 <li>Registration: <code>machine.add_command(name, handler_func, doc_dict)</code>.</li>
+<li><code>doc_dict</code> must include: <code>description</code>, <code>args</code> (list of dicts), <code>ai_enabled</code> (bool), and optionally <code>effects</code> (list) and <code>usage_notes</code> (str).</li>
 <li>
-<p><code>doc_dict</code> must include: <code>description</code>, <code>args</code> (list of dicts), <code>ai_enabled</code> (bool), and optionally <code>effects</code> (list) and <code>usage_notes</code> (str).</p>
+<p>If the command requests data, <code>doc_dict</code> must also include a <code>returns</code> key that maps return field names to a dictionary defining their metadata, including 'type' and 'unit'.</p>
 </li>
 <li>
 <p><strong>Handler Logic (<code>handlers.py</code>):</strong></p>
